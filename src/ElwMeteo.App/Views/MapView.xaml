@@ -12,6 +12,74 @@
                 <PropertyGroupDescription PropertyName="Group" />
             </CollectionViewSource.GroupDescriptions>
         </CollectionViewSource>
+
+        <CollectionViewSource x:Key="GroupedBaseLayers" Source="{Binding BaseLayers}">
+            <CollectionViewSource.GroupDescriptions>
+                <PropertyGroupDescription PropertyName="Group" />
+            </CollectionViewSource.GroupDescriptions>
+        </CollectionViewSource>
+
+        <!-- A small accent bar makes the group headings scannable. -->
+        <DataTemplate x:Key="GroupHeader">
+            <StackPanel Orientation="Horizontal" Margin="0,11,0,5">
+                <Rectangle Width="3" Height="11"
+                           Fill="{StaticResource AccentBrush}"
+                           RadiusX="1.5" RadiusY="1.5"
+                           VerticalAlignment="Center" />
+                <TextBlock Text="{Binding Name}"
+                           Style="{StaticResource LabelText}"
+                           Margin="6,0,0,0"
+                           VerticalAlignment="Center" />
+            </StackPanel>
+        </DataTemplate>
+
+        <Style x:Key="PickerList" TargetType="ListBox">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
+        </Style>
+
+        <!-- Selected base map reads as a filled card with an accent edge. -->
+        <Style x:Key="PickerItem" TargetType="ListBoxItem">
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="Root"
+                                Background="Transparent"
+                                BorderBrush="Transparent"
+                                BorderThickness="3,0,0,0"
+                                CornerRadius="0,4,4,0"
+                                Padding="9,6"
+                                Margin="0,0,0,3">
+                            <ContentPresenter />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Root" Property="Background" Value="{StaticResource PanelAltBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Root" Property="Background" Value="{StaticResource PanelAltBrush}" />
+                                <Setter TargetName="Root" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="OverlayRow" TargetType="Border">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="Padding" Value="7,5" />
+            <Setter Property="Margin" Value="0,0,0,2" />
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{StaticResource PanelAltBrush}" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
     </UserControl.Resources>
 
     <Grid>
@@ -75,6 +143,16 @@
                     <CheckBox Content="Schnee getrennt einfärben" IsChecked="{Binding ShowSnow}" Margin="0,8,0,0" />
                     <CheckBox Content="Kanten glätten" IsChecked="{Binding SmoothRadar}" />
 
+                    <TextBlock Style="{StaticResource LabelText}" Margin="0,12,0,3">
+                        <Run Text="RADAR NUR BIS ZOOMSTUFE " />
+                        <Run Text="{Binding RadarMaxZoom, Mode=OneWay}" />
+                    </TextBlock>
+                    <Slider Minimum="6" Maximum="16" Value="{Binding RadarMaxZoom}"
+                            TickFrequency="1" IsSnapToTickEnabled="True" />
+                    <TextBlock Style="{StaticResource LabelText}" FontWeight="Normal" TextWrapping="Wrap"
+                               Margin="0,3,0,0"
+                               Text="Radarkomposite haben rund einen Kilometer je Bildpunkt. Darüber hinaus wird nur hochskaliert — die Karte blendet das Radar dann aus und sagt es an." />
+
                     <Border Height="1" Background="{StaticResource BorderBrush}" Margin="0,16,0,14" />
 
                     <!-- satellite -->
@@ -91,6 +169,16 @@
                     <TextBlock Text="WINDFELD" Style="{StaticResource SectionHeader}" />
                     <CheckBox Content="Windpfeile im Umfeld anzeigen" IsChecked="{Binding ShowWindField}" />
                     <CheckBox Content="Windanimation (Strömungsbild)" IsChecked="{Binding ShowWindAnimation}" />
+
+                    <TextBlock Style="{StaticResource LabelText}" Margin="0,10,0,3">
+                        <Run Text="ANIMATION NUR BIS ZOOMSTUFE " />
+                        <Run Text="{Binding WindAnimationMaxZoom, Mode=OneWay}" />
+                    </TextBlock>
+                    <Slider Minimum="8" Maximum="17" Value="{Binding WindAnimationMaxZoom}"
+                            TickFrequency="1" IsSnapToTickEnabled="True" />
+                    <TextBlock Style="{StaticResource LabelText}" FontWeight="Normal" TextWrapping="Wrap"
+                               Margin="0,3,0,8"
+                               Text="Näher herangezoomt liegt der ganze Ausschnitt in einer Gitterzelle — dann tragen alle Partikel denselben Vektor. Die Dichte wird zusätzlich je Zoomstufe halbiert." />
                     <TextBlock Style="{StaticResource LabelText}" FontWeight="Normal" TextWrapping="Wrap"
                                Margin="0,4,0,8"
                                Text="Gitter aus Windvektoren rund um die Einsatzstelle. Weicht die Strömung im Umfeld deutlich ab, steuert das Gelände die Ausbreitung." />
@@ -126,9 +214,28 @@
 
                     <!-- base map -->
                     <TextBlock Text="GRUNDKARTE" Style="{StaticResource SectionHeader}" />
-                    <ComboBox ItemsSource="{Binding BaseLayers}"
-                              SelectedItem="{Binding SelectedBaseLayer}"
-                              DisplayMemberPath="Title" />
+                    <ListBox ItemsSource="{Binding Source={StaticResource GroupedBaseLayers}}"
+                             SelectedItem="{Binding SelectedBaseLayer}"
+                             Style="{StaticResource PickerList}"
+                             ItemContainerStyle="{StaticResource PickerItem}">
+                        <ListBox.GroupStyle>
+                            <GroupStyle HeaderTemplate="{StaticResource GroupHeader}" />
+                        </ListBox.GroupStyle>
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Title}"
+                                               Style="{StaticResource BodyText}"
+                                               FontWeight="SemiBold" FontSize="12.5" />
+                                    <TextBlock Text="{Binding Description}"
+                                               Style="{StaticResource LabelText}"
+                                               FontWeight="Normal"
+                                               TextWrapping="Wrap"
+                                               Margin="0,2,0,0" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
 
                     <Border Height="1" Background="{StaticResource BorderBrush}" Margin="0,16,0,14" />
 
@@ -159,18 +266,31 @@
                         <ItemsControl.GroupStyle>
                             <GroupStyle>
                                 <GroupStyle.HeaderTemplate>
-                                    <DataTemplate>
-                                        <TextBlock Text="{Binding Name}" Style="{StaticResource LabelText}" Margin="0,8,0,3" />
-                                    </DataTemplate>
+                                    <StaticResource ResourceKey="GroupHeader" />
                                 </GroupStyle.HeaderTemplate>
                             </GroupStyle>
                         </ItemsControl.GroupStyle>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <CheckBox IsChecked="{Binding IsEnabled}"
-                                          ToolTip="{Binding Description}">
-                                    <TextBlock Text="{Binding Title}" TextWrapping="Wrap" FontSize="12.5" />
-                                </CheckBox>
+                                <!-- Whole row is the hit target, not just the box. -->
+                                <Border Style="{StaticResource OverlayRow}">
+                                    <CheckBox IsChecked="{Binding IsEnabled}"
+                                              ToolTip="{Binding Description}"
+                                              VerticalContentAlignment="Top"
+                                              Margin="0">
+                                        <StackPanel Margin="3,0,0,0">
+                                            <TextBlock Text="{Binding Title}"
+                                                       TextWrapping="Wrap"
+                                                       FontSize="12.5"
+                                                       FontWeight="SemiBold" />
+                                            <TextBlock Text="{Binding Description}"
+                                                       Style="{StaticResource LabelText}"
+                                                       FontWeight="Normal"
+                                                       TextWrapping="Wrap"
+                                                       Margin="0,2,0,0" />
+                                        </StackPanel>
+                                    </CheckBox>
+                                </Border>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>

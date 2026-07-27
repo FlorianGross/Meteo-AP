@@ -1,0 +1,128 @@
+<UserControl x:Class="ElwMeteo.App.Views.TrendView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:ElwMeteo.App.Controls"
+             Background="{StaticResource BackgroundBrush}">
+
+    <Grid Margin="18,16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- ================================================== headline ==== -->
+        <Border Grid.Row="0" Style="{StaticResource Card}">
+            <StackPanel>
+                <Grid>
+                    <TextBlock Text="TEMPERATUR- UND NIEDERSCHLAGSVERLAUF"
+                               Style="{StaticResource SectionHeader}" Margin="0" />
+                    <TextBlock Text="{Binding Range}"
+                               Style="{StaticResource LabelText}"
+                               FontWeight="Normal"
+                               HorizontalAlignment="Right" />
+                </Grid>
+
+                <TextBlock Text="{Binding Headline}"
+                           Style="{StaticResource BodyText}"
+                           FontWeight="SemiBold"
+                           Margin="0,6,0,0" />
+                <TextBlock Text="{Binding Extremes}"
+                           Style="{StaticResource LabelText}"
+                           FontWeight="Normal"
+                           Margin="0,4,0,0" />
+            </StackPanel>
+        </Border>
+
+        <!-- ===================================================== chart ==== -->
+        <Border Grid.Row="1" Style="{StaticResource Card}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <!--
+                    Legend is always present for more than one series, so identity
+                    never rests on colour alone.
+                -->
+                <ItemsControl Grid.Row="0" ItemsSource="{Binding Legend}" Margin="0,0,0,12">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,26,0" VerticalAlignment="Center">
+                                <Rectangle Width="22" Height="4" RadiusX="2" RadiusY="2"
+                                           Fill="{Binding Swatch}"
+                                           VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding Name}"
+                                           Style="{StaticResource BodyText}"
+                                           FontWeight="SemiBold"
+                                           Margin="8,0,0,0" />
+                                <TextBlock Text="{Binding Detail}"
+                                           Style="{StaticResource LabelText}"
+                                           FontWeight="Normal"
+                                           Margin="7,0,0,0"
+                                           VerticalAlignment="Center" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <controls:TrendChart Grid.Row="1" Model="{Binding Chart}" MinHeight="220" />
+            </Grid>
+        </Border>
+
+        <!-- =============================================== day table ====== -->
+        <Border Grid.Row="2" Style="{StaticResource Card}" Margin="0">
+            <StackPanel>
+                <TextBlock Text="TAGESÜBERSICHT" Style="{StaticResource SectionHeader}" />
+
+                <!-- The same numbers as a table, so the chart is never the only path to them. -->
+                <Grid Margin="0,0,0,6">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="1.6*" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="TAG" Style="{StaticResource LabelText}" />
+                    <TextBlock Grid.Column="1" Text="MINIMUM" Style="{StaticResource LabelText}" />
+                    <TextBlock Grid.Column="2" Text="MAXIMUM" Style="{StaticResource LabelText}" />
+                    <TextBlock Grid.Column="3" Text="NIEDERSCHLAG" Style="{StaticResource LabelText}" />
+                    <TextBlock Grid.Column="4" Text="UV-INDEX" Style="{StaticResource LabelText}" />
+                    <TextBlock Grid.Column="5" Text="BÖEN MAX." Style="{StaticResource LabelText}" />
+                </Grid>
+
+                <ItemsControl ItemsSource="{Binding Days}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Margin="0,3">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="1.6*" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="{Binding Day}"
+                                           Style="{StaticResource BodyText}" FontWeight="SemiBold" />
+                                <TextBlock Grid.Column="1" Text="{Binding Minimum}" Style="{StaticResource BodyText}" />
+                                <TextBlock Grid.Column="2" Text="{Binding Maximum}" Style="{StaticResource BodyText}" />
+                                <TextBlock Grid.Column="3" Text="{Binding Precipitation}" Style="{StaticResource BodyText}" />
+                                <TextBlock Grid.Column="4" Text="{Binding Uv}" Style="{StaticResource BodyText}" />
+                                <TextBlock Grid.Column="5" Text="{Binding Gust}" Style="{StaticResource BodyText}" />
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

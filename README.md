@@ -10,7 +10,15 @@ Windows-Desktop, C# / .NET 8, WPF.
 
 ## Was die Anwendung zeigt
 
-### Registerkarte 1 — Lage & Wetter
+### Registerkarte 1 — Uhr
+
+Die Startansicht. Nichts als die Zeit, groß genug, um sie von der anderen Fahrzeugseite abzulesen:
+Ortszeit, Datum und Zeitzone, darunter taktische Zeit und UTC nebeneinander,
+sowie eine schmale Zeile mit Sonnenauf-/-untergang, Temperatur und Wind. Die
+Darstellung skaliert mit der Fenstergröße, füllt also auch einen großen
+Monitor komplett aus.
+
+### Registerkarte 2 — Lage & Wetter
 
 **Kopfzeile (immer sichtbar)**
 
@@ -90,12 +98,14 @@ zum Absetzen über Funk. Zusätzlich wird jeder Abruf als CSV-Zeile
 protokolliert (Semikolon-getrennt, deutsche Dezimalkommas — öffnet in Excel
 ohne Importassistent).
 
-### Registerkarte 2 — Karten & Radar
+### Registerkarte 3 — Karten & Radar
 
 Leaflet-Karte in einem WebView2-Steuerelement.
 
 **Regenradar mit Zeitleiste.** Rund zwei Stunden gemessene Radarkomposite plus
-30 Minuten Nowcast in 10-Minuten-Schritten. Abspielen, Einzelschritt, Sprung
+30 Minuten Nowcast in 10-Minuten-Schritten. Ab einer einstellbaren Zoomstufe
+(Vorgabe 11) blendet sich das Radar aus und sagt das an: Komposite haben rund
+einen Kilometer je Bildpunkt, näher herangezoomt wird nur noch hochskaliert. Abspielen, Einzelschritt, Sprung
 auf „jetzt“, einstellbare Deckkraft. Beim Bildwechsel wird das neue Bild erst
 eingeblendet, wenn seine Kacheln geladen sind — kein Flackern.
 
@@ -117,8 +127,11 @@ Messwert am Fahrzeug zu kurz greift.
 **Windanimation im Stil von Windy.** Partikel treiben über die Karte, gesteuert
 vom interpolierten Windgitter; die Spuren zeichnen das Strömungsbild, Farbe und
 Länge folgen der Windgeschwindigkeit. Eine Legende ordnet die Farben Bft-Stufen
-zu. Die Partikelgeschwindigkeit ist auf Meter pro Sekunde umgerechnet, bleibt
-also über alle Zoomstufen maßstäblich. Unabhängig davon lassen sich die
+zu. Die Partikeldichte halbiert sich mit jeder Zoomstufe und die Schrittweite
+je Bild ist gedeckelt, damit das Bild nah herangezoomt lesbar bleibt statt zu
+verschmieren; ab einer einstellbaren Zoomstufe (Vorgabe 13) schaltet sich die
+Animation ganz ab, weil dann der ganze Ausschnitt in einer Gitterzelle liegt
+und alle Partikel denselben Vektor tragen. Unabhängig davon lassen sich die
 diskreten Windpfeile ein- und ausschalten.
 
 **Grundkarten**
@@ -165,15 +178,26 @@ Evakuierungsziel prüfen, bevor man ihn festlegt.
 Schlägt eine Kachelquelle fehl, nennt die Karte den betroffenen Layer im
 Klartext, statt eine Fehlerkachel stehen zu lassen.
 
-### Registerkarte 3 — Uhr
+### Registerkarte 4 — Verlauf
 
-Nichts als die Zeit, groß genug, um sie von der anderen Fahrzeugseite abzulesen:
-Ortszeit, Datum und Zeitzone, darunter taktische Zeit und UTC nebeneinander,
-sowie eine schmale Zeile mit Sonnenauf-/-untergang, Temperatur und Wind. Die
-Darstellung skaliert mit der Fenstergröße, füllt also auch einen großen
-Monitor komplett aus.
+Temperatur- und Niederschlagsverlauf über die kommenden zwei Tage.
 
-### Registerkarte 4 — Einstellungen
+Zwei übereinanderliegende Diagramme mit gemeinsamer Zeitachse: oben Temperatur
+und Taupunkt als Linien, darunter der Niederschlag als Balken. Bewusst **keine
+zweite y-Achse** — zwei Skalen in einem Rahmen lassen Schnittpunkte bedeutsam
+aussehen, die nur davon herrühren, wie die Skalen gewählt wurden.
+
+Die Nachtstunden sind hinterlegt, die aktuelle Zeit ist markiert, der
+Gefrierpunkt bekommt eine eigene Linie. Frost im Vorhersagezeitraum wird über
+dem Diagramm im Klartext gemeldet — der eine Wert aus dieser Ansicht, der
+ändert, was disponiert wird. Darunter dieselben Zahlen als Tagestabelle, damit
+das Diagramm nie der einzige Weg zu ihnen ist.
+
+Die Serienfarben stammen aus einer geprüften Palette und wurden gegen die
+tatsächliche Panelfläche der Anwendung validiert (Helligkeitsband, Chroma,
+Farbfehlsichtigkeits- und Normalsicht-Abstand über alle Paare, Kontrast).
+
+### Registerkarte 5 — Einstellungen
 
 Positionsquelle, GPS-Schnittstelle, Ortssuche, Aktualisierungsintervall,
 Gefahrenbereichsradius, Protokollierung und die Quellenangaben.
@@ -272,13 +296,17 @@ src/ElwMeteo.Core/     net8.0      — Fachlogik, plattformneutral und testbar
   Maps/                             Layer-Katalog
 
 src/ElwMeteo.App/      net8.0-windows — WPF-Oberfläche (MVVM)
-  Views/                            Dashboard, Karte, Einstellungen
+  Views/                            Uhr, Dashboard, Karte, Verlauf, Einstellungen
+  Controls/                         Diagramm für den Wetterverlauf
   ViewModels/                       je Registerkarte plus Uhr und Shell
   Services/                         GPS-Schnittstelle, Positionsauflösung
   Assets/map.html                   Leaflet-Karte für WebView2
+  Assets/elw-meteo.ico              Anwendungssymbol (aus tools/make-icon.py)
   Themes/                           dunkles, kontrastreiches Farbschema
 
-tests/ElwMeteo.Core.Tests/          xUnit — 164 Tests
+tools/make-icon.py                  erzeugt das Anwendungssymbol reproduzierbar
+
+tests/ElwMeteo.Core.Tests/          xUnit — 227 Tests
 ```
 
 Die gesamte Fachlogik liegt in `ElwMeteo.Core` und hat keine Abhängigkeit zu

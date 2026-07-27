@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:views="clr-namespace:ElwMeteo.App.Views"
         Title="ELW-Meteo"
+        Icon="Assets/elw-meteo.ico"
         Height="920" Width="1500"
         MinHeight="620" MinWidth="1080"
         WindowStartupLocation="CenterScreen"
@@ -114,16 +115,20 @@
         </Border>
 
         <!-- ==================================================== tabs ====== -->
+        <!-- Clock first and selected on start: the view the vehicle sits on by default. -->
         <TabControl Grid.Row="2" SelectedIndex="{Binding SelectedTabIndex}" Padding="0">
+            <TabItem Header="Uhr">
+                <!-- Keeps the shell's DataContext so it can show clock and weather. -->
+                <views:ClockView />
+            </TabItem>
             <TabItem Header="Lage &amp; Wetter">
                 <views:DashboardView DataContext="{Binding Dashboard}" />
             </TabItem>
             <TabItem Header="Karten &amp; Radar">
                 <views:MapView DataContext="{Binding Map}" />
             </TabItem>
-            <TabItem Header="Uhr">
-                <!-- Keeps the shell's DataContext so it can show clock and weather. -->
-                <views:ClockView />
+            <TabItem Header="Verlauf">
+                <views:TrendView DataContext="{Binding Trend}" />
             </TabItem>
             <TabItem Header="Einstellungen">
                 <views:SettingsView DataContext="{Binding Settings}" />

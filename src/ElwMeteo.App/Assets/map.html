@@ -84,12 +84,23 @@
         .elw-legend .title { color: #93a1b1; margin-bottom: 5px; }
         .elw-legend .row { display: flex; align-items: center; gap: 7px; line-height: 1.7; }
         .elw-legend .swatch { width: 22px; height: 4px; border-radius: 2px; }
+
+        /* Neutral note for zoom-dependent layers switching themselves off. */
+        .elw-notice {
+            position: absolute; left: 50%; transform: translateX(-50%);
+            top: 10px; z-index: 600;
+            background: rgba(23, 28, 36, .94);
+            border: 1px solid #f59e0b; border-radius: 5px;
+            padding: 6px 11px; color: #f59e0b; font-size: 11.5px;
+            display: none; max-width: 420px; text-align: center;
+        }
     </style>
 </head>
 <body>
 <div id="map"></div>
 <div class="elw-banner" id="banner"><span class="muted">Warte auf Daten …</span></div>
 <div class="elw-error" id="error"></div>
+<div class="elw-notice" id="notice"></div>
 <div class="elw-legend" id="legend">
     <div class="title">WIND</div>
     <div class="row"><span class="swatch" style="background:#93a1b1"></span>&lt; 6 km/h</div>
@@ -130,6 +141,8 @@
     var satelliteUrl = null;
 
     var windLayerGroup = null;
+    // Retained so a zoom change can re-apply the zoom-dependent layers.
+    var lastState = null;
     var hazardLayers = [];
     var positionMarker = null;
     var initialised = false;
@@ -167,6 +180,16 @@
                 }
             }
         });
+    }
+
+    function setNotice(message) {
+        var element = document.getElementById("notice");
+        if (!message) {
+            element.style.display = "none";
+            return;
+        }
+        element.textContent = message;
+        element.style.display = "block";
     }
 
     function post(payload) {
@@ -254,8 +277,20 @@
 
     // -------------------------------------------------------------- radar
 
-    function applyRadar(url, opacity) {
+    function applyRadar(url, opacity, maxZoom) {
         radarOpacity = typeof opacity === "number" ? opacity : radarOpacity;
+
+        // Radar composites are about a kilometre per pixel. Past this zoom there
+        // is nothing left to resolve, the upscaled tiles look like coloured mush
+        // and some frames simply are not served — so drop the layer and say so
+        // rather than leaving a broken or misleading picture on screen.
+        if (url && typeof maxZoom === "number" && map.getZoom() > maxZoom) {
+            url = null;
+            setNotice("Radar ab Zoomstufe " + (maxZoom + 1) +
+                " ausgeblendet — Radardaten geben diese Auflösung nicht her.");
+        } else {
+            setNotice(null);
+        }
 
         if (!url) {
             radarSlots.forEach(function (slot) {
@@ -402,7 +437,14 @@
             speedFactor: 14,
             // Frames before a particle is reseeded, so the field keeps refreshing.
             maxAge: 90,
-            trailOpacity: 0.92
+            trailOpacity: 0.92,
+            // Zoom at and below which the full particle count is drawn. Zooming
+            // in shrinks the covered area, so the same count would crowd it.
+            referenceZoom: 11,
+            // Never move a particle further than this per frame. Strict metres-
+            // per-pixel scaling is physically right but reads as a blur close in,
+            // because the covered ground shrinks faster than the eye expects.
+            maxPixelStep: 3.5
         },
 
         onAdd: function (map) {
@@ -463,13 +505,22 @@
             this._frame = L.Util.requestAnimFrame(this._step, this);
         },
 
+        // Halve the particles for every zoom step past the reference, so the
+        // streaks stay separable instead of merging into a solid wash.
+        _targetCount: function () {
+            var over = Math.max(0, this._map.getZoom() - this.options.referenceZoom);
+            var scaled = this.options.particleCount / Math.pow(2, over);
+            return Math.max(150, Math.round(scaled));
+        },
+
         _seedAll: function () {
             this._particles = [];
             if (!this._map) {
                 return;
             }
 
-            for (var i = 0; i < this.options.particleCount; i++) {
+            var count = this._targetCount();
+            for (var i = 0; i < count; i++) {
                 this._particles.push(this._seed(Math.floor(Math.random() * this.options.maxAge)));
             }
         },
@@ -548,6 +599,15 @@
                 var dx = wind.u * this.options.speedFactor / metresPerPixel;
                 var dy = -wind.v * this.options.speedFactor / metresPerPixel;
 
+                // Cap the step so close-in zooms stay watchable; the colour, not
+                // the on-screen pace, remains the quantitative cue for speed.
+                var step = Math.sqrt(dx * dx + dy * dy);
+                if (step > this.options.maxPixelStep) {
+                    var scale = this.options.maxPixelStep / step;
+                    dx *= scale;
+                    dy *= scale;
+                }
+
                 var nextX = particle.x + dx;
                 var nextY = particle.y + dy;
 
@@ -573,7 +633,14 @@
 
     var windAnimation = null;
 
-    function applyWindAnimation(grid) {
+    function applyWindAnimation(grid, maxZoom) {
+        // The grid nodes are kilometres apart. Zoomed in far enough the whole
+        // view sits inside one cell, so every particle carries the same vector
+        // and the animation only pretends to say something.
+        if (grid && typeof maxZoom === "number" && map.getZoom() > maxZoom) {
+            grid = null;
+        }
+
         if (!grid || !grid.u || grid.size < 2) {
             if (windAnimation) {
                 map.removeLayer(windAnimation);
@@ -759,11 +826,12 @@
             try {
                 var state = typeof json === "string" ? JSON.parse(json) : json;
 
+                lastState = state;
                 applyLayers(state.layers || []);
                 applySatellite(state.satelliteTileUrl, state.satelliteOpacity);
-                applyRadar(state.radarTileUrl, state.radarOpacity);
+                applyRadar(state.radarTileUrl, state.radarOpacity, state.radarMaxZoom);
                 applyWindField(state.windArrows);
-                applyWindAnimation(state.windGrid);
+                applyWindAnimation(state.windGrid, state.windAnimationMaxZoom);
 
                 // The colour scale is only meaningful while a wind layer is on.
                 var windVisible = (state.windArrows && state.windArrows.length > 0) ||
@@ -796,6 +864,13 @@
 
     map.on("zoomend", function () {
         post({ type: "zoomChanged", zoom: map.getZoom() });
+
+        // Radar and wind animation are gated on zoom, so both have to be
+        // re-evaluated whenever it changes — not only when the host pushes state.
+        if (lastState) {
+            applyRadar(lastState.radarTileUrl, lastState.radarOpacity, lastState.radarMaxZoom);
+            applyWindAnimation(lastState.windGrid, lastState.windAnimationMaxZoom);
+        }
     });
 
     // Tell the host we are ready to receive state.

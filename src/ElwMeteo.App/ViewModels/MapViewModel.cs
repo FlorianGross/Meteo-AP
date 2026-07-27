@@ -109,6 +109,8 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
             ShowSatellite = settings.ShowSatellite;
             ShowWindField = settings.ShowWindField;
             ShowWindAnimation = settings.ShowWindAnimation;
+            RadarMaxZoom = settings.RadarMaxZoom;
+            WindAnimationMaxZoom = settings.WindAnimationMaxZoom;
             WindFieldGridSize = settings.WindFieldGridSize;
             WindFieldSpacingMetres = settings.WindFieldSpacingMetres;
         }
@@ -193,6 +195,14 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     private double _satelliteOpacity = 0.5;
+
+    /// <summary>Highest zoom at which radar tiles are shown.</summary>
+    [ObservableProperty]
+    private int _radarMaxZoom = 11;
+
+    /// <summary>Highest zoom at which the wind animation is shown.</summary>
+    [ObservableProperty]
+    private int _windAnimationMaxZoom = 13;
 
     [ObservableProperty]
     private string _satelliteStatus = string.Empty;
@@ -308,6 +318,18 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
     }
 
     partial void OnSatelliteOpacityChanged(double value) => PushState();
+
+    partial void OnRadarMaxZoomChanged(int value)
+    {
+        _settings.RadarMaxZoom = value;
+        PushState();
+    }
+
+    partial void OnWindAnimationMaxZoomChanged(int value)
+    {
+        _settings.WindAnimationMaxZoom = value;
+        PushState();
+    }
 
     partial void OnShowWindFieldChanged(bool value)
     {
@@ -751,6 +773,8 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
             SatelliteOpacity,
             windArrows,
             windGrid,
+            RadarMaxZoom,
+            WindAnimationMaxZoom,
             marker,
             hazard,
             recentre,
@@ -769,6 +793,8 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
         double SatelliteOpacity,
         IReadOnlyList<WindArrowState> WindArrows,
         WindGridState? WindGrid,
+        int RadarMaxZoom,
+        int WindAnimationMaxZoom,
         MarkerState? Marker,
         HazardState? Hazard,
         bool Recentre,

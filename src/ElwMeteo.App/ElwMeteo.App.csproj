@@ -7,6 +7,8 @@
     <RootNamespace>ElwMeteo.App</RootNamespace>
     <AssemblyName>ELW-Meteo</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- Regenerate with tools/make-icon.py; the script is the source of truth. -->
+    <ApplicationIcon>Assets\elw-meteo.ico</ApplicationIcon>
     <!-- The vehicle screen is usually scaled; let Windows hand us real pixels. -->
     <SatelliteResourceLanguages>de;en</SatelliteResourceLanguages>
   </PropertyGroup>
@@ -26,6 +28,9 @@
     <Content Include="Assets\map.html">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+
+    <!-- Embedded so the window and task bar can use it at runtime. -->
+    <Resource Include="Assets\elw-meteo.ico" />
   </ItemGroup>
 
 </Project>
