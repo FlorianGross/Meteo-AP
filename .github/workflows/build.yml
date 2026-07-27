@@ -98,5 +98,11 @@ jobs:
         with:
           dotnet-version: "8.0.x"
 
-      - name: Verify formatting
-        run: dotnet format src/ElwMeteo.Core tests/ElwMeteo.Core.Tests --verify-no-changes --severity warn
+      # One project per invocation: dotnet format takes a single project or
+      # solution, and passing two paths makes it abort with a usage error rather
+      # than a formatting complaint.
+      - name: Verify formatting (Fachlogik)
+        run: dotnet format src/ElwMeteo.Core/ElwMeteo.Core.csproj --verify-no-changes --severity warn
+
+      - name: Verify formatting (Tests)
+        run: dotnet format tests/ElwMeteo.Core.Tests/ElwMeteo.Core.Tests.csproj --verify-no-changes --severity warn
