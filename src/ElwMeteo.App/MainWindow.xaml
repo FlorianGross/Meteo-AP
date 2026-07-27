@@ -130,6 +130,9 @@
             <TabItem Header="Verlauf">
                 <views:TrendView DataContext="{Binding Trend}" />
             </TabItem>
+            <TabItem Header="Diagnose">
+                <views:DiagnosticsView DataContext="{Binding Diagnostics}" />
+            </TabItem>
             <TabItem Header="Einstellungen">
                 <views:SettingsView DataContext="{Binding Settings}" />
             </TabItem>

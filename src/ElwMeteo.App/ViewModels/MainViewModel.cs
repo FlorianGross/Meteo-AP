@@ -21,6 +21,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         DashboardViewModel dashboard,
         MapViewModel map,
         TrendViewModel trend,
+        DiagnosticsViewModel diagnostics,
         SettingsViewModel settings,
         AppSettings appSettings,
         GpsSerialService gps)
@@ -29,6 +30,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         Dashboard = dashboard;
         Map = map;
         Trend = trend;
+        Diagnostics = diagnostics;
         Settings = settings;
         _settings = appSettings;
         _gps = gps;
@@ -61,6 +63,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     public MapViewModel Map { get; }
 
     public TrendViewModel Trend { get; }
+
+    public DiagnosticsViewModel Diagnostics { get; }
 
     public SettingsViewModel Settings { get; }
 
