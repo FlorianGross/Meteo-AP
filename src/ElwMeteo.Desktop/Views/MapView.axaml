@@ -1,0 +1,138 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:ElwMeteo.Desktop"
+             x:Class="ElwMeteo.Desktop.Views.MapView"
+             Background="{StaticResource BackgroundBrush}">
+
+    <Grid ColumnDefinitions="320,*">
+
+        <!-- =============================================== control panel -->
+        <Border Grid.Column="0"
+                Background="{StaticResource PanelBrush}"
+                BorderBrush="{StaticResource BorderBrush}"
+                BorderThickness="0,0,1,0">
+            <ScrollViewer Padding="14">
+                <StackPanel>
+                    <TextBlock Text="REGENRADAR &amp; NOWCAST" Classes="section" />
+                    <CheckBox Content="Radar einblenden" IsChecked="{Binding ShowRadar}" />
+
+                    <TextBlock Text="QUELLE" Classes="label" Margin="0,10,0,3" />
+                    <ComboBox ItemsSource="{Binding RadarSources}"
+                              SelectedItem="{Binding SelectedRadarSource}"
+                              HorizontalAlignment="Stretch">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Title}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <TextBlock Text="{Binding SelectedRadarSource.Description}" Classes="label"
+                               FontWeight="Normal" TextWrapping="Wrap" Margin="0,4,0,0" />
+                    <TextBlock Text="{Binding RadarSourceNote}" Classes="body warn" FontSize="11.5"
+                               TextWrapping="Wrap" Margin="0,4,0,0"
+                               IsVisible="{Binding RadarSourceNote, Converter={x:Static local:Converters.StringNotEmpty}}" />
+
+                    <TextBlock Text="{Binding FrameLabel}" Classes="mono accent"
+                               FontSize="14" FontWeight="Bold" Margin="0,9,0,0" />
+                    <TextBlock Text="{Binding RadarStatus}" Classes="label" FontWeight="Normal" Margin="0,2,0,8" />
+
+                    <Slider Minimum="0" Maximum="{Binding MaxFrameIndex}" Value="{Binding FrameIndex}"
+                            TickFrequency="1" IsSnapToTickEnabled="True" />
+
+                    <StackPanel Orientation="Horizontal" Spacing="5" Margin="0,8,0,0">
+                        <Button Content="◀" Command="{Binding StepBackCommand}" MinWidth="38" />
+                        <Button Content="▶ ⏸" Command="{Binding TogglePlayCommand}" MinWidth="52" />
+                        <Button Content="▶" Command="{Binding StepForwardCommand}" MinWidth="38" />
+                        <Button Content="Jetzt" Command="{Binding JumpToNowCommand}" />
+                    </StackPanel>
+
+                    <Button Content="Radar neu laden" Command="{Binding RefreshRadarCommand}"
+                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Margin="0,7,0,0" />
+
+                    <TextBlock Text="RADAR-DECKKRAFT" Classes="label" Margin="0,12,0,3" />
+                    <Slider Minimum="0.15" Maximum="1.0" Value="{Binding RadarOpacity}" />
+
+                    <TextBlock Classes="label" Margin="0,12,0,3">
+                        <Run Text="RADAR NUR BIS ZOOMSTUFE " /><Run Text="{Binding RadarMaxZoom}" />
+                    </TextBlock>
+                    <Slider Minimum="6" Maximum="16" Value="{Binding RadarMaxZoom}"
+                            TickFrequency="1" IsSnapToTickEnabled="True" />
+
+                    <Border Height="1" Background="{StaticResource BorderBrush}" Margin="0,14" />
+
+                    <TextBlock Text="SATELLIT UND WIND" Classes="section" />
+                    <CheckBox Content="Wolkenbild einblenden" IsChecked="{Binding ShowSatellite}" />
+                    <CheckBox Content="Windpfeile im Umfeld" IsChecked="{Binding ShowWindField}" />
+                    <CheckBox Content="Windanimation" IsChecked="{Binding ShowWindAnimation}" />
+                    <Button Content="Windfeld laden" Command="{Binding RefreshWindFieldCommand}"
+                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Margin="0,8,0,0" />
+                    <TextBlock Text="{Binding WindFieldStatus}" Classes="label" FontWeight="Normal"
+                               TextWrapping="Wrap" Margin="0,6,0,0" />
+
+                    <Border Height="1" Background="{StaticResource BorderBrush}" Margin="0,14" />
+
+                    <TextBlock Text="GRUNDKARTE" Classes="section" />
+                    <ListBox ItemsSource="{Binding BaseLayers}" SelectedItem="{Binding SelectedBaseLayer}"
+                             Background="Transparent" BorderThickness="0" MaxHeight="220">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Title}" FontSize="12.5" TextWrapping="Wrap" />
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+
+                    <Border Height="1" Background="{StaticResource BorderBrush}" Margin="0,14" />
+
+                    <TextBlock Text="OVERLAYS" Classes="section" />
+                    <TextBox Text="{Binding LayerFilter}" Watermark="filtern …" Margin="0,0,0,8" />
+                    <StackPanel Orientation="Horizontal" Spacing="5" Margin="0,0,0,8">
+                        <Button Content="Alle aus" Command="{Binding ClearOverlaysCommand}" FontSize="11" />
+                        <Button Content="DWD-Layer prüfen" Command="{Binding CheckDwdLayersCommand}" FontSize="11" />
+                    </StackPanel>
+                    <TextBlock Text="{Binding CapabilityStatus}" Classes="label" FontWeight="Normal"
+                               TextWrapping="Wrap" Margin="0,0,0,8" />
+
+                    <ItemsControl ItemsSource="{Binding VisibleOverlays}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <CheckBox IsChecked="{Binding IsEnabled}" Margin="0,0,0,4">
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding Title}" FontSize="12.5" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                        <TextBlock Text="{Binding AvailabilityNote}" Classes="label" FontWeight="Normal"
+                                                   TextWrapping="Wrap"
+                                                   IsVisible="{Binding AvailabilityNote, Converter={x:Static local:Converters.StringNotEmpty}}" />
+                                    </StackPanel>
+                                </CheckBox>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <Border Height="1" Background="{StaticResource BorderBrush}" Margin="0,14" />
+
+                    <TextBlock Text="AUSBREITUNGSKEGEL" Classes="section" />
+                    <CheckBox Content="Gefahrenbereich einzeichnen" IsChecked="{Binding ShowHazardCone}" />
+                    <TextBlock Classes="label" Margin="0,10,0,3">
+                        <Run Text="REICHWEITE: " /><Run Text="{Binding HazardRangeMetres, StringFormat={}{0:F0} m}" />
+                    </TextBlock>
+                    <Slider Minimum="0" Maximum="5000" Value="{Binding HazardRangeMetres}"
+                            TickFrequency="250" IsSnapToTickEnabled="True" />
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
+
+        <!-- ==================================================== launcher -->
+        <StackPanel Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Center"
+                    MaxWidth="580" Spacing="12">
+            <TextBlock Text="Karte im Browser" FontSize="24" FontWeight="SemiBold" HorizontalAlignment="Center" />
+            <TextBlock Classes="body muted" TextAlignment="Center" TextWrapping="Wrap"
+                       Text="Diese Ausgabe bettet keinen Browser ein. Die Schaltfläche schreibt die Leaflet-Karte mit dem aktuellen Zustand — gewähltes Radarbild, Overlays, Windfeld und Ausbreitungskegel — in eine lokale Datei und öffnet sie im Standardbrowser. Alles links Eingestellte wirkt sich sofort auf die nächste Ausgabe aus." />
+
+            <Button x:Name="OpenMapButton" Content="Karte im Browser öffnen"
+                    Click="OnOpenMap"
+                    HorizontalAlignment="Center" Padding="22,11" FontSize="15" />
+
+            <TextBlock x:Name="LauncherStatus" Classes="body warn"
+                       TextAlignment="Center" TextWrapping="Wrap" />
+        </StackPanel>
+    </Grid>
+</UserControl>

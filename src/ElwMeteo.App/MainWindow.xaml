@@ -77,7 +77,7 @@
                     <TextBlock Text="{Binding Dashboard.WindShiftHeadline}"
                                FontSize="17" FontWeight="Bold"
                                TextTrimming="CharacterEllipsis"
-                               Foreground="{Binding Dashboard.WindShiftBrush}" />
+                               Foreground="{Binding Dashboard.WindShiftColour, Converter={StaticResource UiColourToBrush}}" />
                     <TextBlock Text="{Binding Dashboard.WindShiftDetail}"
                                Style="{StaticResource LabelText}"
                                FontWeight="Normal"

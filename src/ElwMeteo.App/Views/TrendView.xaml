@@ -56,7 +56,7 @@
                         <DataTemplate>
                             <StackPanel Orientation="Horizontal" Margin="0,0,26,0" VerticalAlignment="Center">
                                 <Rectangle Width="22" Height="4" RadiusX="2" RadiusY="2"
-                                           Fill="{Binding Swatch}"
+                                           Fill="{Binding Swatch, Converter={StaticResource UiColourToBrush}}"
                                            VerticalAlignment="Center" />
                                 <TextBlock Text="{Binding Name}"
                                            Style="{StaticResource BodyText}"

@@ -15,6 +15,7 @@
             <local:BoolToVisibilityConverter x:Key="InverseBoolToVisibility" Invert="True" />
             <local:NotConverter x:Key="Not" />
             <local:StringToVisibilityConverter x:Key="StringToVisibility" />
+            <local:UiColourToBrushConverter x:Key="UiColourToBrush" />
             <local:LocationModeConverter x:Key="LocationModeLabel" />
         </ResourceDictionary>
     </Application.Resources>

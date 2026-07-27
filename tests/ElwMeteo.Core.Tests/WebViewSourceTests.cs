@@ -149,6 +149,31 @@ public class WebViewSourceCatalogTests
     }
 
     [Fact]
+    public void TheMeteoblueEntriesUseThePathThatActuallyExists()
+    {
+        // Only "weather" is translated in meteoblue's German URLs — the map
+        // segment stays "maps". The original /de/wetter/karten/index pointed at
+        // a page that does not exist, which is why that entry never worked.
+        Assert.All(
+            WebViewSourceCatalog.BuiltIn.Where(s => s.Id.StartsWith("meteoblue", StringComparison.Ordinal)),
+            s => Assert.DoesNotContain("/wetter/karten/", s.UrlTemplate, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void OneMeteoblueEntryWorksWithoutFollowingThePosition()
+    {
+        // Whether the coordinate fragment is honoured on the index page could
+        // not be verified, so a fixed map that is known to exist stays in the
+        // list beside it.
+        var entries = WebViewSourceCatalog.BuiltIn
+            .Where(s => s.Id.StartsWith("meteoblue", StringComparison.Ordinal))
+            .ToList();
+
+        Assert.Contains(entries, s => !s.FollowsPosition);
+        Assert.Contains(entries, s => s.FollowsPosition);
+    }
+
+    [Fact]
     public void ById_FindsABuiltInAndReturnsNullOtherwise()
     {
         Assert.NotNull(WebViewSourceCatalog.ById("rainviewer-web"));

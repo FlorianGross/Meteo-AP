@@ -1,12 +1,12 @@
 using System.Collections.ObjectModel;
-using System.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ElwMeteo.Core.Assessment;
 using ElwMeteo.Core.Configuration;
 using ElwMeteo.Core.Maps;
+using ElwMeteo.Presentation.Platform;
 
-namespace ElwMeteo.App.ViewModels;
+namespace ElwMeteo.Presentation.ViewModels;
 
 /// <summary>
 /// One built-in viewer with the operator's show/hide decision attached.
@@ -50,6 +50,7 @@ public sealed partial class WebSourceToggle : ObservableObject
 public sealed partial class WebRadarViewModel : ObservableObject
 {
     private readonly SettingsStore _store;
+    private readonly IShellLauncher _shell;
     private readonly AppSettings _settings;
     private double _latitude;
     private double _longitude;
@@ -57,9 +58,10 @@ public sealed partial class WebRadarViewModel : ObservableObject
     /// <summary>Set while the list is rebuilt, so toggles do not write back mid-flight.</summary>
     private bool _isReloading;
 
-    public WebRadarViewModel(SettingsStore store)
+    public WebRadarViewModel(SettingsStore store, IShellLauncher shell)
     {
         _store = store;
+        _shell = shell;
         AppSettings settings = store.Settings;
         _settings = settings;
         _latitude = settings.HomeLatitude;
@@ -147,15 +149,9 @@ public sealed partial class WebRadarViewModel : ObservableObject
             return;
         }
 
-        try
-        {
-            Process.Start(new ProcessStartInfo(CurrentUrl) { UseShellExecute = true });
-            StatusMessage = "Im Standardbrowser geöffnet.";
-        }
-        catch (Exception ex)
-        {
-            StatusMessage = $"Browser konnte nicht geöffnet werden: {ex.Message}";
-        }
+        StatusMessage = _shell.TryOpen(CurrentUrl, out string? error)
+            ? "Im Standardbrowser geöffnet."
+            : $"Browser konnte nicht geöffnet werden: {error}";
     }
 
     [RelayCommand]

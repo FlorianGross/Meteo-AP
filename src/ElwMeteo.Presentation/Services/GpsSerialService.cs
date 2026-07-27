@@ -3,7 +3,7 @@ using System.IO.Ports;
 using ElwMeteo.Core.Models;
 using ElwMeteo.Core.Services;
 
-namespace ElwMeteo.App.Services;
+namespace ElwMeteo.Presentation.Services;
 
 /// <summary>
 /// Reads NMEA sentences from a serial GPS receiver. Many command vehicles have

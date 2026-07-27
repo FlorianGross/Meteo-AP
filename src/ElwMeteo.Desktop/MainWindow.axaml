@@ -1,0 +1,129 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:views="clr-namespace:ElwMeteo.Desktop.Views"
+        xmlns:local="clr-namespace:ElwMeteo.Desktop"
+        x:Class="ElwMeteo.Desktop.MainWindow"
+        Title="ELW-Meteo"
+        Width="1500" Height="920"
+        MinWidth="1080" MinHeight="620"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource BackgroundBrush}"
+        Topmost="{Binding AlwaysOnTop}">
+
+    <Grid RowDefinitions="Auto,Auto,*,Auto">
+
+        <!-- ============================================ clock header ====== -->
+        <Border Grid.Row="0"
+                Background="{StaticResource PanelBrush}"
+                BorderBrush="{StaticResource BorderBrush}"
+                BorderThickness="0,0,0,1"
+                Padding="18,12">
+            <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,*,Auto">
+
+                <StackPanel Grid.Column="0" Margin="0,0,32,0">
+                    <TextBlock Text="ORTSZEIT" Classes="label" />
+                    <TextBlock Text="{Binding Clock.LocalTime}"
+                               Classes="mono" FontSize="38" FontWeight="Bold" />
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{Binding Clock.LocalDate}" Classes="label" />
+                        <TextBlock Text="  ·  " Classes="label" />
+                        <TextBlock Text="{Binding Clock.TimeZoneLabel}" Classes="label" />
+                    </StackPanel>
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" Margin="0,0,32,0">
+                    <TextBlock Text="TAKTISCHE ZEIT" Classes="label" />
+                    <TextBlock Text="{Binding Clock.TacticalLocal}"
+                               Classes="mono accent" FontSize="30" FontWeight="Bold" />
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Zulu: " Classes="label" />
+                        <TextBlock Text="{Binding Clock.TacticalZulu}" Classes="label mono" />
+                    </StackPanel>
+                </StackPanel>
+
+                <StackPanel Grid.Column="2" Margin="0,0,32,0">
+                    <TextBlock Text="UTC" Classes="label" />
+                    <TextBlock Text="{Binding Clock.UtcTime}"
+                               Classes="mono muted" FontSize="30" />
+                </StackPanel>
+
+                <!-- Permanently visible: a veering wind moves the plume. -->
+                <StackPanel Grid.Column="3" MaxWidth="330">
+                    <TextBlock Text="WINDENTWICKLUNG (6 H)" Classes="label" />
+                    <TextBlock Text="{Binding Dashboard.WindShiftHeadline}"
+                               FontSize="17" FontWeight="Bold"
+                               TextTrimming="CharacterEllipsis"
+                               Foreground="{Binding Dashboard.WindShiftColour,
+                                                    Converter={x:Static local:Converters.ColourToBrush}}" />
+                    <TextBlock Text="{Binding Dashboard.WindShiftDetail}"
+                               Classes="label" FontWeight="Normal" TextWrapping="Wrap" />
+                    <TextBlock Text="{Binding Dashboard.GustPeakLabel}"
+                               Classes="label" FontWeight="Normal" Margin="0,3,0,0" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="5" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <Button Content="Alles aktualisieren"
+                            Command="{Binding RefreshAllCommand}"
+                            IsEnabled="{Binding Dashboard.IsBusy, Converter={x:Static local:Converters.Not}}"
+                            Padding="14,8" />
+                    <CheckBox Content="Immer im Vordergrund"
+                              IsChecked="{Binding AlwaysOnTop}"
+                              FontSize="11" Margin="0,7,0,0"
+                              HorizontalAlignment="Right" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- ============================================== warning bar ===== -->
+        <Border Grid.Row="1"
+                Background="#33E63946"
+                BorderBrush="{StaticResource WarningBrush}"
+                BorderThickness="0,0,0,1"
+                Padding="18,9"
+                IsVisible="{Binding Dashboard.HasWarnings}">
+            <TextBlock Text="{Binding Dashboard.WarningSummary}"
+                       Classes="body" FontWeight="SemiBold" />
+        </Border>
+
+        <!-- ==================================================== tabs ====== -->
+        <!-- Clock first and selected on start: the view the vehicle sits on. -->
+        <TabControl Grid.Row="2" SelectedIndex="{Binding SelectedTabIndex}" Padding="0">
+            <TabItem Header="Uhr">
+                <views:ClockView />
+            </TabItem>
+            <TabItem Header="Lage &amp; Wetter">
+                <views:DashboardView DataContext="{Binding Dashboard}" />
+            </TabItem>
+            <TabItem Header="Karten &amp; Radar">
+                <views:MapView DataContext="{Binding Map}" />
+            </TabItem>
+            <TabItem Header="Web-Radar">
+                <views:WebRadarView DataContext="{Binding WebRadar}" />
+            </TabItem>
+            <TabItem Header="Verlauf">
+                <views:TrendView DataContext="{Binding Trend}" />
+            </TabItem>
+            <TabItem Header="Diagnose">
+                <views:DiagnosticsView DataContext="{Binding Diagnostics}" />
+            </TabItem>
+            <TabItem Header="Einstellungen">
+                <views:SettingsView DataContext="{Binding Settings}" />
+            </TabItem>
+        </TabControl>
+
+        <!-- ============================================== status bar ====== -->
+        <Border Grid.Row="3"
+                Background="{StaticResource PanelBrush}"
+                BorderBrush="{StaticResource BorderBrush}"
+                BorderThickness="0,1,0,0"
+                Padding="18,7">
+            <Grid ColumnDefinitions="Auto,*,Auto">
+                <TextBlock Grid.Column="0" Text="{Binding GpsIndicator}" Classes="label mono" />
+                <TextBlock Grid.Column="1" Text="{Binding Dashboard.StatusMessage}"
+                           Classes="label" FontWeight="Normal"
+                           TextTrimming="CharacterEllipsis" Margin="18,0" />
+                <TextBlock Grid.Column="2" Text="{Binding Dashboard.DataAgeLabel}" Classes="label" />
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

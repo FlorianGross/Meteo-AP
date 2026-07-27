@@ -1,0 +1,124 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:ElwMeteo.Desktop"
+             x:Class="ElwMeteo.Desktop.Views.WebRadarView"
+             Background="{StaticResource BackgroundBrush}">
+
+    <Grid ColumnDefinitions="320,*">
+
+        <!-- =============================================== source picker -->
+        <Border Grid.Column="0"
+                Background="{StaticResource PanelBrush}"
+                BorderBrush="{StaticResource BorderBrush}"
+                BorderThickness="0,0,1,0">
+            <ScrollViewer Padding="14">
+                <StackPanel>
+                    <TextBlock Text="ANSICHT WÄHLEN" Classes="section" />
+
+                    <ListBox ItemsSource="{Binding Sources}"
+                             SelectedItem="{Binding SelectedSource}"
+                             Background="Transparent" BorderThickness="0">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Margin="0,3">
+                                    <TextBlock Text="{Binding Title}" FontWeight="SemiBold" FontSize="12.5" TextWrapping="Wrap" />
+                                    <TextBlock Text="{Binding Group}" Classes="label" FontWeight="Normal" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+
+                    <TextBlock Classes="label" Margin="0,14,0,3">
+                        <Run Text="ZOOMSTUFE: " /><Run Text="{Binding Zoom}" />
+                    </TextBlock>
+                    <Slider Minimum="4" Maximum="15" Value="{Binding Zoom}"
+                            TickFrequency="1" IsSnapToTickEnabled="True" />
+
+                    <Border Height="1" Background="{StaticResource BorderBrush}" Margin="0,14" />
+
+                    <TextBlock Text="EIGENE ADRESSE" Classes="section" />
+                    <TextBlock Text="NAME" Classes="label" Margin="0,0,0,3" />
+                    <TextBox Text="{Binding NewSourceName}" />
+                    <TextBlock Text="ADRESSE" Classes="label" Margin="0,9,0,3" />
+                    <TextBox Text="{Binding NewSourceUrl}" Classes="mono" FontSize="11" />
+                    <TextBlock Classes="label" FontWeight="Normal" TextWrapping="Wrap" Margin="0,5,0,0"
+                               Text="Die Platzhalter {lat}, {lon} und {zoom} werden durch die Einsatzstelle ersetzt." />
+
+                    <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,9,0,0">
+                        <Button Content="Hinzufügen" Command="{Binding AddCustomSourceCommand}" />
+                        <Button Content="Aktuelle übernehmen"
+                                Command="{Binding CopyToEditorCommand}"
+                                CommandParameter="{Binding SelectedSource}" />
+                    </StackPanel>
+
+                    <TextBlock Text="{Binding EditorMessage}" Classes="label accent"
+                               FontWeight="Normal" TextWrapping="Wrap" Margin="0,7,0,0"
+                               IsVisible="{Binding EditorMessage, Converter={x:Static local:Converters.StringNotEmpty}}" />
+
+                    <ItemsControl ItemsSource="{Binding CustomSources}" Margin="0,10,0,0">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,4">
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Text="{Binding Name}" FontSize="12" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                        <TextBlock Text="{Binding UrlTemplate}" Classes="label" FontWeight="Normal"
+                                                   TextTrimming="CharacterEllipsis" />
+                                    </StackPanel>
+                                    <Button Grid.Column="1" Content="✕" Padding="8,3" VerticalAlignment="Top"
+                                            Command="{Binding $parent[UserControl].DataContext.RemoveCustomSourceCommand}"
+                                            CommandParameter="{Binding}" />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <Border Height="1" Background="{StaticResource BorderBrush}" Margin="0,14" />
+
+                    <TextBlock Text="MITGELIEFERTE ANSICHTEN" Classes="section" />
+                    <ItemsControl ItemsSource="{Binding ManagedSources}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <CheckBox IsChecked="{Binding IsVisible}" Content="{Binding Title}" Margin="0,0,0,3" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
+
+        <!-- ==================================================== launcher -->
+        <Grid Grid.Column="1" RowDefinitions="Auto,*">
+            <Border Grid.Row="0"
+                    Background="{StaticResource PanelBrush}"
+                    BorderBrush="{StaticResource BorderBrush}"
+                    BorderThickness="0,0,0,1"
+                    Padding="14,9">
+                <StackPanel>
+                    <TextBlock Text="{Binding SelectedSource.Title}" FontWeight="SemiBold" />
+                    <TextBlock Text="{Binding CurrentUrl}" Classes="mono muted" FontSize="11"
+                               TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+            </Border>
+
+            <StackPanel Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Center"
+                        MaxWidth="560" Spacing="12">
+                <TextBlock Text="{Binding SelectedSource.Title}" FontSize="24" FontWeight="SemiBold"
+                           HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" />
+                <TextBlock Text="{Binding SelectedSource.Description}" Classes="body muted"
+                           TextAlignment="Center" TextWrapping="Wrap" />
+
+                <Button Content="Im Browser öffnen"
+                        Command="{Binding OpenExternallyCommand}"
+                        HorizontalAlignment="Center" Padding="22,11" FontSize="15" />
+
+                <!-- Honest about the limitation rather than showing an empty frame. -->
+                <TextBlock Classes="label" FontWeight="Normal" TextAlignment="Center" TextWrapping="Wrap"
+                           Text="Diese Ausgabe bettet keinen Browser ein — die dafür nötige Komponente gibt es nicht auf allen Plattformen. Die Seite öffnet im Standardbrowser, an der Einsatzstelle und mit der gewählten Zoomstufe. Auswahl, eigene Adressen und Zoom werden hier gepflegt und gespeichert." />
+
+                <TextBlock Text="{Binding StatusMessage}" Classes="body warn"
+                           TextAlignment="Center" TextWrapping="Wrap"
+                           IsVisible="{Binding StatusMessage, Converter={x:Static local:Converters.StringNotEmpty}}" />
+            </StackPanel>
+        </Grid>
+    </Grid>
+</UserControl>

@@ -1,0 +1,34 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Same palette as the Windows head, so the two look like one product.
+         The dark surface #171C24 is what the chart colours were validated
+         against; changing it invalidates that check. -->
+    <Color x:Key="BackgroundColor">#FF0E1116</Color>
+    <Color x:Key="PanelColor">#FF171C24</Color>
+    <Color x:Key="PanelAltColor">#FF1F2630</Color>
+    <Color x:Key="BorderColor">#FF2C3542</Color>
+    <Color x:Key="TextColor">#FFE6EDF3</Color>
+    <Color x:Key="MutedColor">#FF93A1B1</Color>
+    <Color x:Key="AccentColor">#FF3B82F6</Color>
+    <Color x:Key="WarningColor">#FFE63946</Color>
+    <Color x:Key="CautionColor">#FFF59E0B</Color>
+    <Color x:Key="OkColor">#FF22C55E</Color>
+
+    <SolidColorBrush x:Key="BackgroundBrush" Color="{StaticResource BackgroundColor}" />
+    <SolidColorBrush x:Key="PanelBrush" Color="{StaticResource PanelColor}" />
+    <SolidColorBrush x:Key="PanelAltBrush" Color="{StaticResource PanelAltColor}" />
+    <SolidColorBrush x:Key="BorderBrush" Color="{StaticResource BorderColor}" />
+    <SolidColorBrush x:Key="TextBrush" Color="{StaticResource TextColor}" />
+    <SolidColorBrush x:Key="MutedBrush" Color="{StaticResource MutedColor}" />
+    <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource AccentColor}" />
+    <SolidColorBrush x:Key="WarningBrush" Color="{StaticResource WarningColor}" />
+    <SolidColorBrush x:Key="CautionBrush" Color="{StaticResource CautionColor}" />
+    <SolidColorBrush x:Key="OkBrush" Color="{StaticResource OkColor}" />
+
+    <!-- Font stacks rather than one name: Segoe UI and Consolas do not exist on
+         Linux or macOS, and Avalonia falls through the list. -->
+    <FontFamily x:Key="UiFont">Inter, Segoe UI, SF Pro Text, Noto Sans, sans-serif</FontFamily>
+    <FontFamily x:Key="MonoFont">Cascadia Mono, Consolas, SF Mono, DejaVu Sans Mono, Menlo, monospace</FontFamily>
+
+</ResourceDictionary>

@@ -67,12 +67,28 @@ jobs:
           -p:Version=${{ steps.version.outputs.version }}
           -o publish/self-contained
 
+      # The cross-platform head, one package per system. Self-contained
+      # throughout: on a vehicle laptop, installing a runtime first is exactly
+      # the step that does not happen.
+      - name: Publish (Linux und macOS)
+        shell: bash
+        run: |
+          for rid in linux-x64 osx-x64 osx-arm64; do
+            dotnet publish src/ElwMeteo.Desktop -c Release -r "$rid" \
+              --self-contained true \
+              -p:Version=${{ steps.version.outputs.version }} \
+              -o "publish/$rid"
+          done
+
       - name: Package
         shell: pwsh
         run: |
           $v = "${{ steps.version.outputs.version }}"
           Compress-Archive -Path publish/framework-dependent/* -DestinationPath "ELW-Meteo-$v-win-x64.zip"
           Compress-Archive -Path publish/self-contained/*      -DestinationPath "ELW-Meteo-$v-win-x64-standalone.zip"
+          Compress-Archive -Path publish/linux-x64/*           -DestinationPath "ELW-Meteo-$v-linux-x64.zip"
+          Compress-Archive -Path publish/osx-x64/*             -DestinationPath "ELW-Meteo-$v-macos-x64.zip"
+          Compress-Archive -Path publish/osx-arm64/*           -DestinationPath "ELW-Meteo-$v-macos-arm64.zip"
 
       - name: Create release
         uses: softprops/action-gh-release@v3
@@ -92,6 +108,16 @@ jobs:
             **`ELW-Meteo-${{ steps.version.outputs.version }}-win-x64-standalone.zip`**
             Bringt die Runtime mit — für Fahrzeugrechner ohne installiertes .NET.
             Entpacken und `ELW-Meteo.exe` starten, sonst nichts.
+
+            **`…-linux-x64.zip`, `…-macos-x64.zip`, `…-macos-arm64.zip`**
+            Die plattformneutrale Ausgabe für Linux und macOS, jeweils mit
+            Runtime. Entpacken, `chmod +x ELW-Meteo`, starten. macOS-arm64 ist
+            für Apple Silicon, macOS-x64 für Intel-Macs.
+
+            Uhr, Lage, Verlauf, Diagnose und Einstellungen sind auf allen drei
+            Systemen gleich. Auf Linux und macOS öffnen Karte und Web-Radar im
+            Standardbrowser statt in einem eingebetteten Fenster — die dafür
+            nötige Komponente gibt es dort nicht plattformübergreifend.
 
             Für die Kartenregisterkarte wird zusätzlich die Microsoft Edge
             **WebView2-Runtime** benötigt. Auf aktuellen Windows-Installationen

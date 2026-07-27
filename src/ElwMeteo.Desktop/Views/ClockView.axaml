@@ -1,0 +1,82 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="ElwMeteo.Desktop.Views.ClockView"
+             Background="{StaticResource BackgroundBrush}">
+
+    <!-- The view the vehicle sits on: readable from across the cab, so the
+         digits get the width and everything else stays out of the way. -->
+    <ScrollViewer Padding="28">
+        <StackPanel Spacing="22">
+
+            <StackPanel>
+                <TextBlock Text="ORTSZEIT" Classes="label" />
+                <TextBlock Text="{Binding Clock.LocalTime}"
+                           Classes="mono" FontSize="112" FontWeight="Bold" />
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                    <TextBlock Text="{Binding Clock.LocalDate}" FontSize="19" Classes="muted" />
+                    <TextBlock Text="·" FontSize="19" Classes="muted" />
+                    <TextBlock Text="{Binding Clock.TimeZoneLabel}" FontSize="19" Classes="muted" />
+                </StackPanel>
+            </StackPanel>
+
+            <Border Height="1" Background="{StaticResource BorderBrush}" />
+
+            <Grid ColumnDefinitions="*,*,*">
+                <StackPanel Grid.Column="0" Margin="0,0,20,0">
+                    <TextBlock Text="TAKTISCHE ZEIT (ORTSZEIT)" Classes="label" />
+                    <TextBlock Text="{Binding Clock.TacticalLocal}"
+                               Classes="mono accent" FontSize="40" FontWeight="Bold" />
+                    <TextBlock Classes="label" FontWeight="Normal" TextWrapping="Wrap"
+                               Text="Tag, Stunde, Minute, Zonenbuchstabe, Monat, Jahr. Der Buchstabe J wird übersprungen — er ist der Ortszeit vorbehalten." />
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" Margin="0,0,20,0">
+                    <TextBlock Text="TAKTISCHE ZEIT (ZULU)" Classes="label" />
+                    <TextBlock Text="{Binding Clock.TacticalZulu}"
+                               Classes="mono" FontSize="40" FontWeight="Bold" />
+                    <TextBlock Classes="label" FontWeight="Normal" TextWrapping="Wrap"
+                               Text="Dieselbe Zeit in UTC — die Form, die überregional gilt." />
+                </StackPanel>
+
+                <StackPanel Grid.Column="2">
+                    <TextBlock Text="UTC" Classes="label" />
+                    <TextBlock Text="{Binding Clock.UtcTime}"
+                               Classes="mono muted" FontSize="40" />
+                </StackPanel>
+            </Grid>
+
+            <Border Height="1" Background="{StaticResource BorderBrush}" />
+
+            <!-- The readings that decide something, without leaving this tab. -->
+            <Grid ColumnDefinitions="*,*,*,*">
+                <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                    <TextBlock Text="TEMPERATUR" Classes="label" />
+                    <TextBlock Text="{Binding Dashboard.Temperature}" FontSize="32" FontWeight="Bold" />
+                    <TextBlock Text="{Binding Dashboard.ConditionText}" Classes="label" FontWeight="Normal" TextWrapping="Wrap" />
+                </StackPanel>
+                <StackPanel Grid.Column="1" Margin="0,0,16,0">
+                    <TextBlock Text="WIND" Classes="label" />
+                    <TextBlock Text="{Binding Dashboard.WindSummary}" FontSize="32" FontWeight="Bold" />
+                    <TextBlock Text="{Binding Dashboard.WindDetail}" Classes="label" FontWeight="Normal" TextWrapping="Wrap" />
+                </StackPanel>
+                <StackPanel Grid.Column="2" Margin="0,0,16,0">
+                    <TextBlock Text="AUSBREITUNGSKLASSE" Classes="label" />
+                    <TextBlock Text="{Binding Dashboard.StabilityClass}" FontSize="32" FontWeight="Bold" />
+                    <TextBlock Text="{Binding Dashboard.StabilityLabel}" Classes="label" FontWeight="Normal" TextWrapping="Wrap" />
+                </StackPanel>
+                <StackPanel Grid.Column="3">
+                    <TextBlock Text="SONNE UND MOND" Classes="label" />
+                    <TextBlock Text="{Binding Dashboard.Sunrise}" Classes="mono" FontSize="17" />
+                    <TextBlock Text="{Binding Dashboard.Sunset}" Classes="mono" FontSize="17" />
+                    <TextBlock Text="{Binding Dashboard.Moon}" Classes="label" FontWeight="Normal" TextWrapping="Wrap" />
+                </StackPanel>
+            </Grid>
+
+            <StackPanel>
+                <TextBlock Text="POSITION" Classes="label" />
+                <TextBlock Text="{Binding Dashboard.PositionDecimal}" Classes="mono" FontSize="15" />
+                <TextBlock Text="{Binding Dashboard.AddressLine}" Classes="muted" TextWrapping="Wrap" />
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

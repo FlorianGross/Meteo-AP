@@ -1,19 +1,18 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.IO;
-using System.Windows;
-using System.Windows.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using ElwMeteo.App.Services;
+using ElwMeteo.Presentation.Services;
 using ElwMeteo.Core.Assessment;
+using ElwMeteo.Presentation.Platform;
 using ElwMeteo.Core.Configuration;
 using ElwMeteo.Core.Meteorology;
 using ElwMeteo.Core.Models;
 using ElwMeteo.Core.Reporting;
 using ElwMeteo.Core.Services;
 
-namespace ElwMeteo.App.ViewModels;
+namespace ElwMeteo.Presentation.ViewModels;
 
 /// <summary>A single 15-minute bar in the nowcast strip.</summary>
 public sealed record NowcastBar(string TimeLabel, double PrecipitationMm, double BarHeight, bool IsNow)
@@ -47,6 +46,7 @@ public sealed partial class DashboardViewModel : ObservableObject
     private readonly SnapshotCsvLogger _csvLogger;
     private readonly BrightSkyProvider _brightSky;
     private readonly AppSettings _settings;
+    private readonly IClipboardService _clipboard;
 
     private static readonly CultureInfo German = CultureInfo.GetCultureInfo("de-DE");
 
@@ -57,7 +57,8 @@ public sealed partial class DashboardViewModel : ObservableObject
         LocationResolver location,
         SnapshotCsvLogger csvLogger,
         BrightSkyProvider brightSky,
-        AppSettings settings)
+        AppSettings settings,
+        IClipboardService clipboard)
     {
         _weather = weather;
         _warnings = warnings;
@@ -66,6 +67,7 @@ public sealed partial class DashboardViewModel : ObservableObject
         _csvLogger = csvLogger;
         _brightSky = brightSky;
         _settings = settings;
+        _clipboard = clipboard;
     }
 
     // ------------------------------------------------------------- state
@@ -230,7 +232,7 @@ public sealed partial class DashboardViewModel : ObservableObject
 
     /// <summary>Colours the header entry: red for a big turn, amber for a small one.</summary>
     [ObservableProperty]
-    private Brush _windShiftBrush = Brushes.Gray;
+    private UiColour _windShiftColour = UiColour.Grey;
 
     public ObservableCollection<WindForecastBar> WindForecast { get; } = [];
 
@@ -404,21 +406,18 @@ public sealed partial class DashboardViewModel : ObservableObject
     }
 
     /// <summary>
-    /// The Windows clipboard is shared and can be locked by another process;
-    /// a failure here is an inconvenience, not an error worth a dialog.
+    /// The clipboard is shared and can be locked by another process; a failure
+    /// here is an inconvenience, not an error worth a dialog.
     /// </summary>
     private bool TrySetClipboard(string text)
     {
-        try
+        if (_clipboard.TrySetText(text))
         {
-            Clipboard.SetText(text);
             return true;
         }
-        catch (Exception)
-        {
-            StatusMessage = "Zwischenablage ist belegt — bitte erneut versuchen.";
-            return false;
-        }
+
+        StatusMessage = "Zwischenablage ist belegt — bitte erneut versuchen.";
+        return false;
     }
 
     // ------------------------------------------------------------ helpers
@@ -709,15 +708,13 @@ public sealed partial class DashboardViewModel : ObservableObject
         {
             WindShiftHeadline = $"dreht {shift.DirectionLabel} → {WindScale.CompassPoint(shift.ToDeg)}";
             WindShiftDetail = shift.Describe(now);
-            WindShiftBrush = shift.AbsoluteDeltaDeg >= 90
-                ? new SolidColorBrush(Color.FromRgb(0xE6, 0x39, 0x46))
-                : new SolidColorBrush(Color.FromRgb(0xF5, 0x9E, 0x0B));
+            WindShiftColour = shift.AbsoluteDeltaDeg >= 90 ? UiColour.Alarm : UiColour.Caution;
         }
         else
         {
             WindShiftHeadline = "richtungsstabil";
             WindShiftDetail = "Keine relevante Winddrehung in den nächsten 6 Stunden erwartet.";
-            WindShiftBrush = new SolidColorBrush(Color.FromRgb(0x22, 0xC5, 0x5E));
+            WindShiftColour = UiColour.Ok;
         }
 
         GustPeakLabel = a.GustPeak is { } peak ? peak.Describe(now) : string.Empty;

@@ -1,7 +1,7 @@
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
-using ElwMeteo.App.ViewModels;
+using ElwMeteo.Presentation.ViewModels;
 using Microsoft.Web.WebView2.Core;
 
 namespace ElwMeteo.App.Views;

@@ -1,0 +1,182 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:ElwMeteo.Desktop"
+             x:Class="ElwMeteo.Desktop.Views.DashboardView"
+             Background="{StaticResource BackgroundBrush}">
+
+    <UserControl.Styles>
+        <!-- One card look for every block, so the eye can scan the columns. -->
+        <Style Selector="Border.card">
+            <Setter Property="Background" Value="{StaticResource PanelBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Padding" Value="14" />
+            <Setter Property="Margin" Value="0,0,0,12" />
+        </Style>
+    </UserControl.Styles>
+
+    <ScrollViewer Padding="16">
+        <Grid ColumnDefinitions="*,*,*">
+
+            <!-- ============================================ measurements -->
+            <StackPanel Grid.Column="0" Margin="0,0,12,0">
+
+                <Border Classes="card">
+                    <StackPanel>
+                        <TextBlock Text="MESSWERTE" Classes="section" />
+                        <TextBlock Text="{Binding Temperature}" FontSize="46" FontWeight="Bold" />
+                        <TextBlock Text="{Binding ApparentTemperature}" Classes="muted" />
+                        <TextBlock Text="{Binding ConditionText}" Classes="body" Margin="0,6,0,0" />
+
+                        <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto"
+                              Margin="0,12,0,0">
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Luftfeuchte" Classes="label" />
+                            <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Humidity}" Classes="mono" HorizontalAlignment="Right" />
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Taupunkt" Classes="label" />
+                            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding DewPoint}" Classes="mono" HorizontalAlignment="Right" />
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Luftdruck" Classes="label" />
+                            <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding Pressure}" Classes="mono" HorizontalAlignment="Right" />
+                            <TextBlock Grid.Row="3" Grid.Column="0" Text="Bewölkung" Classes="label" />
+                            <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding CloudCover}" Classes="mono" HorizontalAlignment="Right" />
+                            <TextBlock Grid.Row="4" Grid.Column="0" Text="Sicht" Classes="label" />
+                            <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding Visibility}" Classes="mono" HorizontalAlignment="Right" />
+                            <TextBlock Grid.Row="5" Grid.Column="0" Text="Niederschlag" Classes="label" />
+                            <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding Precipitation}" Classes="mono" HorizontalAlignment="Right" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <Border Classes="card">
+                    <StackPanel>
+                        <TextBlock Text="WIND" Classes="section" />
+                        <TextBlock Text="{Binding WindSummary}" FontSize="26" FontWeight="Bold" />
+                        <TextBlock Text="{Binding WindDetail}" Classes="body" />
+                        <TextBlock Text="{Binding GustSummary}" Classes="muted" Margin="0,4,0,0" />
+                        <TextBlock Text="{Binding WindShiftHeadline}" Margin="0,10,0,0" FontWeight="SemiBold"
+                                   Foreground="{Binding WindShiftColour, Converter={x:Static local:Converters.ColourToBrush}}" />
+                        <TextBlock Text="{Binding WindShiftDetail}" Classes="label" FontWeight="Normal" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Border>
+
+                <Border Classes="card">
+                    <StackPanel>
+                        <TextBlock Text="POSITION" Classes="section" />
+                        <TextBlock Text="{Binding PositionDecimal}" Classes="mono" FontSize="13" />
+                        <TextBlock Text="{Binding PositionNautical}" Classes="mono muted" FontSize="12" />
+                        <TextBlock Text="{Binding AddressLine}" Classes="body" Margin="0,6,0,0" />
+                        <TextBlock Text="{Binding PositionSource}" Classes="label" FontWeight="Normal" />
+                        <Button Content="Position kopieren" Command="{Binding CopyPositionCommand}"
+                                HorizontalAlignment="Left" Margin="0,8,0,0" />
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
+            <!-- ================================== hazard-relevant readings -->
+            <StackPanel Grid.Column="1" Margin="0,0,12,0">
+
+                <Border Classes="card">
+                    <StackPanel>
+                        <TextBlock Text="AUSBREITUNG" Classes="section" />
+                        <TextBlock Text="{Binding StabilityClass}" FontSize="40" FontWeight="Bold" />
+                        <TextBlock Text="{Binding StabilityLabel}" Classes="body" />
+                        <TextBlock Text="{Binding StabilityNote}" Classes="label" FontWeight="Normal" TextWrapping="Wrap" Margin="0,6,0,0" />
+                        <TextBlock Text="{Binding Downwind}" Classes="body" Margin="0,10,0,0" />
+                        <TextBlock Text="{Binding HazardRange}" Classes="body accent" FontWeight="SemiBold" />
+                    </StackPanel>
+                </Border>
+
+                <Border Classes="card">
+                    <StackPanel>
+                        <TextBlock Text="BELASTUNG UND BRANDGEFAHR" Classes="section" />
+                        <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto">
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="WBGT" Classes="label" />
+                            <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Wbgt}" Classes="mono" HorizontalAlignment="Right" />
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Feuchtkugel" Classes="label" />
+                            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding WetBulb}" Classes="mono" HorizontalAlignment="Right" />
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Absolute Feuchte" Classes="label" />
+                            <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding AbsoluteHumidity}" Classes="mono" HorizontalAlignment="Right" />
+                            <TextBlock Grid.Row="3" Grid.Column="0" Text="Wolkenbasis" Classes="label" />
+                            <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding CloudBase}" Classes="mono" HorizontalAlignment="Right" />
+                        </Grid>
+                        <TextBlock Text="{Binding FireRisk}" FontWeight="SemiBold" Margin="0,10,0,0" />
+                        <TextBlock Text="{Binding FireRiskNote}" Classes="label" FontWeight="Normal" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Border>
+
+                <Border Classes="card" IsVisible="{Binding HasStation}">
+                    <StackPanel>
+                        <TextBlock Text="NÄCHSTE DWD-STATION" Classes="section" />
+                        <TextBlock Text="{Binding StationName}" FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding StationDistance}" Classes="label" FontWeight="Normal" />
+                        <TextBlock Text="{Binding StationAge}" Classes="label" FontWeight="Normal" />
+                        <TextBlock Text="{Binding StationTemperature}" Classes="mono" Margin="0,6,0,0" />
+                        <TextBlock Text="{Binding StationWind}" Classes="mono" />
+                        <TextBlock Text="{Binding ModelDeviation}" Classes="body" Margin="0,6,0,0" />
+                        <TextBlock Text="{Binding StationCaveat}" Classes="label" FontWeight="Normal" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
+            <!-- ================================================ decisions -->
+            <StackPanel Grid.Column="2">
+
+                <Border Classes="card" IsVisible="{Binding HasWarnings}">
+                    <StackPanel>
+                        <TextBlock Text="AMTLICHE WARNUNGEN" Classes="section" />
+                        <TextBlock Text="{Binding WarningSource}" Classes="label" FontWeight="Normal" />
+                        <ItemsControl ItemsSource="{Binding Warnings}" Margin="0,6,0,0">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="{StaticResource PanelAltBrush}"
+                                            CornerRadius="4" Padding="9" Margin="0,0,0,6">
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding Headline}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                            <TextBlock Text="{Binding Description}" Classes="label" FontWeight="Normal" TextWrapping="Wrap" />
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+                <Border Classes="card">
+                    <StackPanel>
+                        <TextBlock Text="EINSATZHINWEISE" Classes="section" />
+                        <ItemsControl ItemsSource="{Binding Hints}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Margin="0,0,0,9">
+                                        <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                        <TextBlock Text="{Binding Detail}" Classes="label" FontWeight="Normal" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+                <Border Classes="card">
+                    <StackPanel>
+                        <TextBlock Text="NIEDERSCHLAG DER NÄCHSTEN STUNDE" Classes="section" />
+                        <TextBlock Text="{Binding NowcastSummary}" Classes="body" />
+                        <TextBlock Text="{Binding DwdRadarSummary}" Classes="body" Margin="0,6,0,0"
+                                   IsVisible="{Binding HasDwdRadar}" />
+                    </StackPanel>
+                </Border>
+
+                <Border Classes="card">
+                    <StackPanel>
+                        <TextBlock Text="WEITERGEBEN" Classes="section" />
+                        <Button Content="Funkspruch kopieren" Command="{Binding CopyRadioLineCommand}"
+                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" />
+                        <Button Content="Protokolleintrag kopieren" Command="{Binding CopyLogEntryCommand}"
+                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Margin="0,6,0,0" />
+                        <TextBlock Text="{Binding LastUpdateLabel}" Classes="label" FontWeight="Normal" Margin="0,10,0,0" />
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </Grid>
+    </ScrollViewer>
+</UserControl>

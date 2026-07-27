@@ -1,7 +1,9 @@
 using System.Globalization;
+using System.Windows.Media;
+using ElwMeteo.App.Platform;
+using ElwMeteo.Presentation.Platform;
 using System.Windows;
 using System.Windows.Data;
-using System.Windows.Media;
 using ElwMeteo.Core.Assessment;
 using ElwMeteo.Core.Configuration;
 using ElwMeteo.Core.Models;
@@ -115,6 +117,22 @@ public sealed class LocationModeConverter : IValueConverter
         LocationMode.Manual => "Manuelle Koordinaten",
         _ => value?.ToString() ?? string.Empty
     };
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
+/// <summary>
+/// Turns a view model's plain <see cref="UiColour"/> into a WPF brush.
+///
+/// The view models name a colour but never build a brush — that is the one
+/// decision that differs between the WPF and the Avalonia head, and keeping it
+/// out of them is what lets both read the same view model.
+/// </summary>
+public sealed class UiColourToBrushConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        value is UiColour colour ? colour.ToBrush() : Brushes.Gray;
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
         throw new NotSupportedException();

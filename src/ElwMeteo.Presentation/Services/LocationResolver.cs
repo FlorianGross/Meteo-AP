@@ -2,7 +2,7 @@ using ElwMeteo.Core.Configuration;
 using ElwMeteo.Core.Models;
 using ElwMeteo.Core.Services;
 
-namespace ElwMeteo.App.Services;
+namespace ElwMeteo.Presentation.Services;
 
 /// <summary>
 /// Decides which position the app should work with, following the configured
