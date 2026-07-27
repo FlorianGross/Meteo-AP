@@ -230,8 +230,12 @@
         return null;
     }
 
+    // Layers switched off by their own zoom ceiling, reported to the operator.
+    var zoomHidden = [];
+
     function applyLayers(specs) {
         var wanted = {};
+        zoomHidden = [];
 
         // Base map below (z 100), overlays above it (z 300), radar on top (z 400).
         specs.forEach(function (spec) {
@@ -239,10 +243,22 @@
 
             var layer = layers[spec.id];
 
-            if (!spec.enabled) {
+            // Radar and model products come off coarse grids. Past their ceiling
+            // there is nothing left to resolve, and some servers answer with an
+            // error graphic baked into the tile — which no tileerror handler can
+            // catch, because it arrives as a perfectly valid image.
+            var overZoom = typeof spec.maxUsefulZoom === "number" &&
+                map.getZoom() > spec.maxUsefulZoom;
+
+            if (!spec.enabled || overZoom) {
                 if (layer && map.hasLayer(layer)) {
                     map.removeLayer(layer);
                 }
+
+                if (spec.enabled && overZoom) {
+                    zoomHidden.push(spec.title);
+                }
+
                 return;
             }
 
@@ -284,10 +300,16 @@
         // is nothing left to resolve, the upscaled tiles look like coloured mush
         // and some frames simply are not served — so drop the layer and say so
         // rather than leaving a broken or misleading picture on screen.
+        var hidden = zoomHidden.slice();
+
         if (url && typeof maxZoom === "number" && map.getZoom() > maxZoom) {
             url = null;
-            setNotice("Radar ab Zoomstufe " + (maxZoom + 1) +
-                " ausgeblendet — Radardaten geben diese Auflösung nicht her.");
+            hidden.push("Regenradar");
+        }
+
+        if (hidden.length > 0) {
+            setNotice(hidden.join(", ") + (hidden.length === 1 ? " ist" : " sind") +
+                " für diese Zoomstufe ausgeblendet — die Daten geben diese Auflösung nicht her.");
         } else {
             setNotice(null);
         }
@@ -868,6 +890,8 @@
         // Radar and wind animation are gated on zoom, so both have to be
         // re-evaluated whenever it changes — not only when the host pushes state.
         if (lastState) {
+            // applyLayers recomputes zoomHidden, which applyRadar folds into the notice.
+            applyLayers(lastState.layers || []);
             applyRadar(lastState.radarTileUrl, lastState.radarOpacity, lastState.radarMaxZoom);
             applyWindAnimation(lastState.windGrid, lastState.windAnimationMaxZoom);
         }

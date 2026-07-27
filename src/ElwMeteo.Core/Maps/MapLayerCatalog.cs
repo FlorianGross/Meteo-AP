@@ -48,6 +48,16 @@ public sealed record MapLayerDefinition
     /// <summary>One-line explanation shown as a tooltip in the layer panel.</summary>
     public string? Description { get; init; }
 
+    /// <summary>
+    /// Highest zoom at which this layer still carries information. Above it the
+    /// map hides the layer and names it, instead of showing upscaled mush or an
+    /// error tile the server bakes into the image. Null means no limit.
+    ///
+    /// Radar and model products are the ones that need this: their source grids
+    /// are kilometres wide, so there is nothing to reveal by zooming further.
+    /// </summary>
+    public int? MaxUsefulZoom { get; init; }
+
     public bool IsWms => !string.IsNullOrWhiteSpace(WmsUrl);
 }
 
@@ -194,6 +204,7 @@ public static class MapLayerCatalog
             Attribution = DwdAttribution,
             Opacity = 0.55,
             EnabledByDefault = true,
+            MaxUsefulZoom = 13,
             Description = "Amtliche Warnungen des DWD auf Gemeindeebene."
         },
         new MapLayerDefinition
@@ -206,6 +217,7 @@ public static class MapLayerCatalog
             WmsLayers = "dwd:Warnungen_Landkreise_Gemeinden_vereinigt",
             Attribution = DwdAttribution,
             Opacity = 0.5,
+            MaxUsefulZoom = 12,
             Description = "Gröbere Übersicht über die Warnlage in der Region."
         },
         new MapLayerDefinition
@@ -218,6 +230,7 @@ public static class MapLayerCatalog
             WmsLayers = "dwd:Niederschlagsradar",
             Attribution = DwdAttribution,
             Opacity = 0.7,
+            MaxUsefulZoom = 11,
             Description = "Amtliches RADOLAN-Radarkomposit — die Referenz für Deutschland."
         },
         new MapLayerDefinition
@@ -230,6 +243,7 @@ public static class MapLayerCatalog
             WmsLayers = "dwd:FX-Produkt",
             Attribution = DwdAttribution,
             Opacity = 0.7,
+            MaxUsefulZoom = 11,
             Description = "Extrapolierte Radarvorhersage der nächsten zwei Stunden."
         },
         new MapLayerDefinition
@@ -242,6 +256,7 @@ public static class MapLayerCatalog
             WmsLayers = "dwd:Waldbrandgefahrenindex",
             Attribution = DwdAttribution,
             Opacity = 0.55,
+            MaxUsefulZoom = 10,
             Description = "Amtlicher WBI des DWD (Stufe 1-5)."
         },
         new MapLayerDefinition
@@ -254,6 +269,7 @@ public static class MapLayerCatalog
             WmsLayers = "dwd:Graslandfeuerindex",
             Attribution = DwdAttribution,
             Opacity = 0.55,
+            MaxUsefulZoom = 10,
             Description = "Gefahrenindex für Feuer in offenem Grasland."
         },
         new MapLayerDefinition
@@ -266,6 +282,7 @@ public static class MapLayerCatalog
             WmsLayers = "dwd:GefuehlteTemperatur",
             Attribution = DwdAttribution,
             Opacity = 0.5,
+            MaxUsefulZoom = 9,
             Description = "Wärme- bzw. Kältebelastung der Bevölkerung nach DWD-Modell."
         },
         new MapLayerDefinition
@@ -278,6 +295,7 @@ public static class MapLayerCatalog
             WmsLayers = "dwd:Windboeen",
             Attribution = DwdAttribution,
             Opacity = 0.5,
+            MaxUsefulZoom = 9,
             Description = "Modellierte Windböen aus dem ICON-Modell."
         },
         new MapLayerDefinition

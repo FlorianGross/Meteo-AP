@@ -150,6 +150,111 @@
                     </StackPanel>
                 </Border>
 
+                <!-- measured values from the nearest DWD station -->
+                <Border Style="{StaticResource Card}"
+                        Visibility="{Binding HasStation, Converter={StaticResource BoolToVisibility}}">
+                    <StackPanel>
+                        <Grid Margin="0,0,0,8">
+                            <TextBlock Text="MESSWERTE DWD-STATION" Style="{StaticResource SectionHeader}" Margin="0" />
+                            <TextBlock Text="{Binding StationAge}"
+                                       Style="{StaticResource LabelText}"
+                                       FontWeight="Normal"
+                                       HorizontalAlignment="Right" />
+                        </Grid>
+
+                        <TextBlock Text="{Binding StationName}"
+                                   Style="{StaticResource BodyText}"
+                                   FontWeight="SemiBold" FontSize="15" />
+                        <TextBlock Text="{Binding StationDistance}"
+                                   Style="{StaticResource LabelText}"
+                                   FontWeight="Normal"
+                                   Margin="0,1,0,10" />
+
+                        <UniformGrid Columns="2">
+                            <StackPanel>
+                                <TextBlock Text="TEMPERATUR" Style="{StaticResource FieldLabel}" />
+                                <TextBlock Text="{Binding StationTemperature}" Style="{StaticResource FieldValue}" />
+                            </StackPanel>
+                            <StackPanel>
+                                <TextBlock Text="WIND" Style="{StaticResource FieldLabel}" />
+                                <TextBlock Text="{Binding StationWind}" Style="{StaticResource FieldValue}" />
+                            </StackPanel>
+                            <StackPanel>
+                                <TextBlock Text="LUFTFEUCHTE" Style="{StaticResource FieldLabel}" />
+                                <TextBlock Text="{Binding StationHumidity}" Style="{StaticResource FieldValue}" />
+                            </StackPanel>
+                            <StackPanel>
+                                <TextBlock Text="LUFTDRUCK (NN)" Style="{StaticResource FieldLabel}" />
+                                <TextBlock Text="{Binding StationPressure}" Style="{StaticResource FieldValue}" />
+                            </StackPanel>
+                        </UniformGrid>
+
+                        <Border Background="#33F59E0B" CornerRadius="4" Padding="8,5" Margin="0,2,0,0"
+                                Visibility="{Binding ModelDeviation, Converter={StaticResource StringToVisibility}}">
+                            <TextBlock Text="{Binding ModelDeviation}"
+                                       Style="{StaticResource BodyText}" FontSize="12"
+                                       Foreground="{StaticResource CautionBrush}" />
+                        </Border>
+
+                        <TextBlock Text="{Binding StationCaveat}"
+                                   Style="{StaticResource BodyText}" FontSize="12"
+                                   Foreground="{StaticResource MutedBrush}"
+                                   Margin="0,6,0,0"
+                                   Visibility="{Binding StationCaveat, Converter={StaticResource StringToVisibility}}" />
+                    </StackPanel>
+                </Border>
+
+                <!-- DWD radar read at the position -->
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="DWD-RADAR AM STANDORT (5-MIN-SCHRITTE)"
+                                   Style="{StaticResource SectionHeader}" />
+                        <TextBlock Text="{Binding DwdRadarSummary}"
+                                   Style="{StaticResource BodyText}" Margin="0,0,0,12" />
+
+                        <ItemsControl ItemsSource="{Binding DwdRadarBars}" Height="80"
+                                      Visibility="{Binding HasDwdRadar, Converter={StaticResource BoolToVisibility}}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <UniformGrid Rows="1" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel VerticalAlignment="Bottom" Margin="1,0"
+                                                ToolTip="{Binding TimeLabel}">
+                                        <Rectangle Height="{Binding BarHeight}"
+                                                   RadiusX="2" RadiusY="2"
+                                                   Margin="0,2">
+                                            <Rectangle.Style>
+                                                <Style TargetType="Rectangle">
+                                                    <!-- Measured steps read stronger than the extrapolation. -->
+                                                    <Setter Property="Fill" Value="{StaticResource AccentBrush}" />
+                                                    <Setter Property="Opacity" Value="0.55" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsNow}" Value="True">
+                                                            <Setter Property="Opacity" Value="1.0" />
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding PrecipitationMm}" Value="0">
+                                                            <Setter Property="Fill" Value="{StaticResource BorderBrush}" />
+                                                            <Setter Property="Opacity" Value="1.0" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Rectangle.Style>
+                                        </Rectangle>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <TextBlock Text="Kräftige Balken sind Messung, blasse die RV-Extrapolation des DWD · Wert in mm/h"
+                                   Style="{StaticResource LabelText}"
+                                   FontWeight="Normal" TextWrapping="Wrap" Margin="0,6,0,0"
+                                   Visibility="{Binding HasDwdRadar, Converter={StaticResource BoolToVisibility}}" />
+                    </StackPanel>
+                </Border>
+
                 <!-- nowcast -->
                 <Border Style="{StaticResource Card}">
                     <StackPanel>
@@ -505,8 +610,12 @@
                     <StackPanel>
                         <TextBlock Text="AMTLICHE WARNUNGEN (DWD)" Style="{StaticResource SectionHeader}" />
                         <TextBlock Text="{Binding WarningSummary}"
-                                   Style="{StaticResource BodyText}"
-                                   Margin="0,0,0,10" />
+                                   Style="{StaticResource BodyText}" />
+                        <TextBlock Text="{Binding WarningSource}"
+                                   Style="{StaticResource LabelText}"
+                                   FontWeight="Normal"
+                                   Margin="0,2,0,10"
+                                   Visibility="{Binding WarningSource, Converter={StaticResource StringToVisibility}}" />
 
                         <ItemsControl ItemsSource="{Binding Warnings}">
                             <ItemsControl.ItemTemplate>

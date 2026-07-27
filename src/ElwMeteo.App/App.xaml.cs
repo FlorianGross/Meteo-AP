@@ -45,7 +45,9 @@ public partial class App : Application
         _gps = new GpsSerialService();
 
         var weather = new OpenMeteoWeatherProvider(_httpClient);
-        var warnings = new DwdWarningProvider(_httpClient);
+        var brightSky = new BrightSkyProvider(_httpClient);
+        // Bright Sky first (the WarnWetter CAP feed), GeoServer as the fallback.
+        var warnings = new CompositeWarningProvider(brightSky, new DwdWarningProvider(_httpClient));
         var radar = new RainViewerProvider(_httpClient);
         var windField = new WindFieldProvider(_httpClient);
         var geocoding = new GeocodingService(_httpClient);
@@ -55,7 +57,7 @@ public partial class App : Application
 
         _mainViewModel = new MainViewModel(
             new ClockViewModel(),
-            new DashboardViewModel(weather, warnings, geocoding, locationResolver, csvLogger, settings),
+            new DashboardViewModel(weather, warnings, geocoding, locationResolver, csvLogger, brightSky, settings),
             new MapViewModel(radar, windField, weather, settings),
             new TrendViewModel(),
             new SettingsViewModel(settings, _gps, geocoding),
