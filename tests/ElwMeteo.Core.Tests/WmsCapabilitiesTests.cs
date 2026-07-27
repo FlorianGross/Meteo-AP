@@ -127,10 +127,14 @@ public class RadarSourceCatalogTests
     }
 
     [Fact]
-    public void OnlyTheAnimatedSourceOffersATimeline()
+    public void ATimelineIsClaimedOnlyWhereOneCanBeBuilt()
     {
-        // The timeline slider and play button only mean something for frames.
-        Assert.Single(RadarSourceCatalog.All, s => s.SupportsTimeline);
+        // The slider and play button need either explicit frames or a TIME
+        // dimension; nothing else may claim to be animatable.
+        Assert.All(
+            RadarSourceCatalog.All.Where(s => s.SupportsTimeline),
+            s => Assert.True(s.Kind == RadarSourceKind.RainViewerFrames || s.UsesTimeDimension));
+
         Assert.True(RadarSourceCatalog.Default.SupportsTimeline);
     }
 

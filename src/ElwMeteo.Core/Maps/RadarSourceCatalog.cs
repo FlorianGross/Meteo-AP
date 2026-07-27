@@ -38,8 +38,25 @@ public sealed record RadarSourceDefinition
     /// <summary>True when the source cannot be used without a key from the operator.</summary>
     public bool RequiresApiKey => Kind == RadarSourceKind.KeyedTiles;
 
-    /// <summary>Only the animated source has a usable timeline.</summary>
-    public bool SupportsTimeline => Kind == RadarSourceKind.RainViewerFrames;
+    /// <summary>
+    /// Candidate layer names, best first. The DWD renames products, so a source
+    /// offers alternatives and the capability check picks the one the server
+    /// actually advertises.
+    /// </summary>
+    public IReadOnlyList<string> WmsLayerCandidates { get; init; } = [];
+
+    /// <summary>
+    /// True when the layer publishes a TIME dimension and can therefore be
+    /// animated through GetMap requests rather than showing a single still.
+    /// </summary>
+    public bool UsesTimeDimension { get; init; }
+
+    /// <summary>
+    /// Whether this source can drive the timeline. RainViewer ships explicit
+    /// frames; a time-enabled WMS layer is animated through its TIME dimension.
+    /// </summary>
+    public bool SupportsTimeline =>
+        Kind == RadarSourceKind.RainViewerFrames || UsesTimeDimension;
 }
 
 /// <summary>
@@ -66,13 +83,31 @@ public static class RadarSourceCatalog
         },
         new RadarSourceDefinition
         {
-            Id = "dwd-radolan",
-            Title = "DWD-Niederschlagsradar (amtlich)",
+            Id = "dwd-wn",
+            Title = "DWD-Radar mit Vorhersage (amtlich, animiert)",
             Kind = RadarSourceKind.Wms,
-            Description = "Amtliches RADOLAN-Komposit des DWD. Kein Zeitverlauf, dafür die Referenz " +
-                          "für Deutschland — der Layername wird beim Server geprüft.",
+            Description = "Amtliches Radarkomposit des DWD samt Extrapolation über zwei Stunden, " +
+                          "in 5-Minuten-Schritten und alle fünf Minuten aktualisiert. Die Zeitschritte " +
+                          "kommen aus der TIME-Dimension des Servers — feiner als jeder Kacheldienst " +
+                          "und die amtliche Quelle für Deutschland.",
             Attribution = "&copy; Deutscher Wetterdienst (GeoNutzV)",
             WmsUrl = "https://maps.dwd.de/geoserver/dwd/wms",
+            // Best-known name first; the capability check resolves what exists.
+            WmsLayerCandidates = ["dwd:WN-Produkt", "dwd:Niederschlagsradar", "dwd:WX-Produkt"],
+            WmsLayers = "dwd:WN-Produkt",
+            UsesTimeDimension = true,
+            MaxUsefulZoom = 11
+        },
+        new RadarSourceDefinition
+        {
+            Id = "dwd-radolan",
+            Title = "DWD-Niederschlagsradar (amtlich, aktuelles Bild)",
+            Kind = RadarSourceKind.Wms,
+            Description = "Amtliches RADOLAN-Komposit des DWD als Momentaufnahme. " +
+                          "Der Layername wird beim Server geprüft.",
+            Attribution = "&copy; Deutscher Wetterdienst (GeoNutzV)",
+            WmsUrl = "https://maps.dwd.de/geoserver/dwd/wms",
+            WmsLayerCandidates = ["dwd:Niederschlagsradar", "dwd:RX-Produkt", "dwd:WX-Produkt"],
             WmsLayers = "dwd:Niederschlagsradar",
             MaxUsefulZoom = 11
         },
@@ -84,7 +119,9 @@ public static class RadarSourceCatalog
             Description = "Extrapolation des DWD-Radars über die nächsten zwei Stunden.",
             Attribution = "&copy; Deutscher Wetterdienst (GeoNutzV)",
             WmsUrl = "https://maps.dwd.de/geoserver/dwd/wms",
+            WmsLayerCandidates = ["dwd:FX-Produkt", "dwd:WN-Produkt"],
             WmsLayers = "dwd:FX-Produkt",
+            UsesTimeDimension = true,
             MaxUsefulZoom = 11
         },
         new RadarSourceDefinition

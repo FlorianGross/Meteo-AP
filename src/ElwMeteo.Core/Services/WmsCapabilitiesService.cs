@@ -5,6 +5,12 @@ namespace ElwMeteo.Core.Services;
 /// <summary>A layer a WMS server advertises in its capabilities document.</summary>
 public sealed record WmsLayerInfo(string Name, string Title, string? Abstract)
 {
+    /// <summary>Instants this layer can be rendered for; empty when it is not time-enabled.</summary>
+    public WmsTimeDimension Time { get; init; } = WmsTimeDimension.Empty;
+
+    /// <summary>True when the layer can drive an animation rather than one still image.</summary>
+    public bool IsAnimatable => !Time.IsEmpty;
+
     /// <summary>Name without the workspace prefix, e.g. "Niederschlagsradar".</summary>
     public string ShortName
     {
@@ -75,7 +81,10 @@ public sealed class WmsCapabilitiesService(HttpClient httpClient)
             layers.Add(new WmsLayerInfo(
                 name.Trim(),
                 Child(element, "Title")?.Trim() ?? name.Trim(),
-                Child(element, "Abstract")?.Trim()));
+                Child(element, "Abstract")?.Trim())
+            {
+                Time = ReadTimeDimension(element)
+            });
         }
 
         return layers
@@ -83,6 +92,25 @@ public sealed class WmsCapabilitiesService(HttpClient httpClient)
             .Select(g => g.First())
             .OrderBy(l => l.Title, StringComparer.CurrentCulture)
             .ToList();
+    }
+
+    /// <summary>
+    /// Reads the layer's TIME dimension. WMS 1.3.0 puts the values inside
+    /// &lt;Dimension name="time"&gt;; 1.1.1 splits them into a &lt;Dimension&gt;
+    /// declaration plus an &lt;Extent name="time"&gt; carrying the values, so both
+    /// spellings have to be accepted.
+    /// </summary>
+    private static WmsTimeDimension ReadTimeDimension(XElement layer)
+    {
+        XElement? source = layer.Elements()
+            .FirstOrDefault(e =>
+                (e.Name.LocalName is "Dimension" or "Extent") &&
+                string.Equals((string?)e.Attribute("name"), "time", StringComparison.OrdinalIgnoreCase) &&
+                !string.IsNullOrWhiteSpace(e.Value));
+
+        return source is null
+            ? WmsTimeDimension.Empty
+            : WmsTimeDimension.Parse(source.Value, (string?)source.Attribute("default"));
     }
 
     /// <summary>Direct child element value by local name.</summary>

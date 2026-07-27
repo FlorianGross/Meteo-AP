@@ -68,6 +68,10 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
     private readonly DispatcherTimer _animationTimer;
 
     private RadarTimeline _timeline = RadarTimeline.Empty;
+
+    // Instants and resolved layer name for a time-enabled WMS radar source.
+    private WmsTimeDimension _wmsTime = WmsTimeDimension.Empty;
+    private string? _resolvedWmsLayer;
     private WindField _windField = WindField.Empty;
     private TacticalAssessment? _assessment;
     private bool _suppressPush;
@@ -335,6 +339,17 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
         _settings.RadarSourceId = value.Id;
         RadarMaxZoom = value.MaxUsefulZoom;
 
+        // Each source brings its own timeline, so drop the previous one.
+        _wmsTime = WmsTimeDimension.Empty;
+        _resolvedWmsLayer = value.WmsLayers;
+        FrameCount = 0;
+        FrameIndex = 0;
+
+        if (!_suppressPush)
+        {
+            _ = RefreshRadarCommand.ExecuteAsync(null);
+        }
+
         RadarSourceNote = value switch
         {
             { RequiresApiKey: true } when string.IsNullOrWhiteSpace(_settings.OpenWeatherMapApiKey) =>
@@ -439,9 +454,102 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
 
     // ------------------------------------------------------------- commands
 
+    /// <summary>
+    /// Resolves a WMS radar source against the server: which of its candidate
+    /// layer names exists, and which instants that layer offers. The instants
+    /// become the timeline, so the official product animates exactly as the
+    /// tile-based one does.
+    /// </summary>
+    private async Task LoadWmsRadarAsync(RadarSourceDefinition source, CancellationToken cancellationToken)
+    {
+        _wmsTime = WmsTimeDimension.Empty;
+        _resolvedWmsLayer = source.WmsLayers;
+
+        if (string.IsNullOrWhiteSpace(source.WmsUrl))
+        {
+            return;
+        }
+
+        try
+        {
+            RadarStatus = "Radarlayer wird beim DWD abgefragt …";
+
+            IReadOnlyList<WmsLayerInfo> available = await _capabilities
+                .GetLayersAsync(source.WmsUrl, cancellationToken)
+                .ConfigureAwait(true);
+
+            var byName = available.ToDictionary(l => l.Name, StringComparer.OrdinalIgnoreCase);
+
+            var candidates = source.WmsLayerCandidates.Count > 0
+                ? source.WmsLayerCandidates
+                : [source.WmsLayers ?? string.Empty];
+
+            // Prefer a candidate that is both present and animatable.
+            WmsLayerInfo? chosen =
+                candidates.Select(name => byName.GetValueOrDefault(name)).FirstOrDefault(l => l?.IsAnimatable == true)
+                ?? candidates.Select(name => byName.GetValueOrDefault(name)).FirstOrDefault(l => l is not null);
+
+            if (chosen is null)
+            {
+                FrameCount = 0;
+                RadarStatus = $"Server kennt keinen der Layer {string.Join(", ", candidates)}.";
+                return;
+            }
+
+            _resolvedWmsLayer = chosen.Name;
+            _wmsTime = chosen.Time;
+
+            if (_wmsTime.IsEmpty)
+            {
+                FrameCount = 0;
+                FrameLabel = "aktuelles Bild";
+                RadarStatus = $"{chosen.Title} — keine Zeitschritte, es wird das aktuelle Bild gezeigt.";
+                return;
+            }
+
+            DateTimeOffset now = DateTimeOffset.Now;
+            FrameCount = _wmsTime.Instants.Count;
+
+            // Land on the newest observation rather than the oldest step.
+            int lastObserved = _wmsTime.Instants
+                .Select((instant, index) => (instant, index))
+                .Where(item => item.instant <= now)
+                .Select(item => item.index)
+                .DefaultIfEmpty(0)
+                .Max();
+
+            FrameIndex = Math.Clamp(lastObserved, 0, Math.Max(0, FrameCount - 1));
+
+            int forecast = _wmsTime.Forecast(now).Count();
+            RadarStatus = $"{chosen.Title} · {FrameCount} Zeitschritte " +
+                          $"({FrameCount - forecast} Messung, {forecast} Vorhersage)";
+
+            UpdateFrameLabel();
+        }
+        catch (CapabilitiesException ex)
+        {
+            FrameCount = 0;
+            RadarStatus = ex.Message;
+        }
+        catch (OperationCanceledException)
+        {
+            RadarStatus = "Radarabruf abgebrochen.";
+        }
+    }
+
     [RelayCommand]
     private async Task RefreshRadarAsync(CancellationToken cancellationToken)
     {
+        RadarSourceDefinition current = SelectedRadarSource ?? RadarSourceCatalog.Default;
+
+        // A WMS source is resolved against the server; only RainViewer has an index.
+        if (current.Kind == RadarSourceKind.Wms)
+        {
+            await LoadWmsRadarAsync(current, cancellationToken).ConfigureAwait(true);
+            PushState();
+            return;
+        }
+
         try
         {
             RadarStatus = "Radarbilder werden geladen …";
@@ -649,6 +757,18 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
     {
         IsPlaying = false;
 
+        if (!_wmsTime.IsEmpty)
+        {
+            DateTimeOffset now = DateTimeOffset.Now;
+            FrameIndex = _wmsTime.Instants
+                .Select((instant, i) => (instant, i))
+                .Where(item => item.instant <= now)
+                .Select(item => item.i)
+                .DefaultIfEmpty(0)
+                .Max();
+            return;
+        }
+
         int index = _timeline.Frames
             .Select((frame, i) => (frame, i))
             .Where(item => !item.frame.IsForecast)
@@ -762,6 +882,31 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
 
     private void UpdateFrameLabel()
     {
+        // A time-enabled WMS source drives the label from its own instants.
+        if (!_wmsTime.IsEmpty)
+        {
+            if (FrameIndex < 0 || FrameIndex >= _wmsTime.Instants.Count)
+            {
+                FrameLabel = "—";
+                return;
+            }
+
+            DateTimeOffset now = DateTimeOffset.Now;
+            DateTimeOffset instant = _wmsTime.Instants[FrameIndex];
+            int minutes = (int)Math.Round((instant - now).TotalMinutes);
+
+            string relative = minutes switch
+            {
+                0 => "jetzt",
+                > 0 => $"+{minutes} min",
+                _ => $"{minutes} min"
+            };
+
+            FrameLabel = $"{instant.ToLocalTime():HH:mm}  ({relative}, " +
+                         $"{(instant > now ? "Vorhersage" : "Messung")})";
+            return;
+        }
+
         if (FrameIndex < 0 || FrameIndex >= _timeline.Frames.Count)
         {
             FrameLabel = "—";
@@ -804,6 +949,7 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
         string? radarTileUrl = null;
         string? radarWmsUrl = null;
         string? radarWmsLayers = null;
+        string? radarWmsTime = null;
         string? satelliteTileUrl = null;
 
         RadarSourceDefinition source = SelectedRadarSource ?? RadarSourceCatalog.Default;
@@ -816,7 +962,15 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
             {
                 case RadarSourceKind.Wms:
                     radarWmsUrl = source.WmsUrl;
-                    radarWmsLayers = source.WmsLayers;
+                    // Whatever the capability check resolved, not the guess.
+                    radarWmsLayers = _resolvedWmsLayer ?? source.WmsLayers;
+
+                    // Selecting the instant is what animates an official product.
+                    if (!_wmsTime.IsEmpty && FrameIndex >= 0 && FrameIndex < _wmsTime.Instants.Count)
+                    {
+                        radarWmsTime = WmsTimeDimension.Format(_wmsTime.Instants[FrameIndex]);
+                    }
+
                     break;
 
                 case RadarSourceKind.KeyedTiles when !string.IsNullOrWhiteSpace(_settings.OpenWeatherMapApiKey):
@@ -914,6 +1068,7 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
             radarTileUrl,
             radarWmsUrl,
             radarWmsLayers,
+            radarWmsTime,
             source.Attribution,
             RadarOpacity,
             satelliteTileUrl,
@@ -937,6 +1092,7 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
         string? RadarTileUrl,
         string? RadarWmsUrl,
         string? RadarWmsLayers,
+        string? RadarWmsTime,
         string RadarAttribution,
         double RadarOpacity,
         string? SatelliteTileUrl,
