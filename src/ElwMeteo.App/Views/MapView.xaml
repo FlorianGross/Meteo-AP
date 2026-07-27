@@ -7,7 +7,7 @@
 
     <UserControl.Resources>
         <!-- Groups the overlay checkboxes by topic (Warnungen, Niederschlag, ...). -->
-        <CollectionViewSource x:Key="GroupedOverlays" Source="{Binding Overlays}">
+        <CollectionViewSource x:Key="GroupedOverlays" Source="{Binding VisibleOverlays}">
             <CollectionViewSource.GroupDescriptions>
                 <PropertyGroupDescription PropertyName="Group" />
             </CollectionViewSource.GroupDescriptions>
@@ -90,6 +90,7 @@
                     <!-- wind field -->
                     <TextBlock Text="WINDFELD" Style="{StaticResource SectionHeader}" />
                     <CheckBox Content="Windpfeile im Umfeld anzeigen" IsChecked="{Binding ShowWindField}" />
+                    <CheckBox Content="Windanimation (Strömungsbild)" IsChecked="{Binding ShowWindAnimation}" />
                     <TextBlock Style="{StaticResource LabelText}" FontWeight="Normal" TextWrapping="Wrap"
                                Margin="0,4,0,8"
                                Text="Gitter aus Windvektoren rund um die Einsatzstelle. Weicht die Strömung im Umfeld deutlich ab, steuert das Gelände die Ausbreitung." />
@@ -133,6 +134,26 @@
 
                     <!-- overlays -->
                     <TextBlock Text="OVERLAYS" Style="{StaticResource SectionHeader}" />
+
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox Grid.Column="0"
+                                 Text="{Binding LayerFilter, UpdateSourceTrigger=PropertyChanged}"
+                                 ToolTip="Filtert nach Name, Gruppe und Beschreibung — z. B. „wind“, „brand“, „warn“." />
+                        <Button Grid.Column="1" Content="✕"
+                                Command="{Binding ResetLayerFilterCommand}"
+                                Margin="5,0,0,0" Padding="9,5"
+                                ToolTip="Filter zurücksetzen" />
+                    </Grid>
+
+                    <Button Content="Alle Overlays aus"
+                            Command="{Binding ClearOverlaysCommand}"
+                            HorizontalContentAlignment="Left"
+                            Padding="9,4" FontSize="11"
+                            Margin="0,0,0,8" />
 
                     <ItemsControl ItemsSource="{Binding Source={StaticResource GroupedOverlays}}">
                         <ItemsControl.GroupStyle>

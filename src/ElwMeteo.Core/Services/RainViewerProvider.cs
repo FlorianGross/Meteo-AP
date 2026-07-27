@@ -64,7 +64,13 @@ public sealed record RadarTimeline(
     {
         int smoothFlag = smooth ? 1 : 0;
         int snowFlag = showSnow ? 1 : 0;
-        return $"{TileHost}{frame.Path}/512/{{z}}/{{x}}/{{y}}/{colourScheme}/{smoothFlag}_{snowFlag}.png";
+
+        // 256 px tiles on plain slippy z/x/y — the form RainViewer's own examples
+        // use, and the only one that needs no tileSize/zoomOffset compensation in
+        // Leaflet. Radar data is about a kilometre per pixel, so the larger tile
+        // size bought resolution that does not exist while adding a way to get the
+        // tile addressing wrong.
+        return $"{TileHost}{frame.Path}/256/{{z}}/{{x}}/{{y}}/{colourScheme}/{smoothFlag}_{snowFlag}.png";
     }
 
     /// <summary>
@@ -73,7 +79,7 @@ public sealed record RadarTimeline(
     /// coverage. Colour scheme 0 is the only one defined for satellite.
     /// </summary>
     public string SatelliteTileUrlTemplate(RadarFrame frame) =>
-        $"{TileHost}{frame.Path}/512/{{z}}/{{x}}/{{y}}/0/0_0.png";
+        $"{TileHost}{frame.Path}/256/{{z}}/{{x}}/{{y}}/0/0_0.png";
 
     /// <summary>Satellite frame closest in time to a radar frame, for a synchronised loop.</summary>
     public RadarFrame? SatelliteFrameNear(DateTimeOffset time)

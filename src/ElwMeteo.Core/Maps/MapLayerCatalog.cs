@@ -94,6 +94,62 @@ public static class MapLayerCatalog
         },
         new MapLayerDefinition
         {
+            Id = "basemapde",
+            Title = "basemap.de (amtlich)",
+            Kind = MapLayerKind.Base,
+            Group = "Amtlich (BKG)",
+            // WMTS RESTful — note the {y}/{x} (row/col) order.
+            TileUrl = "https://sgx.geodatenzentrum.de/wmts_basemapde/tile/1.0.0/de_basemapde_web_raster_farbe/default/GLOBAL_WEBMERCATOR/{z}/{y}/{x}.png",
+            Attribution = "&copy; basemap.de / BKG",
+            MaxZoom = 19,
+            Description = "Amtliche Web-Karte der deutschen Vermessungsverwaltungen — dieselbe Grundlage wie in vielen Leitstellen."
+        },
+        new MapLayerDefinition
+        {
+            Id = "basemapde-grau",
+            Title = "basemap.de (grau)",
+            Kind = MapLayerKind.Base,
+            Group = "Amtlich (BKG)",
+            TileUrl = "https://sgx.geodatenzentrum.de/wmts_basemapde/tile/1.0.0/de_basemapde_web_raster_grau/default/GLOBAL_WEBMERCATOR/{z}/{y}/{x}.png",
+            Attribution = "&copy; basemap.de / BKG",
+            MaxZoom = 19,
+            Description = "Zurückhaltende Graustufen — lässt Radar und Warnflächen klar hervortreten."
+        },
+        new MapLayerDefinition
+        {
+            Id = "topplus",
+            Title = "TopPlusOpen (amtlich)",
+            Kind = MapLayerKind.Base,
+            Group = "Amtlich (BKG)",
+            TileUrl = "https://sgx.geodatenzentrum.de/wmts_topplus_open/tile/1.0.0/web/default/WEBMERCATOR/{z}/{y}/{x}.png",
+            Attribution = "&copy; Bundesamt für Kartographie und Geodäsie (TopPlusOpen)",
+            MaxZoom = 18,
+            Description = "Amtliche topographische Karte des BKG mit Gelände und Infrastruktur."
+        },
+        new MapLayerDefinition
+        {
+            Id = "osm-hot",
+            Title = "OSM Humanitarian",
+            Kind = MapLayerKind.Base,
+            Group = "Karte",
+            TileUrl = "https://tile-a.openstreetmap.fr/hot/{z}/{x}/{y}.png",
+            Attribution = "&copy; OpenStreetMap-Mitwirkende, Humanitarian OSM Team",
+            MaxZoom = 19,
+            Description = "Kontrastreicher Stil für Einsatzlagen — betont Wege, Wasser und Infrastruktur."
+        },
+        new MapLayerDefinition
+        {
+            Id = "carto-dark",
+            Title = "Dunkel (nachttauglich)",
+            Kind = MapLayerKind.Base,
+            Group = "Karte",
+            TileUrl = "https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
+            Attribution = "&copy; OpenStreetMap-Mitwirkende, &copy; CARTO",
+            MaxZoom = 19,
+            Description = "Dunkle Karte — blendet nachts im Fahrzeug nicht und hebt farbige Overlays hervor."
+        },
+        new MapLayerDefinition
+        {
             Id = "topo",
             Title = "OpenTopoMap (Gelände)",
             Kind = MapLayerKind.Base,
@@ -243,12 +299,36 @@ public static class MapLayerCatalog
             Id = "seamarks",
             Title = "Gewässer / Seezeichen",
             Kind = MapLayerKind.Overlay,
-            Group = "Gelände",
+            Group = "Infrastruktur",
             TileUrl = "https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png",
             Attribution = "&copy; OpenSeaMap-Mitwirkende",
             Opacity = 0.9,
             MaxZoom = 18,
             Description = "Seezeichen und Wasserinfrastruktur für Einsätze am Wasser."
+        },
+        new MapLayerDefinition
+        {
+            Id = "railway",
+            Title = "Bahnanlagen",
+            Kind = MapLayerKind.Overlay,
+            Group = "Infrastruktur",
+            TileUrl = "https://a.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png",
+            Attribution = "&copy; OpenStreetMap-Mitwirkende, OpenRailwayMap (CC-BY-SA)",
+            Opacity = 0.85,
+            MaxZoom = 19,
+            Description = "Strecken, Betriebsstellen und Kilometrierung — für Bahnunfälle und Zugänge zur Trasse."
+        },
+        new MapLayerDefinition
+        {
+            Id = "hiking",
+            Title = "Wanderwege",
+            Kind = MapLayerKind.Overlay,
+            Group = "Gelände",
+            TileUrl = "https://tile.waymarkedtrails.org/hiking/{z}/{x}/{y}.png",
+            Attribution = "&copy; waymarkedtrails.org, OpenStreetMap-Mitwirkende (CC-BY-SA)",
+            Opacity = 0.8,
+            MaxZoom = 18,
+            Description = "Markierte Wege im Gelände — Anhaltspunkte für Suchmaßnahmen und Zufahrten."
         }
     ];
 

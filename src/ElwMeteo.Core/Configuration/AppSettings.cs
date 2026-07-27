@@ -78,6 +78,9 @@ public sealed class AppSettings
     /// <summary>Draw the grid of wind arrows around the position.</summary>
     public bool ShowWindField { get; set; }
 
+    /// <summary>Animate the wind field as drifting particles.</summary>
+    public bool ShowWindAnimation { get; set; }
+
     /// <summary>Nodes per side of the wind grid (2–9).</summary>
     public int WindFieldGridSize { get; set; } = 5;
 

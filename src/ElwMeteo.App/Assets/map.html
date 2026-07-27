@@ -72,12 +72,32 @@
             border-radius: 5px; padding: 6px 10px; font-size: 11px;
             display: none; max-width: 320px;
         }
+
+        /* Scale for the wind colours, shown whenever a wind layer is on. */
+        .elw-legend {
+            position: absolute; right: 10px; bottom: 26px; z-index: 600;
+            background: rgba(23, 28, 36, .92);
+            border: 1px solid #2c3542; border-radius: 5px;
+            padding: 7px 10px; color: #e6edf3; font-size: 11px;
+            display: none;
+        }
+        .elw-legend .title { color: #93a1b1; margin-bottom: 5px; }
+        .elw-legend .row { display: flex; align-items: center; gap: 7px; line-height: 1.7; }
+        .elw-legend .swatch { width: 22px; height: 4px; border-radius: 2px; }
     </style>
 </head>
 <body>
 <div id="map"></div>
 <div class="elw-banner" id="banner"><span class="muted">Warte auf Daten …</span></div>
 <div class="elw-error" id="error"></div>
+<div class="elw-legend" id="legend">
+    <div class="title">WIND</div>
+    <div class="row"><span class="swatch" style="background:#93a1b1"></span>&lt; 6 km/h</div>
+    <div class="row"><span class="swatch" style="background:#38bdf8"></span>6–20 km/h · 2–3 Bft</div>
+    <div class="row"><span class="swatch" style="background:#f59e0b"></span>20–39 km/h · 4–5 Bft</div>
+    <div class="row"><span class="swatch" style="background:#f97316"></span>39–62 km/h · 6–7 Bft</div>
+    <div class="row"><span class="swatch" style="background:#e63946"></span>&gt; 62 km/h · ab 8 Bft</div>
+</div>
 
 <script>
     "use strict";
@@ -264,12 +284,10 @@
         var layer = L.tileLayer(url, {
             opacity: 0,
             zIndex: 400,
-            // The URL asks for 512 px tiles, so Leaflet has to address them on a
-            // 512 grid. Without tileSize/zoomOffset it computes 256-grid
-            // coordinates and the server answers with an out-of-range error tile.
-            tileSize: 512,
-            zoomOffset: -1,
-            // Radar composites carry no detail beyond this; higher zooms upscale.
+            // Plain 256 px slippy tiles: no tileSize/zoomOffset compensation, so
+            // there is no way for the requested tile coordinates to drift out of
+            // the server's valid range. Above maxNativeZoom Leaflet upscales the
+            // last real level instead of asking for one that does not exist.
             maxNativeZoom: 10,
             maxZoom: 19,
             attribution: 'Radar: <a href="https://www.rainviewer.com/">RainViewer</a>',
@@ -318,8 +336,6 @@
             opacity: opacity,
             // Sits between the base map and the overlays: clouds behind warnings.
             zIndex: 200,
-            tileSize: 512,
-            zoomOffset: -1,
             maxNativeZoom: 8,
             maxZoom: 19,
             attribution: 'Satellit: <a href="https://www.rainviewer.com/">RainViewer</a>',
@@ -365,6 +381,213 @@
             iconAnchor: [23, 23],
             html: '<div style="transform: rotate(' + arrow.downwindDeg + 'deg)">' + svg + "</div>"
         });
+    }
+
+    // ------------------------------------------- animated wind (Windy style)
+
+    // A canvas of particles advected by the interpolated wind grid. Trails are
+    // produced by fading the previous frame rather than clearing it, which is
+    // what gives the streaklines their length.
+    var WindAnimationLayer = L.Layer.extend({
+        initialize: function (grid, options) {
+            this._grid = grid;
+            this._particles = [];
+            this._frame = null;
+            L.setOptions(this, options || {});
+        },
+
+        options: {
+            particleCount: 2200,
+            // Metres travelled per animation frame, per m/s of wind.
+            speedFactor: 14,
+            // Frames before a particle is reseeded, so the field keeps refreshing.
+            maxAge: 90,
+            trailOpacity: 0.92
+        },
+
+        onAdd: function (map) {
+            this._map = map;
+            this._canvas = L.DomUtil.create("canvas", "leaflet-zoom-animated");
+            this._canvas.style.pointerEvents = "none";
+            this._canvas.style.zIndex = 350;
+            map.getPanes().overlayPane.appendChild(this._canvas);
+
+            map.on("moveend", this._reset, this);
+            map.on("zoomstart movestart", this._pause, this);
+            map.on("resize", this._reset, this);
+
+            this._reset();
+            return this;
+        },
+
+        onRemove: function (map) {
+            this._pause();
+            map.off("moveend", this._reset, this);
+            map.off("zoomstart movestart", this._pause, this);
+            map.off("resize", this._reset, this);
+
+            if (this._canvas && this._canvas.parentNode) {
+                this._canvas.parentNode.removeChild(this._canvas);
+            }
+            this._canvas = null;
+            return this;
+        },
+
+        setGrid: function (grid) {
+            this._grid = grid;
+            this._seedAll();
+        },
+
+        _pause: function () {
+            if (this._frame) {
+                L.Util.cancelAnimFrame(this._frame);
+                this._frame = null;
+            }
+        },
+
+        _reset: function () {
+            if (!this._canvas || !this._map) {
+                return;
+            }
+
+            var size = this._map.getSize();
+            var topLeft = this._map.containerPointToLayerPoint([0, 0]);
+
+            L.DomUtil.setPosition(this._canvas, topLeft);
+            this._canvas.width = size.x;
+            this._canvas.height = size.y;
+            this._context = this._canvas.getContext("2d");
+
+            this._seedAll();
+            this._pause();
+            this._frame = L.Util.requestAnimFrame(this._step, this);
+        },
+
+        _seedAll: function () {
+            this._particles = [];
+            if (!this._map) {
+                return;
+            }
+
+            for (var i = 0; i < this.options.particleCount; i++) {
+                this._particles.push(this._seed(Math.floor(Math.random() * this.options.maxAge)));
+            }
+        },
+
+        _seed: function (age) {
+            var size = this._map.getSize();
+            return {
+                x: Math.random() * size.x,
+                y: Math.random() * size.y,
+                age: age || 0
+            };
+        },
+
+        // Bilinear sample of the grid, mirroring WindGrid.Sample on the C# side.
+        _sample: function (lat, lon) {
+            var g = this._grid;
+            var rowSpan = g.north - g.south;
+            var columnSpan = g.east - g.west;
+
+            var row = rowSpan <= 0 ? 0 : (g.north - lat) / rowSpan * (g.size - 1);
+            var column = columnSpan <= 0 ? 0 : (lon - g.west) / columnSpan * (g.size - 1);
+
+            row = Math.max(0, Math.min(g.size - 1, row));
+            column = Math.max(0, Math.min(g.size - 1, column));
+
+            var r0 = Math.floor(row), c0 = Math.floor(column);
+            var r1 = Math.min(r0 + 1, g.size - 1), c1 = Math.min(c0 + 1, g.size - 1);
+            var fr = row - r0, fc = column - c0;
+
+            function at(r, c, arr) { return arr[r * g.size + c]; }
+            function blend(arr) {
+                var top = at(r0, c0, arr) + (at(r0, c1, arr) - at(r0, c0, arr)) * fc;
+                var bottom = at(r1, c0, arr) + (at(r1, c1, arr) - at(r1, c0, arr)) * fc;
+                return top + (bottom - top) * fr;
+            }
+
+            return { u: blend(g.u), v: blend(g.v) };
+        },
+
+        _step: function () {
+            if (!this._context || !this._map || !this._grid) {
+                return;
+            }
+
+            var context = this._context;
+            var size = this._map.getSize();
+
+            // Fade instead of clear: this is what leaves the trails behind.
+            context.globalCompositeOperation = "destination-in";
+            context.fillStyle = "rgba(0, 0, 0, " + this.options.trailOpacity + ")";
+            context.fillRect(0, 0, size.x, size.y);
+            context.globalCompositeOperation = "source-over";
+
+            context.lineWidth = 1.4;
+            context.lineCap = "round";
+
+            // Metres per pixel at this latitude and zoom, so the drawn speed
+            // matches the real wind however far the map is zoomed in.
+            var centre = this._map.getCenter();
+            var metresPerPixel = 40075016.686 * Math.abs(Math.cos(centre.lat * Math.PI / 180)) /
+                Math.pow(2, this._map.getZoom() + 8);
+
+            for (var i = 0; i < this._particles.length; i++) {
+                var particle = this._particles[i];
+
+                if (particle.age > this.options.maxAge) {
+                    this._particles[i] = this._seed(0);
+                    continue;
+                }
+
+                var latlng = this._map.containerPointToLatLng([particle.x, particle.y]);
+                var wind = this._sample(latlng.lat, latlng.lng);
+                var speed = Math.sqrt(wind.u * wind.u + wind.v * wind.v);
+
+                // Screen y grows downwards, so the northward component is negated.
+                var dx = wind.u * this.options.speedFactor / metresPerPixel;
+                var dy = -wind.v * this.options.speedFactor / metresPerPixel;
+
+                var nextX = particle.x + dx;
+                var nextY = particle.y + dy;
+
+                if (nextX < 0 || nextX > size.x || nextY < 0 || nextY > size.y) {
+                    this._particles[i] = this._seed(0);
+                    continue;
+                }
+
+                context.strokeStyle = windColour(speed);
+                context.beginPath();
+                context.moveTo(particle.x, particle.y);
+                context.lineTo(nextX, nextY);
+                context.stroke();
+
+                particle.x = nextX;
+                particle.y = nextY;
+                particle.age += 1;
+            }
+
+            this._frame = L.Util.requestAnimFrame(this._step, this);
+        }
+    });
+
+    var windAnimation = null;
+
+    function applyWindAnimation(grid) {
+        if (!grid || !grid.u || grid.size < 2) {
+            if (windAnimation) {
+                map.removeLayer(windAnimation);
+                windAnimation = null;
+            }
+            return;
+        }
+
+        if (!windAnimation) {
+            windAnimation = new WindAnimationLayer(grid);
+            windAnimation.addTo(map);
+        } else {
+            windAnimation.setGrid(grid);
+        }
     }
 
     function applyWindField(arrows) {
@@ -540,6 +763,12 @@
                 applySatellite(state.satelliteTileUrl, state.satelliteOpacity);
                 applyRadar(state.radarTileUrl, state.radarOpacity);
                 applyWindField(state.windArrows);
+                applyWindAnimation(state.windGrid);
+
+                // The colour scale is only meaningful while a wind layer is on.
+                var windVisible = (state.windArrows && state.windArrows.length > 0) ||
+                    (state.windGrid && state.windGrid.size >= 2);
+                document.getElementById("legend").style.display = windVisible ? "block" : "none";
                 applyMarker(state.marker);
                 applyHazard(state.hazard);
                 updateBanner(state);

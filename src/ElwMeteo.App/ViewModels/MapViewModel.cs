@@ -94,6 +94,8 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
                 BaseLayers.Add(definition);
             }
 
+            ApplyLayerFilter();
+
             SelectedBaseLayer = BaseLayers.FirstOrDefault(l => l.Id == settings.SelectedBaseLayerId)
                                 ?? BaseLayers.FirstOrDefault();
 
@@ -106,6 +108,7 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
             ShowSnow = settings.RadarShowSnow;
             ShowSatellite = settings.ShowSatellite;
             ShowWindField = settings.ShowWindField;
+            ShowWindAnimation = settings.ShowWindAnimation;
             WindFieldGridSize = settings.WindFieldGridSize;
             WindFieldSpacingMetres = settings.WindFieldSpacingMetres;
         }
@@ -119,6 +122,13 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
     public event Action<string>? StateChanged;
 
     public ObservableCollection<LayerToggle> Overlays { get; } = [];
+
+    /// <summary>Overlays narrowed by <see cref="LayerFilter"/>; the panel binds to this.</summary>
+    public ObservableCollection<LayerToggle> VisibleOverlays { get; } = [];
+
+    /// <summary>Free-text filter over overlay title, group and description.</summary>
+    [ObservableProperty]
+    private string _layerFilter = string.Empty;
 
     public ObservableCollection<MapLayerDefinition> BaseLayers { get; } = [];
 
@@ -192,6 +202,10 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private bool _showWindField;
 
+    /// <summary>Windy-style particle animation driven by the same grid.</summary>
+    [ObservableProperty]
+    private bool _showWindAnimation;
+
     /// <summary>Nodes per side of the wind grid.</summary>
     [ObservableProperty]
     private int _windFieldGridSize = 5;
@@ -237,6 +251,34 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
         PushState();
     }
 
+    partial void OnLayerFilterChanged(string value) => ApplyLayerFilter();
+
+    /// <summary>
+    /// Narrows the overlay list. Matching on group and description too means
+    /// "wind", "brand" or "warn" find the right layers without knowing their names.
+    /// </summary>
+    private void ApplyLayerFilter()
+    {
+        string needle = LayerFilter.Trim();
+
+        VisibleOverlays.Clear();
+        foreach (LayerToggle toggle in Overlays)
+        {
+            bool matches = needle.Length == 0 ||
+                Contains(toggle.Title, needle) ||
+                Contains(toggle.Group, needle) ||
+                Contains(toggle.Description, needle);
+
+            if (matches)
+            {
+                VisibleOverlays.Add(toggle);
+            }
+        }
+
+        static bool Contains(string? haystack, string needle) =>
+            haystack is not null && haystack.Contains(needle, StringComparison.CurrentCultureIgnoreCase);
+    }
+
     partial void OnShowRadarChanged(bool value) => PushState();
 
     partial void OnRadarOpacityChanged(double value) => PushState();
@@ -270,6 +312,19 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
     partial void OnShowWindFieldChanged(bool value)
     {
         _settings.ShowWindField = value;
+
+        if (value && _windField.IsEmpty)
+        {
+            _ = RefreshWindFieldCommand.ExecuteAsync(null);
+            return;
+        }
+
+        PushState();
+    }
+
+    partial void OnShowWindAnimationChanged(bool value)
+    {
+        _settings.ShowWindAnimation = value;
 
         if (value && _windField.IsEmpty)
         {
@@ -400,6 +455,19 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
             IsWindFieldLoading = false;
         }
     }
+
+    /// <summary>Turns every overlay off — the fastest way back to a clean map.</summary>
+    [RelayCommand]
+    private void ClearOverlays()
+    {
+        foreach (LayerToggle toggle in Overlays)
+        {
+            toggle.IsEnabled = false;
+        }
+    }
+
+    [RelayCommand]
+    private void ResetLayerFilter() => LayerFilter = string.Empty;
 
     [RelayCommand]
     private void ClearClickedPoint()
@@ -612,6 +680,16 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
             }
         }
 
+        // The animation needs the field as a regular grid of components; the
+        // arrows need it as discrete points. Both come from the same fetch.
+        WindGridState? windGrid = null;
+        if (ShowWindAnimation && _windField.ToGrid() is { } grid)
+        {
+            windGrid = new WindGridState(
+                grid.Size, grid.North, grid.South, grid.West, grid.East,
+                grid.U, grid.V, grid.MaxSpeedMs);
+        }
+
         var windArrows = new List<WindArrowState>();
         if (ShowWindField)
         {
@@ -672,6 +750,7 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
             satelliteTileUrl,
             SatelliteOpacity,
             windArrows,
+            windGrid,
             marker,
             hazard,
             recentre,
@@ -689,10 +768,21 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
         string? SatelliteTileUrl,
         double SatelliteOpacity,
         IReadOnlyList<WindArrowState> WindArrows,
+        WindGridState? WindGrid,
         MarkerState? Marker,
         HazardState? Hazard,
         bool Recentre,
         double Zoom);
+
+    private sealed record WindGridState(
+        int Size,
+        double North,
+        double South,
+        double West,
+        double East,
+        double[] U,
+        double[] V,
+        double MaxSpeedMs);
 
     private sealed record WindArrowState(
         double Latitude,
