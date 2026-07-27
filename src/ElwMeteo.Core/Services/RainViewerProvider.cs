@@ -21,19 +21,43 @@ public sealed record RadarFrame(DateTimeOffset Time, string Path, bool IsForecas
     }
 }
 
+/// <summary>One of RainViewer's radar colour ramps.</summary>
+public sealed record RadarColourScheme(int Id, string Title);
+
 /// <summary>The animation timeline: observed frames followed by the nowcast.</summary>
-public sealed record RadarTimeline(string TileHost, IReadOnlyList<RadarFrame> Frames)
+public sealed record RadarTimeline(
+    string TileHost,
+    IReadOnlyList<RadarFrame> Frames,
+    IReadOnlyList<RadarFrame> SatelliteFrames)
 {
-    public static RadarTimeline Empty { get; } = new(string.Empty, []);
+    public static RadarTimeline Empty { get; } = new(string.Empty, [], []);
 
     public IEnumerable<RadarFrame> Past => Frames.Where(f => !f.IsForecast);
 
     public IEnumerable<RadarFrame> Forecast => Frames.Where(f => f.IsForecast);
 
     /// <summary>
+    /// The colour ramps RainViewer publishes. "Universal Blue" is the default
+    /// because it stays readable over both the light and the dark base maps.
+    /// </summary>
+    public static IReadOnlyList<RadarColourScheme> ColourSchemes { get; } =
+    [
+        new(0, "Schwarz-Weiß"),
+        new(1, "Original"),
+        new(2, "Universal Blue"),
+        new(3, "TITAN"),
+        new(4, "Weather Channel"),
+        new(5, "Meteored"),
+        new(6, "NEXRAD Level III"),
+        new(7, "Rainbow SELEX-SI"),
+        new(8, "Dark Sky")
+    ];
+
+    /// <summary>
     /// Tile URL template for a frame, with {z}/{x}/{y} left in place for Leaflet.
     /// </summary>
-    /// <param name="colourScheme">RainViewer colour scheme id; 4 is the "Universal Blue" ramp.</param>
+    /// <param name="frame">Frame to render.</param>
+    /// <param name="colourScheme">RainViewer colour scheme id.</param>
     /// <param name="smooth">Interpolate between radar pixels.</param>
     /// <param name="showSnow">Render snow in a separate colour.</param>
     public string TileUrlTemplate(RadarFrame frame, int colourScheme = 4, bool smooth = true, bool showSnow = true)
@@ -41,6 +65,27 @@ public sealed record RadarTimeline(string TileHost, IReadOnlyList<RadarFrame> Fr
         int smoothFlag = smooth ? 1 : 0;
         int snowFlag = showSnow ? 1 : 0;
         return $"{TileHost}{frame.Path}/512/{{z}}/{{x}}/{{y}}/{colourScheme}/{smoothFlag}_{snowFlag}.png";
+    }
+
+    /// <summary>
+    /// Infrared satellite tiles. These are cloud-top temperatures, so unlike the
+    /// radar they still show the cloud field at night and over gaps in radar
+    /// coverage. Colour scheme 0 is the only one defined for satellite.
+    /// </summary>
+    public string SatelliteTileUrlTemplate(RadarFrame frame) =>
+        $"{TileHost}{frame.Path}/512/{{z}}/{{x}}/{{y}}/0/0_0.png";
+
+    /// <summary>Satellite frame closest in time to a radar frame, for a synchronised loop.</summary>
+    public RadarFrame? SatelliteFrameNear(DateTimeOffset time)
+    {
+        if (SatelliteFrames.Count == 0)
+        {
+            return null;
+        }
+
+        return SatelliteFrames
+            .OrderBy(frame => Math.Abs((frame.Time - time).TotalSeconds))
+            .First();
     }
 }
 
@@ -75,16 +120,30 @@ public sealed class RainViewerProvider(HttpClient httpClient)
             ? hostElement.GetString() ?? string.Empty
             : string.Empty;
 
-        if (!root.TryGetProperty("radar", out JsonElement radar))
+        var frames = new List<RadarFrame>();
+        var satellite = new List<RadarFrame>();
+
+        if (root.TryGetProperty("radar", out JsonElement radar))
+        {
+            Collect(radar, "past", isForecast: false, frames);
+            Collect(radar, "nowcast", isForecast: true, frames);
+        }
+
+        // Infrared satellite is published alongside the radar in the same index.
+        if (root.TryGetProperty("satellite", out JsonElement satelliteBlock))
+        {
+            Collect(satelliteBlock, "infrared", isForecast: false, satellite);
+        }
+
+        if (frames.Count == 0 && satellite.Count == 0)
         {
             return RadarTimeline.Empty;
         }
 
-        var frames = new List<RadarFrame>();
-        Collect(radar, "past", isForecast: false, frames);
-        Collect(radar, "nowcast", isForecast: true, frames);
-
-        return new RadarTimeline(host, frames.OrderBy(f => f.Time).ToList());
+        return new RadarTimeline(
+            host,
+            frames.OrderBy(f => f.Time).ToList(),
+            satellite.OrderBy(f => f.Time).ToList());
 
         static void Collect(JsonElement radar, string property, bool isForecast, List<RadarFrame> target)
         {

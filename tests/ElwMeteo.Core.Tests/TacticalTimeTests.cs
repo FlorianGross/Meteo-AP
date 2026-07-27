@@ -67,15 +67,5 @@ public class TacticalTimeTests
         Assert.Contains(expected, TacticalTime.FormatZulu(instant));
     }
 
-    [Fact]
-    public void FormatElapsed_DoesNotRollOverAfterOneDay()
-    {
-        Assert.Equal("26:03:04", TacticalTime.FormatElapsed(new TimeSpan(1, 2, 3, 4)));
-    }
 
-    [Fact]
-    public void FormatElapsed_ClampsNegativeToZero()
-    {
-        Assert.Equal("0:00:00", TacticalTime.FormatElapsed(TimeSpan.FromSeconds(-30)));
-    }
 }

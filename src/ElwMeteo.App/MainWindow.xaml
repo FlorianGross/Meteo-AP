@@ -70,25 +70,21 @@
                                Foreground="{StaticResource MutedBrush}" />
                 </StackPanel>
 
-                <!-- operation stopwatch -->
-                <StackPanel Grid.Column="3">
-                    <TextBlock Text="EINSATZDAUER" Style="{StaticResource LabelText}" />
-                    <TextBlock Text="{Binding Clock.OperationElapsed}"
-                               FontFamily="{StaticResource MonoFont}"
-                               FontSize="30" FontWeight="Bold"
-                               Foreground="{StaticResource CautionBrush}" />
-                    <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                        <Button Content="{Binding Clock.OperationButtonLabel}"
-                                Command="{Binding Clock.ToggleOperationCommand}"
-                                Padding="10,3" FontSize="11" MinWidth="58" />
-                        <Button Content="Zurücksetzen"
-                                Command="{Binding Clock.ResetOperationCommand}"
-                                Padding="10,3" FontSize="11" Margin="6,0,0,0" />
-                    </StackPanel>
-                    <TextBlock Style="{StaticResource LabelText}" Margin="0,3,0,0">
-                        <Run Text="Beginn: " />
-                        <Run Text="{Binding Clock.OperationStartLabel, Mode=OneWay}" />
-                    </TextBlock>
+                <!-- wind development, permanently visible because it moves the plume -->
+                <StackPanel Grid.Column="3" MaxWidth="330">
+                    <TextBlock Text="WINDENTWICKLUNG (6 H)" Style="{StaticResource LabelText}" />
+                    <TextBlock Text="{Binding Dashboard.WindShiftHeadline}"
+                               FontSize="17" FontWeight="Bold"
+                               TextTrimming="CharacterEllipsis"
+                               Foreground="{Binding Dashboard.WindShiftBrush}" />
+                    <TextBlock Text="{Binding Dashboard.WindShiftDetail}"
+                               Style="{StaticResource LabelText}"
+                               FontWeight="Normal"
+                               TextWrapping="Wrap" />
+                    <TextBlock Text="{Binding Dashboard.GustPeakLabel}"
+                               Style="{StaticResource LabelText}"
+                               FontWeight="Normal"
+                               Margin="0,3,0,0" />
                 </StackPanel>
 
                 <!-- right-hand controls -->

@@ -243,6 +243,65 @@ public class RainViewerParsingTests
     }
 
     [Fact]
+    public void Parse_ReadsInfraredSatelliteFrames()
+    {
+        using var document = JsonDocument.Parse("""
+        {
+          "host": "https://tilecache.rainviewer.com",
+          "radar": {"past": [{"time": 1769510400, "path": "/v2/radar/1769510400"}]},
+          "satellite": {"infrared": [
+            {"time": 1769510100, "path": "/v2/satellite/a"},
+            {"time": 1769510700, "path": "/v2/satellite/b"}
+          ]}
+        }
+        """);
+
+        var timeline = RainViewerProvider.Parse(document.RootElement);
+
+        Assert.Single(timeline.Frames);
+        Assert.Equal(2, timeline.SatelliteFrames.Count);
+    }
+
+    [Fact]
+    public void SatelliteFrameNear_PicksTheClosestFrameInTime()
+    {
+        var timeline = new RadarTimeline(
+            "https://h",
+            [],
+            [
+                new RadarFrame(DateTimeOffset.UnixEpoch.AddMinutes(0), "/a", false),
+                new RadarFrame(DateTimeOffset.UnixEpoch.AddMinutes(30), "/b", false)
+            ]);
+
+        Assert.Equal("/a", timeline.SatelliteFrameNear(DateTimeOffset.UnixEpoch.AddMinutes(10))!.Path);
+        Assert.Equal("/b", timeline.SatelliteFrameNear(DateTimeOffset.UnixEpoch.AddMinutes(20))!.Path);
+    }
+
+    [Fact]
+    public void SatelliteFrameNear_ReturnsNullWithoutSatelliteData()
+    {
+        Assert.Null(RadarTimeline.Empty.SatelliteFrameNear(DateTimeOffset.UnixEpoch));
+    }
+
+    [Fact]
+    public void SatelliteTileUrlTemplate_UsesTheSatelliteColourScheme()
+    {
+        var timeline = new RadarTimeline("https://h", [],
+            [new RadarFrame(DateTimeOffset.UnixEpoch, "/v2/satellite/a", false)]);
+
+        Assert.Equal(
+            "https://h/v2/satellite/a/512/{z}/{x}/{y}/0/0_0.png",
+            timeline.SatelliteTileUrlTemplate(timeline.SatelliteFrames[0]));
+    }
+
+    [Fact]
+    public void ColourSchemes_CoverTheRainViewerRange()
+    {
+        Assert.Equal(9, RadarTimeline.ColourSchemes.Count);
+        Assert.Equal(Enumerable.Range(0, 9), RadarTimeline.ColourSchemes.Select(s => s.Id));
+    }
+
+    [Fact]
     public void Parse_SkipsMalformedFrames()
     {
         using var document = JsonDocument.Parse("""

@@ -84,10 +84,14 @@
 
     // ---------------------------------------------------------------- setup
 
+    // Explicit zoom limits: without them the map inherits its range from whatever
+    // layers happen to be on, which lets the user zoom past what a source serves.
     var map = L.map("map", {
         zoomControl: true,
         attributionControl: true,
-        preferCanvas: true
+        preferCanvas: true,
+        minZoom: 3,
+        maxZoom: 19
     }).setView([50.1109, 8.6821], 11);
 
     L.control.scale({ imperial: false, metric: true, position: "bottomleft" }).addTo(map);
@@ -102,6 +106,10 @@
     var radarUrl = null;
     var radarOpacity = 0.75;
 
+    var satelliteLayer = null;
+    var satelliteUrl = null;
+
+    var windLayerGroup = null;
     var hazardLayers = [];
     var positionMarker = null;
     var initialised = false;
@@ -114,6 +122,31 @@
         }
         element.textContent = message;
         element.style.display = "block";
+    }
+
+    /// Reports a failing source by name instead of leaving an error tile on screen.
+    var failedLayers = {};
+
+    function watchTileErrors(layer, title) {
+        layer.on("tileerror", function () {
+            if (failedLayers[title]) {
+                return;
+            }
+
+            failedLayers[title] = true;
+            showError("Kacheln nicht ladbar: " + title +
+                " — Layer ausschalten oder Netzverbindung prüfen.");
+            post({ type: "layerError", title: title });
+        });
+
+        layer.on("load", function () {
+            if (failedLayers[title]) {
+                delete failedLayers[title];
+                if (Object.keys(failedLayers).length === 0) {
+                    showError(null);
+                }
+            }
+        });
     }
 
     function post(payload) {
@@ -175,6 +208,7 @@
                 if (!layer) {
                     return;
                 }
+                watchTileErrors(layer, spec.title);
                 layers[spec.id] = layer;
             }
 
@@ -230,7 +264,13 @@
         var layer = L.tileLayer(url, {
             opacity: 0,
             zIndex: 400,
-            maxNativeZoom: 12,
+            // The URL asks for 512 px tiles, so Leaflet has to address them on a
+            // 512 grid. Without tileSize/zoomOffset it computes 256-grid
+            // coordinates and the server answers with an out-of-range error tile.
+            tileSize: 512,
+            zoomOffset: -1,
+            // Radar composites carry no detail beyond this; higher zooms upscale.
+            maxNativeZoom: 10,
             maxZoom: 19,
             attribution: 'Radar: <a href="https://www.rainviewer.com/">RainViewer</a>',
             crossOrigin: true
@@ -252,6 +292,110 @@
 
         radarSlots[next] = layer;
         radarSlot = next;
+    }
+
+    // ---------------------------------------------------------- satellite
+
+    function applySatellite(url, opacity) {
+        if (!url) {
+            if (satelliteLayer && map.hasLayer(satelliteLayer)) {
+                map.removeLayer(satelliteLayer);
+            }
+            satelliteLayer = null;
+            satelliteUrl = null;
+            return;
+        }
+
+        if (url === satelliteUrl && satelliteLayer) {
+            satelliteLayer.setOpacity(opacity);
+            return;
+        }
+
+        var previous = satelliteLayer;
+        satelliteUrl = url;
+
+        satelliteLayer = L.tileLayer(url, {
+            opacity: opacity,
+            // Sits between the base map and the overlays: clouds behind warnings.
+            zIndex: 200,
+            tileSize: 512,
+            zoomOffset: -1,
+            maxNativeZoom: 8,
+            maxZoom: 19,
+            attribution: 'Satellit: <a href="https://www.rainviewer.com/">RainViewer</a>',
+            crossOrigin: true
+        });
+
+        satelliteLayer.on("load", function () {
+            if (previous && map.hasLayer(previous)) {
+                map.removeLayer(previous);
+            }
+        });
+
+        satelliteLayer.addTo(map);
+    }
+
+    // --------------------------------------------------------- wind field
+
+    // Arrow length and colour both grow with wind speed, so the pattern of the
+    // flow reads at a glance without having to look at the numbers.
+    function windColour(speedMs) {
+        if (speedMs >= 17.2) { return "#e63946"; }   // 8 Bft and up
+        if (speedMs >= 10.8) { return "#f97316"; }   // 6 Bft
+        if (speedMs >= 5.5) { return "#f59e0b"; }    // 4 Bft
+        if (speedMs >= 1.6) { return "#38bdf8"; }
+        return "#93a1b1";
+    }
+
+    function windGridIcon(arrow) {
+        var length = Math.min(30, 11 + arrow.speedMs * 1.6);
+        var colour = windColour(arrow.speedMs);
+
+        var svg =
+            '<svg width="46" height="46" viewBox="-23 -23 46 46">' +
+            '<line x1="0" y1="' + (length / 2) + '" x2="0" y2="' + (-length / 2 + 5) + '" ' +
+            'stroke="' + colour + '" stroke-width="2.5" stroke-linecap="round"/>' +
+            '<path d="M 0,' + (-length / 2) + ' L 5.5,' + (-length / 2 + 8) +
+            ' L -5.5,' + (-length / 2 + 8) + ' Z" fill="' + colour + '"/>' +
+            "</svg>";
+
+        return L.divIcon({
+            className: "",
+            iconSize: [46, 46],
+            iconAnchor: [23, 23],
+            html: '<div style="transform: rotate(' + arrow.downwindDeg + 'deg)">' + svg + "</div>"
+        });
+    }
+
+    function applyWindField(arrows) {
+        if (windLayerGroup) {
+            map.removeLayer(windLayerGroup);
+            windLayerGroup = null;
+        }
+
+        if (!arrows || arrows.length === 0) {
+            return;
+        }
+
+        var markers = arrows.map(function (arrow) {
+            var marker = L.marker([arrow.latitude, arrow.longitude], {
+                icon: windGridIcon(arrow),
+                interactive: true,
+                keyboard: false
+            });
+
+            var text = "Wind aus <b>" + arrow.fromCompass + "</b><br>" +
+                Math.round(arrow.speedKmh) + " km/h";
+
+            if (typeof arrow.gustKmh === "number") {
+                text += "<br>Böen " + Math.round(arrow.gustKmh) + " km/h";
+            }
+
+            marker.bindTooltip(text, { direction: "top", opacity: 0.95 });
+            return marker;
+        });
+
+        windLayerGroup = L.layerGroup(markers).addTo(map);
     }
 
     // ------------------------------------------------------------- markers
@@ -393,7 +537,9 @@
                 var state = typeof json === "string" ? JSON.parse(json) : json;
 
                 applyLayers(state.layers || []);
+                applySatellite(state.satelliteTileUrl, state.satelliteOpacity);
                 applyRadar(state.radarTileUrl, state.radarOpacity);
+                applyWindField(state.windArrows);
                 applyMarker(state.marker);
                 applyHazard(state.hazard);
                 updateBanner(state);

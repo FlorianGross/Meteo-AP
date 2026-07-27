@@ -20,7 +20,7 @@ Windows-Desktop, C# / .NET 8, WPF.
 | Taktische Zeit | `271347BJUL26` | Date-Time-Group nach NATO/BOS |
 | Taktische Zeit Zulu | `271147ZJUL26` | dieselbe Zeit in UTC |
 | UTC | `11:47:12` | für überregionale Abstimmung |
-| Einsatzdauer | `2:13:05` | Stoppuhr ab Einsatzbeginn, mit Start/Stopp und Beginnzeitstempel |
+| Windentwicklung | `dreht rechtsdrehend → NW` | Winddreher und Böenspitze der nächsten 6 h, dauerhaft im Blick |
 
 Die taktische Zeit folgt dem Muster `TTHHMM<Z>MMMJJ` — Tag, Stunde, Minute,
 militärischer Zonenbuchstabe, englischer Monat, Jahr. Deutschland liegt im
@@ -99,8 +99,23 @@ Leaflet-Karte in einem WebView2-Steuerelement.
 auf „jetzt“, einstellbare Deckkraft. Beim Bildwechsel wird das neue Bild erst
 eingeblendet, wenn seine Kacheln geladen sind — kein Flackern.
 
+Farbschema der Radarbilder ist wählbar (neun RainViewer-Rampen), Schnee lässt
+sich getrennt einfärben und die Kantenglättung abschalten.
+
+**Satellitenbild (Infrarot).** Wolkenoberflächen-Temperaturen, synchron zur
+Radar-Zeitleiste. Zeigt das Wolkenfeld auch nachts und außerhalb der
+Radarreichweite, wo das Niederschlagsradar nichts liefert.
+
+**Windfeld.** Ein Gitter aus Windpfeilen rund um die Einsatzstelle, in einer
+einzigen Abfrage geholt. Größe (3×3 bis 9×9) und Punktabstand (0,5–10 km) sind
+einstellbar; Länge und Farbe der Pfeile skalieren mit der Windgeschwindigkeit,
+der Tooltip zeigt Richtung, Geschwindigkeit und Böen. Weicht die Strömung im
+Umfeld stark ab, meldet die Anwendung die Richtungsspreizung und weist darauf
+hin, dass das Gelände die Ausbreitung steuert und der Kegel aus dem einzelnen
+Messwert am Fahrzeug zu kurz greift.
+
 **Grundkarten:** OpenStreetMap, OpenStreetMap.de, OpenTopoMap (Höhenlinien),
-CyclOSM (betont Wirtschaftswege und Pfade).
+CyclOSM (betont Wirtschaftswege und Pfade), Luftbild (Esri).
 
 **Overlays**, nach Thema gruppiert:
 
@@ -111,7 +126,7 @@ CyclOSM (betont Wirtschaftswege und Pfade).
 | Vegetationsbrand | Waldbrandgefahrenindex, Graslandfeuerindex |
 | Belastung | Gefühlte Temperatur |
 | Wind | Windböen (ICON) |
-| Gelände | Schummerung (Relief), Gewässer / Seezeichen |
+| Gelände | Schummerung (Relief, Esri), Gewässer / Seezeichen |
 
 **Ausbreitungskegel.** Aus Windrichtung und Ausbreitungsklasse wird ein
 Gefahrenbereich in die Karte gezeichnet: ein roter Innenkreis (Vorgabe 50 m
@@ -120,8 +135,13 @@ folgt der Stabilität — labile Schichtung streut breit, stabile Schichtung zie
 eine schmale, weit reichende Fahne. Reichweite ist frei einstellbar oder folgt
 dem Richtwert der Klasse.
 
-**Klick in die Karte** liefert Koordinaten in Grad/Dezimalminuten sowie
-Entfernung und Peilung zum eigenen Standort.
+**Klick in die Karte** liefert Koordinaten in Grad/Dezimalminuten, Entfernung
+und Peilung zum eigenen Standort — und ruft zusätzlich das **Wetter genau an
+diesem Punkt** ab. Damit lässt sich ein Bereitstellungsraum oder ein
+Evakuierungsziel prüfen, bevor man ihn festlegt.
+
+Schlägt eine Kachelquelle fehl, nennt die Karte den betroffenen Layer im
+Klartext, statt eine Fehlerkachel stehen zu lassen.
 
 ### Registerkarte 3 — Einstellungen
 
@@ -185,6 +205,28 @@ dotnet test
 
 ---
 
+## CI/CD
+
+Drei GitHub-Actions-Abläufe:
+
+| Ablauf | Auslöser | Was er tut |
+|---|---|---|
+| `build.yml` | jeder Push und Pull Request | Baut und testet auf `windows-latest`, veröffentlicht das Ergebnis als Artefakt (30 Tage). Ein zweiter Job baut die Fachlogik auf `ubuntu-latest` — schlägt er fehl, ist eine WPF-Abhängigkeit nach `ElwMeteo.Core` gelangt. Ein dritter Job prüft die Codeformatierung, aber nur beratend (`continue-on-error`), damit eine Stilfrage nie eine Korrektur aufhält. |
+| `release.yml` | Tag `v*` oder manuell | Testet, baut zwei Pakete — eines für Rechner mit installierter .NET-8-Desktop-Runtime, eines standalone mit mitgelieferter Runtime — und legt ein GitHub-Release mit beiden ZIPs und automatischen Release Notes an. |
+| `dependabot.yml` | monatlich | Aktualisiert NuGet-Pakete und Actions; Testwerkzeuge werden zu einem Pull Request gebündelt. |
+
+Release schneiden:
+
+```powershell
+git tag -a v1.1.0 -m "ELW-Meteo 1.1.0"
+git push origin v1.1.0
+```
+
+NuGet-Pakete werden zwischen Läufen gecacht, die Testergebnisse als `.trx`
+hochgeladen.
+
+---
+
 ## Projektaufbau
 
 ```
@@ -222,7 +264,8 @@ veröffentlichte Almanachwerte für Frankfurt am Main geprüft.
 |---|---|---|
 | Messwerte, Nowcast, Vorhersage | [Open-Meteo](https://open-meteo.com) (ICON des DWD) | CC BY 4.0, kein Schlüssel nötig |
 | Amtliche Warnungen, Fachkarten | [DWD GeoServer](https://maps.dwd.de) | Open Data nach GeoNutzV |
-| Radarbilder und Nowcast-Kacheln | [RainViewer](https://www.rainviewer.com/) | kostenfreie öffentliche API |
+| Radarbilder, Nowcast und Infrarot-Satellit | [RainViewer](https://www.rainviewer.com/) | kostenfreie öffentliche API |
+| Luftbild und Reliefschummerung | Esri / ArcGIS Online | kostenfrei mit Quellenangabe |
 | Kartengrundlage | OpenStreetMap, OpenTopoMap | ODbL bzw. CC BY-SA |
 | Adressauflösung | Nominatim | Nutzungsrichtlinie, identifizierender User-Agent gesetzt |
 
@@ -236,7 +279,7 @@ liegen dort als Daten, nicht im Kartencode.
 
 ### Offline-Betrieb
 
-Ohne Netz laufen Uhr, taktische Zeit, Einsatzdauer, Sonnenstand und Mondphase
+Ohne Netz laufen Uhr, taktische Zeit, Sonnenstand und Mondphase
 unverändert weiter; die Wetterdaten bleiben mit sichtbarer Altersangabe stehen
 und werden nach 20 Minuten als veraltet markiert. Karte und Radar brauchen
 zwingend eine Verbindung.

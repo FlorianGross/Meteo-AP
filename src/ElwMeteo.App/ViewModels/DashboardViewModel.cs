@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using System.IO;
 using System.Windows;
+using System.Windows.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ElwMeteo.App.Services;
@@ -18,6 +19,22 @@ namespace ElwMeteo.App.ViewModels;
 public sealed record NowcastBar(string TimeLabel, double PrecipitationMm, double BarHeight, bool IsNow)
 {
     public string IntensityLabel => PrecipitationMm <= 0 ? "" : $"{PrecipitationMm * 4:F1}";
+}
+
+/// <summary>One hour of the wind forecast strip: speed bar, gust cap and an arrow.</summary>
+public sealed record WindForecastBar(
+    string TimeLabel,
+    double SpeedKmh,
+    double GustKmh,
+    double SpeedBarHeight,
+    double GustBarHeight,
+    double ArrowAngle,
+    string Compass,
+    bool IsShiftPoint)
+{
+    public string SpeedLabel => $"{SpeedKmh:F0}";
+
+    public string GustLabel => GustKmh >= SpeedKmh + 5 ? $"{GustKmh:F0}" : string.Empty;
 }
 
 /// <summary>Tab 1 — clock, position and the meteorological picture at that position.</summary>
@@ -196,6 +213,23 @@ public sealed partial class DashboardViewModel : ObservableObject
 
     [ObservableProperty]
     private string _nowcastSummary = "—";
+
+    // -------------------------------------------------------- wind outlook
+
+    [ObservableProperty]
+    private string _windShiftHeadline = "—";
+
+    [ObservableProperty]
+    private string _windShiftDetail = string.Empty;
+
+    [ObservableProperty]
+    private string _gustPeakLabel = string.Empty;
+
+    /// <summary>Colours the header entry: red for a big turn, amber for a small one.</summary>
+    [ObservableProperty]
+    private Brush _windShiftBrush = Brushes.Gray;
+
+    public ObservableCollection<WindForecastBar> WindForecast { get; } = [];
 
     public ObservableCollection<NowcastBar> NowcastBars { get; } = [];
 
@@ -478,9 +512,13 @@ public sealed partial class DashboardViewModel : ObservableObject
                         $"{a.SolarPosition.AzimuthDeg.ToString("F0", German)}° Azimut";
         Moon = $"{a.Moon.Name} · {a.Moon.IlluminatedPercent} % beleuchtet";
 
+        // -- wind outlook
+        ApplyWindOutlook(a, now);
+
         // -- nowcast
         NowcastSummary = a.Outlook.Summary;
         BuildNowcastBars(a, now);
+        BuildWindForecast(a, now);
 
         // -- hints
         Hints.Clear();
@@ -490,6 +528,64 @@ public sealed partial class DashboardViewModel : ObservableObject
         }
 
         UpdateAge(now);
+    }
+
+    private void ApplyWindOutlook(TacticalAssessment a, DateTimeOffset now)
+    {
+        if (a.WindShift is { } shift)
+        {
+            WindShiftHeadline = $"dreht {shift.DirectionLabel} → {WindScale.CompassPoint(shift.ToDeg)}";
+            WindShiftDetail = shift.Describe(now);
+            WindShiftBrush = shift.AbsoluteDeltaDeg >= 90
+                ? new SolidColorBrush(Color.FromRgb(0xE6, 0x39, 0x46))
+                : new SolidColorBrush(Color.FromRgb(0xF5, 0x9E, 0x0B));
+        }
+        else
+        {
+            WindShiftHeadline = "richtungsstabil";
+            WindShiftDetail = "Keine relevante Winddrehung in den nächsten 6 Stunden erwartet.";
+            WindShiftBrush = new SolidColorBrush(Color.FromRgb(0x22, 0xC5, 0x5E));
+        }
+
+        GustPeakLabel = a.GustPeak is { } peak ? peak.Describe(now) : string.Empty;
+    }
+
+    /// <summary>Hourly wind bars for the next half day, marking the shift point.</summary>
+    private void BuildWindForecast(TacticalAssessment a, DateTimeOffset now)
+    {
+        WindForecast.Clear();
+
+        var steps = a.Snapshot.Hourly
+            .Where(h => h.Time >= now.AddHours(-1) && h.Time <= now.AddHours(12))
+            .OrderBy(h => h.Time)
+            .ToList();
+
+        if (steps.Count == 0)
+        {
+            return;
+        }
+
+        // Scale both bars against the strongest gust so the pair stays comparable.
+        double peak = Math.Max(2.0, steps.Max(h => Math.Max(h.WindGustMs ?? 0, h.WindSpeedMs ?? 0)));
+        const double maxHeight = 46.0;
+
+        foreach (HourlyStep step in steps)
+        {
+            double speed = step.WindSpeedMs ?? 0;
+            double gust = Math.Max(speed, step.WindGustMs ?? 0);
+            double direction = step.WindDirectionDeg ?? 0;
+
+            WindForecast.Add(new WindForecastBar(
+                step.Time.ToLocalTime().ToString("HH"),
+                WindScale.MsToKmh(speed),
+                WindScale.MsToKmh(gust),
+                Math.Max(2.0, speed / peak * maxHeight),
+                Math.Max(2.0, gust / peak * maxHeight),
+                // Arrows point downwind, matching the compass rose above.
+                WindScale.DownwindDirection(direction),
+                WindScale.CompassPoint(direction),
+                a.WindShift is { } shift && step.Time == shift.Time));
+        }
     }
 
     private void BuildNowcastBars(TacticalAssessment a, DateTimeOffset now)

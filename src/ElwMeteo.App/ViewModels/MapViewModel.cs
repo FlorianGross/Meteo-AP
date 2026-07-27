@@ -8,6 +8,7 @@ using ElwMeteo.Core.Assessment;
 using ElwMeteo.Core.Configuration;
 using ElwMeteo.Core.Maps;
 using ElwMeteo.Core.Meteorology;
+using ElwMeteo.Core.Models;
 using ElwMeteo.Core.Services;
 
 namespace ElwMeteo.App.ViewModels;
@@ -43,12 +44,16 @@ public sealed partial class LayerToggle(MapLayerDefinition definition, bool isEn
 public sealed partial class MapViewModel : ObservableObject, IDisposable
 {
     private readonly RainViewerProvider _radar;
+    private readonly WindFieldProvider _windFieldProvider;
+    private readonly IWeatherProvider _weather;
     private readonly AppSettings _settings;
     private readonly DispatcherTimer _animationTimer;
 
     private RadarTimeline _timeline = RadarTimeline.Empty;
+    private WindField _windField = WindField.Empty;
     private TacticalAssessment? _assessment;
     private bool _suppressPush;
+    private CancellationTokenSource? _pointQuery;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -56,9 +61,15 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
 
-    public MapViewModel(RainViewerProvider radar, AppSettings settings)
+    public MapViewModel(
+        RainViewerProvider radar,
+        WindFieldProvider windFieldProvider,
+        IWeatherProvider weather,
+        AppSettings settings)
     {
         _radar = radar;
+        _windFieldProvider = windFieldProvider;
+        _weather = weather;
         _settings = settings;
 
         _animationTimer = new DispatcherTimer
@@ -88,6 +99,15 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
 
             ShowHazardCone = settings.ShowHazardCone;
             HazardRangeMetres = settings.HazardRangeMetresOverride ?? 0;
+
+            SelectedColourScheme = RadarTimeline.ColourSchemes
+                .FirstOrDefault(c => c.Id == settings.RadarColourScheme)
+                ?? RadarTimeline.ColourSchemes[4];
+            ShowSnow = settings.RadarShowSnow;
+            ShowSatellite = settings.ShowSatellite;
+            ShowWindField = settings.ShowWindField;
+            WindFieldGridSize = settings.WindFieldGridSize;
+            WindFieldSpacingMetres = settings.WindFieldSpacingMetres;
         }
         finally
         {
@@ -143,6 +163,56 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private string _clickedPositionLabel = string.Empty;
 
+    // ------------------------------------------------------- radar styling
+
+    public IReadOnlyList<RadarColourScheme> ColourSchemes => RadarTimeline.ColourSchemes;
+
+    [ObservableProperty]
+    private RadarColourScheme? _selectedColourScheme;
+
+    [ObservableProperty]
+    private bool _showSnow = true;
+
+    [ObservableProperty]
+    private bool _smoothRadar = true;
+
+    // ---------------------------------------------------------- satellite
+
+    [ObservableProperty]
+    private bool _showSatellite;
+
+    [ObservableProperty]
+    private double _satelliteOpacity = 0.5;
+
+    [ObservableProperty]
+    private string _satelliteStatus = string.Empty;
+
+    // --------------------------------------------------------- wind field
+
+    [ObservableProperty]
+    private bool _showWindField;
+
+    /// <summary>Nodes per side of the wind grid.</summary>
+    [ObservableProperty]
+    private int _windFieldGridSize = 5;
+
+    [ObservableProperty]
+    private double _windFieldSpacingMetres = 2000;
+
+    [ObservableProperty]
+    private string _windFieldStatus = "Windfeld nicht geladen.";
+
+    [ObservableProperty]
+    private bool _isWindFieldLoading;
+
+    // --------------------------------------------------- clicked-point info
+
+    [ObservableProperty]
+    private string _clickedWeatherLabel = string.Empty;
+
+    [ObservableProperty]
+    private bool _isPointQueryRunning;
+
     // -------------------------------------------------------- property hooks
 
     partial void OnSelectedBaseLayerChanged(MapLayerDefinition? value)
@@ -170,6 +240,49 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
     partial void OnShowRadarChanged(bool value) => PushState();
 
     partial void OnRadarOpacityChanged(double value) => PushState();
+
+    partial void OnSelectedColourSchemeChanged(RadarColourScheme? value)
+    {
+        if (value is not null)
+        {
+            _settings.RadarColourScheme = value.Id;
+        }
+
+        PushState();
+    }
+
+    partial void OnShowSnowChanged(bool value)
+    {
+        _settings.RadarShowSnow = value;
+        PushState();
+    }
+
+    partial void OnSmoothRadarChanged(bool value) => PushState();
+
+    partial void OnShowSatelliteChanged(bool value)
+    {
+        _settings.ShowSatellite = value;
+        PushState();
+    }
+
+    partial void OnSatelliteOpacityChanged(double value) => PushState();
+
+    partial void OnShowWindFieldChanged(bool value)
+    {
+        _settings.ShowWindField = value;
+
+        if (value && _windField.IsEmpty)
+        {
+            _ = RefreshWindFieldCommand.ExecuteAsync(null);
+            return;
+        }
+
+        PushState();
+    }
+
+    partial void OnWindFieldGridSizeChanged(int value) => _settings.WindFieldGridSize = value;
+
+    partial void OnWindFieldSpacingMetresChanged(double value) => _settings.WindFieldSpacingMetres = value;
 
     partial void OnFrameIndexChanged(int value)
     {
@@ -231,6 +344,68 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
         {
             RadarStatus = "Radarabruf abgebrochen.";
         }
+    }
+
+    /// <summary>
+    /// Fetches the wind grid around the current position. One request covers the
+    /// whole grid, so this is cheap enough to refresh with the radar.
+    /// </summary>
+    [RelayCommand]
+    private async Task RefreshWindFieldAsync(CancellationToken cancellationToken)
+    {
+        if (_assessment is null)
+        {
+            WindFieldStatus = "Erst Position und Wetter abrufen.";
+            return;
+        }
+
+        IsWindFieldLoading = true;
+        try
+        {
+            WindFieldStatus = "Windfeld wird geladen …";
+
+            _windField = await _windFieldProvider.GetAsync(
+                    _assessment.Snapshot.Position.ToLatLon(),
+                    WindFieldGridSize,
+                    WindFieldSpacingMetres,
+                    cancellationToken)
+                .ConfigureAwait(true);
+
+            int withData = _windField.Points.Count(p => p.HasData);
+            string spread = _windField.DirectionSpreadDeg is { } degrees
+                ? $" · Richtungsspreizung {degrees:F0}°"
+                : string.Empty;
+
+            WindFieldStatus = $"{withData} von {_windField.Points.Count} Gitterpunkten{spread}";
+
+            // A wide spread means the terrain is steering the flow and the single
+            // cone drawn from the vehicle's reading is not the whole story.
+            if (_windField.DirectionSpreadDeg is >= 60)
+            {
+                WindFieldStatus += " — uneinheitliche Strömung, Ausbreitungskegel kritisch bewerten.";
+            }
+
+            PushState();
+        }
+        catch (WeatherProviderException ex)
+        {
+            WindFieldStatus = ex.Message;
+        }
+        catch (OperationCanceledException)
+        {
+            WindFieldStatus = "Windfeldabruf abgebrochen.";
+        }
+        finally
+        {
+            IsWindFieldLoading = false;
+        }
+    }
+
+    [RelayCommand]
+    private void ClearClickedPoint()
+    {
+        ClickedPositionLabel = string.Empty;
+        ClickedWeatherLabel = string.Empty;
     }
 
     [RelayCommand]
@@ -302,6 +477,60 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
         }
 
         ClickedPositionLabel = label;
+
+        _ = QueryPointWeatherAsync(point);
+    }
+
+    /// <summary>
+    /// Fetches conditions at a clicked point — useful for checking the weather
+    /// over a staging area or an evacuation destination before committing to it.
+    /// A click while a query is in flight cancels the older one.
+    /// </summary>
+    private async Task QueryPointWeatherAsync(LatLon point)
+    {
+        CancellationTokenSource? previous = _pointQuery;
+        var source = new CancellationTokenSource();
+        _pointQuery = source;
+        previous?.Cancel();
+        previous?.Dispose();
+
+        IsPointQueryRunning = true;
+        ClickedWeatherLabel = "Wetter am Punkt wird abgerufen …";
+
+        try
+        {
+            var position = new GeoPosition(
+                point.Latitude, point.Longitude, PositionSource.Manual, DateTimeOffset.UtcNow);
+
+            WeatherSnapshot snapshot = await _weather.GetAsync(position, source.Token).ConfigureAwait(true);
+
+            string temperature = snapshot.TemperatureC is { } t ? $"{t:F1} °C" : "—";
+            string wind = snapshot.WindSpeedMs is { } w
+                ? $"{WindScale.MsToKmh(w):F0} km/h aus {WindScale.CompassPoint(snapshot.WindDirectionDeg ?? 0)}"
+                : "—";
+            string gust = snapshot.WindGustMs is { } g ? $", Böen {WindScale.MsToKmh(g):F0} km/h" : string.Empty;
+            string rain = snapshot.PrecipitationMm is { } p and > 0 ? $", Niederschlag {p:F1} mm/h" : string.Empty;
+
+            ClickedWeatherLabel =
+                $"{WeatherCodes.Describe(snapshot.WeatherCode)} · {temperature} · Wind {wind}{gust}{rain}";
+        }
+        catch (OperationCanceledException)
+        {
+            // Superseded by a newer click; the newer query owns the label now.
+        }
+        catch (Exception ex)
+        {
+            ClickedWeatherLabel = $"Wetter am Punkt nicht abrufbar: {ex.Message}";
+        }
+        finally
+        {
+            if (ReferenceEquals(_pointQuery, source))
+            {
+                IsPointQueryRunning = false;
+                _pointQuery = null;
+                source.Dispose();
+            }
+        }
     }
 
     /// <summary>Called by the view once the page has loaded and is ready for state.</summary>
@@ -361,9 +590,42 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
         }
 
         string? radarTileUrl = null;
-        if (ShowRadar && FrameIndex >= 0 && FrameIndex < _timeline.Frames.Count)
+        string? satelliteTileUrl = null;
+
+        if (FrameIndex >= 0 && FrameIndex < _timeline.Frames.Count)
         {
-            radarTileUrl = _timeline.TileUrlTemplate(_timeline.Frames[FrameIndex]);
+            RadarFrame frame = _timeline.Frames[FrameIndex];
+
+            if (ShowRadar)
+            {
+                radarTileUrl = _timeline.TileUrlTemplate(
+                    frame,
+                    SelectedColourScheme?.Id ?? 4,
+                    SmoothRadar,
+                    ShowSnow);
+            }
+
+            // Satellite follows the radar clock so both animate together.
+            if (ShowSatellite && _timeline.SatelliteFrameNear(frame.Time) is { } satelliteFrame)
+            {
+                satelliteTileUrl = _timeline.SatelliteTileUrlTemplate(satelliteFrame);
+            }
+        }
+
+        var windArrows = new List<WindArrowState>();
+        if (ShowWindField)
+        {
+            foreach (WindFieldPoint point in _windField.Points.Where(p => p.HasData))
+            {
+                windArrows.Add(new WindArrowState(
+                    point.Latitude,
+                    point.Longitude,
+                    point.DownwindDeg ?? 0,
+                    point.SpeedMs ?? 0,
+                    WindScale.MsToKmh(point.SpeedMs ?? 0),
+                    point.GustMs is { } gust ? WindScale.MsToKmh(gust) : null,
+                    WindScale.CompassPoint(point.DirectionDeg ?? 0)));
+            }
         }
 
         MarkerState? marker = null;
@@ -407,6 +669,9 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
             layers,
             radarTileUrl,
             RadarOpacity,
+            satelliteTileUrl,
+            SatelliteOpacity,
+            windArrows,
             marker,
             hazard,
             recentre,
@@ -421,10 +686,22 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
         IReadOnlyList<MapLayerState> Layers,
         string? RadarTileUrl,
         double RadarOpacity,
+        string? SatelliteTileUrl,
+        double SatelliteOpacity,
+        IReadOnlyList<WindArrowState> WindArrows,
         MarkerState? Marker,
         HazardState? Hazard,
         bool Recentre,
         double Zoom);
+
+    private sealed record WindArrowState(
+        double Latitude,
+        double Longitude,
+        double DownwindDeg,
+        double SpeedMs,
+        double SpeedKmh,
+        double? GustKmh,
+        string FromCompass);
 
     private sealed record MapLayerState(
         string Id,

@@ -47,6 +47,7 @@ public partial class App : Application
         var weather = new OpenMeteoWeatherProvider(_httpClient);
         var warnings = new DwdWarningProvider(_httpClient);
         var radar = new RainViewerProvider(_httpClient);
+        var windField = new WindFieldProvider(_httpClient);
         var geocoding = new GeocodingService(_httpClient);
         var ipLocation = new IpLocationProvider(_httpClient);
         var csvLogger = new SnapshotCsvLogger(settings.ResolveCsvDirectory());
@@ -55,7 +56,7 @@ public partial class App : Application
         _mainViewModel = new MainViewModel(
             new ClockViewModel(),
             new DashboardViewModel(weather, warnings, geocoding, locationResolver, csvLogger, settings),
-            new MapViewModel(radar, settings),
+            new MapViewModel(radar, windField, weather, settings),
             new SettingsViewModel(settings, _gps, geocoding),
             settings,
             _gps);

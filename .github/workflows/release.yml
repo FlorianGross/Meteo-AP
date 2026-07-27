@@ -1,0 +1,99 @@
+name: Release
+
+# Cutting a release: tag a commit and push the tag.
+#   git tag -a v1.1.0 -m "ELW-Meteo 1.1.0" && git push origin v1.1.0
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version für einen manuellen Lauf, z. B. 1.1.0"
+        required: true
+        type: string
+
+permissions:
+  contents: write        # needed to create the release
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  release:
+    name: Windows-Paket bauen und veröffentlichen
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      # A tag gives "refs/tags/v1.1.0"; a manual run supplies the bare number.
+      - name: Resolve version
+        id: version
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            version="${{ inputs.version }}"
+          else
+            version="${GITHUB_REF_NAME#v}"
+          fi
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "Version: ${version}"
+
+      - name: Restore
+        run: dotnet restore ELW-Meteo.sln
+
+      - name: Test
+        run: dotnet test tests/ElwMeteo.Core.Tests/ElwMeteo.Core.Tests.csproj -c Release
+
+      # Two flavours: the small one for machines that already have .NET 8, and a
+      # self-contained build for vehicle laptops where installing a runtime is
+      # more trouble than copying a folder.
+      - name: Publish (framework-dependent)
+        run: >
+          dotnet publish src/ElwMeteo.App -c Release -r win-x64
+          --self-contained false
+          -p:Version=${{ steps.version.outputs.version }}
+          -o publish/framework-dependent
+
+      - name: Publish (self-contained)
+        run: >
+          dotnet publish src/ElwMeteo.App -c Release -r win-x64
+          --self-contained true
+          -p:PublishSingleFile=false
+          -p:Version=${{ steps.version.outputs.version }}
+          -o publish/self-contained
+
+      - name: Package
+        shell: pwsh
+        run: |
+          $v = "${{ steps.version.outputs.version }}"
+          Compress-Archive -Path publish/framework-dependent/* -DestinationPath "ELW-Meteo-$v-win-x64.zip"
+          Compress-Archive -Path publish/self-contained/*      -DestinationPath "ELW-Meteo-$v-win-x64-standalone.zip"
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ELW-Meteo ${{ steps.version.outputs.version }}
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', steps.version.outputs.version) || github.ref_name }}
+          generate_release_notes: true
+          files: |
+            ELW-Meteo-*.zip
+          body: |
+            ## Installation
+
+            **`ELW-Meteo-${{ steps.version.outputs.version }}-win-x64.zip`**
+            Benötigt die .NET-8-Desktop-Runtime auf dem Rechner. Entpacken und
+            `ELW-Meteo.exe` starten.
+
+            **`ELW-Meteo-${{ steps.version.outputs.version }}-win-x64-standalone.zip`**
+            Bringt die Runtime mit — für Fahrzeugrechner ohne installiertes .NET.
+            Entpacken und `ELW-Meteo.exe` starten, sonst nichts.
+
+            Für die Kartenregisterkarte wird zusätzlich die Microsoft Edge
+            **WebView2-Runtime** benötigt. Auf aktuellen Windows-Installationen
+            ist sie bereits vorhanden; fehlt sie, bleibt nur diese Registerkarte
+            leer und zeigt einen Hinweis.

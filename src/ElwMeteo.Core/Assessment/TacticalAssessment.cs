@@ -55,6 +55,12 @@ public sealed record TacticalAssessment
     /// <summary>Minutes until precipitation starts or stops, from the 15-minute nowcast.</summary>
     public NowcastOutlook Outlook { get; init; } = NowcastOutlook.Unknown;
 
+    /// <summary>Forecast change of wind direction, or null when the wind holds.</summary>
+    public WindShift? WindShift { get; init; }
+
+    /// <summary>Strongest gust expected in the look-ahead window.</summary>
+    public GustPeak? GustPeak { get; init; }
+
     public IReadOnlyList<TacticalHint> Hints { get; init; } = [];
 
     public HintSeverity WorstSeverity =>
@@ -123,11 +129,23 @@ public static class WeatherAssessor
             ConvectiveCloudBaseM = hasTemperature && dewPoint is not null
                 ? Thermodynamics.ConvectiveCloudBaseM(temperature, dewPoint.Value)
                 : null,
-            Outlook = BuildOutlook(snapshot.Nowcast, now)
+            Outlook = BuildOutlook(snapshot.Nowcast, now),
+            WindShift = WindShiftDetector.Detect(
+                windDirection,
+                snapshot.Hourly.Select(h => (h.Time, h.WindDirectionDeg, h.WindSpeedMs)),
+                now,
+                WindLookAhead),
+            GustPeak = WindShiftDetector.PeakGust(
+                snapshot.Hourly.Select(h => (h.Time, h.WindGustMs)),
+                now,
+                WindLookAhead)
         };
 
         return assessment with { Hints = BuildHints(assessment, now) };
     }
+
+    /// <summary>How far ahead wind shifts and gust peaks are looked for.</summary>
+    private static readonly TimeSpan WindLookAhead = TimeSpan.FromHours(6);
 
     /// <summary>
     /// Reads the 15-minute nowcast and reduces it to the two questions actually
@@ -212,6 +230,23 @@ public static class WeatherAssessor
         {
             hints.Add(new TacticalHint(HintSeverity.Caution, "Windstille",
                 "Nahezu windstill — keine verlässliche Ausbreitungsrichtung. Gefahrenbereich rundum absperren."));
+        }
+
+        // A turning wind moves the plume onto different streets — the single most
+        // consequential forecast change for an ongoing hazardous-material incident.
+        if (a.WindShift is { } shift)
+        {
+            hints.Add(new TacticalHint(
+                shift.AbsoluteDeltaDeg >= 90 ? HintSeverity.Warning : HintSeverity.Caution,
+                "Winddreher",
+                $"{shift.Describe(now)} Absperrgrenzen und Evakuierungsbereich rechtzeitig nachführen."));
+        }
+
+        // Worth stating separately when the peak is clearly above what blows now.
+        if (a.GustPeak is { } peak && peak.GustMs >= 15.0 && peak.GustMs > (s.WindGustMs ?? 0) + 2.0)
+        {
+            hints.Add(new TacticalHint(HintSeverity.Caution, "Böenentwicklung",
+                $"{peak.Describe(now)} Aufbau von Lichtmasten, Zelten und Sprungpolstern entsprechend planen."));
         }
 
         // --- Stability / hazardous materials ------------------------------
