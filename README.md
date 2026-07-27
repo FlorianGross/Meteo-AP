@@ -114,8 +114,24 @@ Umfeld stark ab, meldet die Anwendung die Richtungsspreizung und weist darauf
 hin, dass das Gelände die Ausbreitung steuert und der Kegel aus dem einzelnen
 Messwert am Fahrzeug zu kurz greift.
 
-**Grundkarten:** OpenStreetMap, OpenStreetMap.de, OpenTopoMap (Höhenlinien),
-CyclOSM (betont Wirtschaftswege und Pfade), Luftbild (Esri).
+**Windanimation im Stil von Windy.** Partikel treiben über die Karte, gesteuert
+vom interpolierten Windgitter; die Spuren zeichnen das Strömungsbild, Farbe und
+Länge folgen der Windgeschwindigkeit. Eine Legende ordnet die Farben Bft-Stufen
+zu. Die Partikelgeschwindigkeit ist auf Meter pro Sekunde umgerechnet, bleibt
+also über alle Zoomstufen maßstäblich. Unabhängig davon lassen sich die
+diskreten Windpfeile ein- und ausschalten.
+
+**Grundkarten**
+
+| Gruppe | Karten |
+|---|---|
+| Amtlich (BKG) | basemap.de (Farbe und Grau), TopPlusOpen |
+| Karte | OpenStreetMap, OpenStreetMap.de, OSM Humanitarian, OpenTopoMap (Höhenlinien), CyclOSM (Wirtschaftswege), Dunkel (nachttauglich), Luftbild |
+
+basemap.de und TopPlusOpen sind die amtlichen Karten der deutschen
+Vermessungsverwaltungen bzw. des BKG — dieselbe Grundlage, die in vielen
+Leitstellen liegt. „Dunkel" blendet nachts im Fahrzeug nicht und lässt farbige
+Overlays klar hervortreten.
 
 **Overlays**, nach Thema gruppiert:
 
@@ -126,7 +142,13 @@ CyclOSM (betont Wirtschaftswege und Pfade), Luftbild (Esri).
 | Vegetationsbrand | Waldbrandgefahrenindex, Graslandfeuerindex |
 | Belastung | Gefühlte Temperatur |
 | Wind | Windböen (ICON) |
-| Gelände | Schummerung (Relief, Esri), Gewässer / Seezeichen |
+| Gelände | Schummerung (Relief, Esri), Wanderwege |
+| Infrastruktur | Bahnanlagen (OpenRailwayMap), Gewässer / Seezeichen |
+
+Über dem Overlay-Bereich filtert ein Suchfeld nach Name, Gruppe und
+Beschreibung — „wind", „brand" oder „warn" finden die passenden Layer, ohne
+dass man ihre Namen kennt. Eine Schaltfläche schaltet alle Overlays auf einmal
+ab.
 
 **Ausbreitungskegel.** Aus Windrichtung und Ausbreitungsklasse wird ein
 Gefahrenbereich in die Karte gezeichnet: ein roter Innenkreis (Vorgabe 50 m
@@ -143,7 +165,15 @@ Evakuierungsziel prüfen, bevor man ihn festlegt.
 Schlägt eine Kachelquelle fehl, nennt die Karte den betroffenen Layer im
 Klartext, statt eine Fehlerkachel stehen zu lassen.
 
-### Registerkarte 3 — Einstellungen
+### Registerkarte 3 — Uhr
+
+Nichts als die Zeit, groß genug, um sie von der anderen Fahrzeugseite abzulesen:
+Ortszeit, Datum und Zeitzone, darunter taktische Zeit und UTC nebeneinander,
+sowie eine schmale Zeile mit Sonnenauf-/-untergang, Temperatur und Wind. Die
+Darstellung skaliert mit der Fenstergröße, füllt also auch einen großen
+Monitor komplett aus.
+
+### Registerkarte 4 — Einstellungen
 
 Positionsquelle, GPS-Schnittstelle, Ortssuche, Aktualisierungsintervall,
 Gefahrenbereichsradius, Protokollierung und die Quellenangaben.

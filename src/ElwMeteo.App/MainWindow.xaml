@@ -121,6 +121,10 @@
             <TabItem Header="Karten &amp; Radar">
                 <views:MapView DataContext="{Binding Map}" />
             </TabItem>
+            <TabItem Header="Uhr">
+                <!-- Keeps the shell's DataContext so it can show clock and weather. -->
+                <views:ClockView />
+            </TabItem>
             <TabItem Header="Einstellungen">
                 <views:SettingsView DataContext="{Binding Settings}" />
             </TabItem>

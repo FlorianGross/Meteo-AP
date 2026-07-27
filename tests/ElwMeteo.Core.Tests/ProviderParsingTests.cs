@@ -211,8 +211,10 @@ public class RainViewerParsingTests
         Assert.True(timeline.Frames[^1].IsForecast);
     }
 
+    // 256 px is deliberate: plain slippy z/x/y need no tileSize/zoomOffset
+    // compensation in Leaflet, which is where the out-of-range tiles came from.
     [Fact]
-    public void TileUrlTemplate_LeavesLeafletPlaceholdersIntact()
+    public void TileUrlTemplate_RequestsPlain256PixelSlippyTiles()
     {
         using var document = JsonDocument.Parse(SampleIndex);
         var timeline = RainViewerProvider.Parse(document.RootElement);
@@ -220,7 +222,7 @@ public class RainViewerParsingTests
         string url = timeline.TileUrlTemplate(timeline.Frames[0]);
 
         Assert.Equal(
-            "https://tilecache.rainviewer.com/v2/radar/1769510400/512/{z}/{x}/{y}/4/1_1.png",
+            "https://tilecache.rainviewer.com/v2/radar/1769510400/256/{z}/{x}/{y}/4/1_1.png",
             url);
     }
 
@@ -290,7 +292,7 @@ public class RainViewerParsingTests
             [new RadarFrame(DateTimeOffset.UnixEpoch, "/v2/satellite/a", false)]);
 
         Assert.Equal(
-            "https://h/v2/satellite/a/512/{z}/{x}/{y}/0/0_0.png",
+            "https://h/v2/satellite/a/256/{z}/{x}/{y}/0/0_0.png",
             timeline.SatelliteTileUrlTemplate(timeline.SatelliteFrames[0]));
     }
 
