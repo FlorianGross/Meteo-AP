@@ -1,10 +1,10 @@
-using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using ElwMeteo.App.Services;
+using ElwMeteo.Presentation.Services;
 using ElwMeteo.Core.Configuration;
+using ElwMeteo.Presentation.Platform;
 
-namespace ElwMeteo.App.ViewModels;
+namespace ElwMeteo.Presentation.ViewModels;
 
 /// <summary>
 /// Application shell: owns the three tabs, the shared clock and the auto-refresh
@@ -14,7 +14,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 {
     private readonly AppSettings _settings;
     private readonly GpsSerialService _gps;
-    private readonly DispatcherTimer _refreshTimer;
+    private readonly IUiTimer _refreshTimer;
+    private readonly IUiDispatcher _dispatcher;
 
     public MainViewModel(
         ClockViewModel clock,
@@ -25,8 +26,11 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         DiagnosticsViewModel diagnostics,
         SettingsViewModel settings,
         AppSettings appSettings,
-        GpsSerialService gps)
+        GpsSerialService gps,
+        IUiTimerFactory timers,
+        IUiDispatcher dispatcher)
     {
+        _dispatcher = dispatcher;
         Clock = clock;
         Dashboard = dashboard;
         Map = map;
@@ -50,11 +54,9 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _gps.StatusChanged += OnGpsStatus;
         _gps.FixReceived += OnGpsFix;
 
-        _refreshTimer = new DispatcherTimer
-        {
-            Interval = TimeSpan.FromSeconds(Math.Clamp(appSettings.WeatherRefreshSeconds, 60, 3600))
-        };
-        _refreshTimer.Tick += async (_, _) => await RefreshAllAsync().ConfigureAwait(true);
+        _refreshTimer = timers.Create(
+            TimeSpan.FromSeconds(Math.Clamp(appSettings.WeatherRefreshSeconds, 60, 3600)),
+            () => _ = RefreshAllAsync());
 
         AlwaysOnTop = appSettings.AlwaysOnTop;
     }
@@ -126,19 +128,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private void OnGpsFix(Core.Models.GeoPosition fix) =>
         Dispatch(() => GpsIndicator = $"GPS: Fix {fix.Latitude:F4}/{fix.Longitude:F4} ({fix.SourceLabel})");
 
-    private static void Dispatch(Action action)
-    {
-        Dispatcher? dispatcher = System.Windows.Application.Current?.Dispatcher;
-
-        if (dispatcher is null || dispatcher.CheckAccess())
-        {
-            action();
-        }
-        else
-        {
-            dispatcher.BeginInvoke(action);
-        }
-    }
+    private void Dispatch(Action action) => _dispatcher.Post(action);
 
     public void Dispose()
     {

@@ -155,10 +155,26 @@ public static class WebViewSourceCatalog
         new WebViewSource
         {
             Id = "meteoblue",
-            Title = "meteoblue — Karten",
+            Title = "meteoblue — Niederschlagskarte",
             Group = "Modelle",
-            UrlTemplate = "https://www.meteoblue.com/de/wetter/karten/index#coords={zoom}/{lat}/{lon}&map=precipitation~hourly~auto~sfc~none",
-            Description = "Modellkarten für Niederschlag, Wind und Temperatur.",
+            // The path segment is "maps", not "karten": only "weather" is
+            // translated in the German URL. The earlier /de/wetter/karten/index
+            // pointed at a page that does not exist, which is why this entry
+            // never worked. This is the fixed Germany map — verified to exist,
+            // unlike the coordinate-following variant below.
+            UrlTemplate = "https://www.meteoblue.com/de/wetter/karte/niederschlag/germany",
+            Description = "Modellkarte für Niederschlag über Deutschland. Folgt der Einsatzstelle nicht — dafür gibt es „meteoblue (Position)“.",
+            IsBuiltIn = true
+        },
+        new WebViewSource
+        {
+            Id = "meteoblue-coords",
+            Title = "meteoblue — Karten (Position)",
+            Group = "Modelle",
+            // Fragment order is zoom/lat/lon, and the second slot of "map" is the
+            // colour ramp, not an interval — "hourly" there was wrong as well.
+            UrlTemplate = "https://www.meteoblue.com/de/wetter/maps/index#coords={zoom}/{lat}/{lon}&map=precipitation~rainbow~auto~sfc~none",
+            Description = "Öffnet die Kartenseite an der Einsatzstelle. Springt die Karte nicht dorthin, ist die Deutschlandkarte darüber der verlässliche Weg.",
             IsBuiltIn = true
         },
         new WebViewSource

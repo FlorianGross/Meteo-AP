@@ -3,11 +3,12 @@ using System.Diagnostics;
 using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using ElwMeteo.App.Services;
+using ElwMeteo.Presentation.Services;
 using ElwMeteo.Core.Configuration;
+using ElwMeteo.Presentation.Platform;
 using ElwMeteo.Core.Services;
 
-namespace ElwMeteo.App.ViewModels;
+namespace ElwMeteo.Presentation.ViewModels;
 
 /// <summary>Tab 3 — position source, refresh intervals and logging.</summary>
 public sealed partial class SettingsViewModel : ObservableObject
@@ -16,9 +17,15 @@ public sealed partial class SettingsViewModel : ObservableObject
     private readonly AppSettings _settings;
     private readonly GpsSerialService _gps;
     private readonly GeocodingService _geocoding;
+    private readonly IShellLauncher _shell;
 
-    public SettingsViewModel(SettingsStore store, GpsSerialService gps, GeocodingService geocoding)
+    public SettingsViewModel(
+        SettingsStore store,
+        GpsSerialService gps,
+        GeocodingService geocoding,
+        IShellLauncher shell)
     {
+        _shell = shell;
         _store = store;
         AppSettings settings = store.Settings;
         _settings = settings;
@@ -252,11 +259,16 @@ public sealed partial class SettingsViewModel : ObservableObject
         try
         {
             Directory.CreateDirectory(CsvDirectory);
-            Process.Start(new ProcessStartInfo(CsvDirectory) { UseShellExecute = true });
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            StatusMessage = $"Ordner konnte nicht geöffnet werden: {ex.Message}";
+            StatusMessage = $"Ordner konnte nicht angelegt werden: {ex.Message}";
+            return;
+        }
+
+        if (!_shell.TryOpen(CsvDirectory, out string? error))
+        {
+            StatusMessage = $"Ordner konnte nicht geöffnet werden: {error}";
         }
     }
 

@@ -1,0 +1,105 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:ElwMeteo.Desktop"
+             x:Class="ElwMeteo.Desktop.Views.DiagnosticsView"
+             Background="{StaticResource BackgroundBrush}">
+
+    <Grid ColumnDefinitions="360,*" Margin="14">
+
+        <!-- ================================= services and DWD layer list -->
+        <ScrollViewer Grid.Column="0" Margin="0,0,14,0">
+            <StackPanel>
+                <TextBlock Text="VERBINDUNGSTEST" Classes="section" />
+                <TextBlock Classes="label" FontWeight="Normal" TextWrapping="Wrap" Margin="0,0,0,8"
+                           Text="Fragt jeden Dienst der Anwendung einmal an. Antwortet keiner, liegt es fast immer am Netz — an einem Anmeldeportal, einem Proxy oder einer toten Mobilfunkstrecke." />
+                <Button Content="Dienste prüfen"
+                        Command="{Binding RunConnectivityCheckCommand}"
+                        IsEnabled="{Binding IsBusy, Converter={x:Static local:Converters.Not}}"
+                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" />
+                <TextBlock Text="{Binding ConnectivitySummary}" Classes="body" TextWrapping="Wrap" Margin="0,8,0,8" />
+
+                <ItemsControl ItemsSource="{Binding Endpoints}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Background="{StaticResource PanelBrush}" CornerRadius="4"
+                                    Padding="9" Margin="0,0,0,5">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Name}" FontSize="12" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                    <TextBlock Text="{Binding Label}" Classes="label" FontWeight="Normal" TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <Border Height="1" Background="{StaticResource BorderBrush}" Margin="0,14" />
+
+                <TextBlock Text="DWD-LAYER LAUT SERVER" Classes="section" />
+                <TextBlock Classes="label" FontWeight="Normal" TextWrapping="Wrap" Margin="0,0,0,8"
+                           Text="Die Antwort auf „wie heißt der Layer wirklich“ — die Frage, die kein Raten klärt." />
+                <Button Content="Layerliste abrufen"
+                        Command="{Binding LoadDwdLayersCommand}"
+                        IsEnabled="{Binding IsBusy, Converter={x:Static local:Converters.Not}}"
+                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" />
+                <TextBlock Text="{Binding DwdLayerSummary}" Classes="body" TextWrapping="Wrap" Margin="0,8,0,8" />
+                <TextBox Text="{Binding DwdLayerFilter}" Watermark="Layer filtern …" Margin="0,0,0,8" />
+
+                <ItemsControl ItemsSource="{Binding DwdLayers}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Margin="0,0,0,5">
+                                <TextBlock Text="{Binding Name}" Classes="mono" FontSize="11.5" TextWrapping="Wrap" />
+                                <TextBlock Text="{Binding Title}" Classes="label" FontWeight="Normal" TextWrapping="Wrap" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- ================================================= request log -->
+        <Grid Grid.Column="1" RowDefinitions="Auto,Auto,*">
+            <StackPanel Grid.Row="0">
+                <TextBlock Text="ANFRAGEPROTOKOLL" Classes="section" />
+                <TextBlock Text="{Binding Summary}" Classes="body" TextWrapping="Wrap" />
+                <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,8,0,0">
+                    <Button Content="Kopieren" Command="{Binding CopyLogCommand}" />
+                    <Button Content="Leeren" Command="{Binding ClearLogCommand}" />
+                </StackPanel>
+                <TextBlock Text="{Binding StatusMessage}" Classes="label accent" FontWeight="Normal" Margin="0,6,0,0"
+                           IsVisible="{Binding StatusMessage, Converter={x:Static local:Converters.StringNotEmpty}}" />
+            </StackPanel>
+
+            <Border Grid.Row="1" Height="1" Background="{StaticResource BorderBrush}" Margin="0,12" />
+
+            <ScrollViewer Grid.Row="2">
+                <ItemsControl ItemsSource="{Binding Requests}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Background="{StaticResource PanelBrush}" CornerRadius="4"
+                                    Padding="9" Margin="0,0,0,4">
+                                <StackPanel>
+                                    <Grid ColumnDefinitions="Auto,*,Auto">
+                                        <TextBlock Grid.Column="0" Text="{Binding StatusLabel}"
+                                                   Classes="mono" FontSize="11.5" FontWeight="SemiBold" />
+                                        <TextBlock Grid.Column="1" Text="{Binding Host}"
+                                                   Classes="label" Margin="10,0" />
+                                        <TextBlock Grid.Column="2" Text="{Binding DurationLabel}"
+                                                   Classes="label mono" />
+                                    </Grid>
+                                    <!-- The full URL is the whole point: without it
+                                         there is nothing to reproduce. -->
+                                    <TextBlock Text="{Binding Url}" Classes="mono muted" FontSize="10.5"
+                                               TextWrapping="Wrap" Margin="0,3,0,0" />
+                                    <TextBlock Text="{Binding Detail}" Classes="label warn" FontWeight="Normal"
+                                               TextWrapping="Wrap"
+                                               IsVisible="{Binding Detail, Converter={x:Static local:Converters.StringNotEmpty}}" />
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </Grid>
+    </Grid>
+</UserControl>

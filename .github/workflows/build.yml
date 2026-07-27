@@ -64,11 +64,17 @@ jobs:
           path: publish/
           retention-days: 30
 
-  # Guards the rule that all domain logic stays free of WPF dependencies: if this
-  # job fails, something WPF-specific has leaked into ElwMeteo.Core.
-  core-crossplatform:
-    name: Domain logic (plattformneutral)
-    runs-on: ubuntu-latest
+  # The cross-platform head, built and smoke-tested on all three systems it
+  # claims to support. Nothing here may reference WPF: if this job fails on
+  # Linux or macOS, something Windows-specific has leaked into Core,
+  # Presentation or Desktop.
+  crossplatform:
+    name: Plattformneutral (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
 
@@ -85,6 +91,15 @@ jobs:
 
       - name: Test domain logic
         run: dotnet test tests/ElwMeteo.Core.Tests/ElwMeteo.Core.Tests.csproj -c Release
+
+      # Builds the Avalonia head and constructs every view for real on a
+      # headless platform. The XAML compiler catches a misspelt element; only
+      # this catches a missing resource or a broken template.
+      - name: Test cross-platform interface
+        run: dotnet test tests/ElwMeteo.Desktop.Tests/ElwMeteo.Desktop.Tests.csproj -c Release
+
+      - name: Publish cross-platform head
+        run: dotnet publish src/ElwMeteo.Desktop -c Release -o publish-desktop
 
   # Formatting is advisory: a style nit must never block a fix from reaching a vehicle.
   format:
@@ -106,3 +121,6 @@ jobs:
 
       - name: Verify formatting (Tests)
         run: dotnet format tests/ElwMeteo.Core.Tests/ElwMeteo.Core.Tests.csproj --verify-no-changes --severity warn
+
+      - name: Verify formatting (Ansichtsmodelle)
+        run: dotnet format src/ElwMeteo.Presentation/ElwMeteo.Presentation.csproj --verify-no-changes --severity warn

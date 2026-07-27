@@ -2,7 +2,7 @@ using System.IO;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
-using ElwMeteo.App.ViewModels;
+using ElwMeteo.Presentation.ViewModels;
 using ElwMeteo.Core.Diagnostics;
 using Microsoft.Web.WebView2.Core;
 

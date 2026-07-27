@@ -1,30 +1,10 @@
 using System.Globalization;
 using System.Windows;
 using System.Windows.Media;
+using ElwMeteo.App.Platform;
+using ElwMeteo.Presentation.Charting;
 
 namespace ElwMeteo.App.Controls;
-
-/// <summary>One point of a trend series.</summary>
-public sealed record TrendPoint(DateTimeOffset Time, double? Value);
-
-/// <summary>A named line series with its own colour.</summary>
-public sealed record TrendSeries(string Name, Color Colour, IReadOnlyList<TrendPoint> Points, bool Dashed = false);
-
-/// <summary>A named bar series, drawn on its own panel.</summary>
-public sealed record TrendBars(string Name, Color Colour, IReadOnlyList<TrendPoint> Points, string Unit);
-
-/// <summary>Everything the chart draws.</summary>
-public sealed record TrendChartModel(
-    IReadOnlyList<TrendSeries> Lines,
-    TrendBars? Bars,
-    IReadOnlyList<(DateTimeOffset From, DateTimeOffset To)> NightSpans,
-    DateTimeOffset Now,
-    string LineUnit)
-{
-    public static TrendChartModel Empty { get; } = new([], null, [], DateTimeOffset.Now, string.Empty);
-
-    public bool HasData => Lines.Any(l => l.Points.Any(p => p.Value is not null));
-}
 
 /// <summary>
 /// Draws the weather trend: a line panel for temperatures and, beneath it, a bar
@@ -183,7 +163,7 @@ public sealed class TrendChart : FrameworkElement
         Func<DateTimeOffset, double> x,
         Func<double, double> y)
     {
-        var pen = new Pen(new SolidColorBrush(series.Colour), 2)
+        var pen = new Pen(series.Colour.ToBrush(), 2)
         {
             LineJoin = PenLineJoin.Round,
             StartLineCap = PenLineCap.Round,
@@ -256,7 +236,7 @@ public sealed class TrendChart : FrameworkElement
         FormattedText peakLabel = Text($"{peak.ToString("F1", German)} {bars.Unit}", 10, TextSecondary);
         context.DrawText(peakLabel, new Point(plotLeft - peakLabel.Width - 6, top));
 
-        var brush = new SolidColorBrush(bars.Colour);
+        var brush = bars.Colour.ToBrush();
         brush.Freeze();
 
         // One slot per sample, with a 2 px surface gap so neighbours stay separate.

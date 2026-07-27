@@ -1,22 +1,18 @@
-using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using ElwMeteo.Core.Time;
+using ElwMeteo.Presentation.Platform;
 
-namespace ElwMeteo.App.ViewModels;
+namespace ElwMeteo.Presentation.ViewModels;
 
 /// <summary>The clock block: wall clock, UTC and the tactical date-time groups.</summary>
 public sealed partial class ClockViewModel : ObservableObject, IDisposable
 {
-    private readonly DispatcherTimer _timer;
+    private readonly IUiTimer _timer;
 
-    public ClockViewModel()
+    public ClockViewModel(IUiTimerFactory timers)
     {
         // 200 ms keeps the seconds digit from visibly stuttering without costing anything.
-        _timer = new DispatcherTimer(DispatcherPriority.Normal)
-        {
-            Interval = TimeSpan.FromMilliseconds(200)
-        };
-        _timer.Tick += (_, _) => Update();
+        _timer = timers.Create(TimeSpan.FromMilliseconds(200), Update);
         _timer.Start();
 
         Update();

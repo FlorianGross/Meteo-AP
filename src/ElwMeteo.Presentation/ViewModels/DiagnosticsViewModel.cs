@@ -1,12 +1,12 @@
 using System.Collections.ObjectModel;
-using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ElwMeteo.Core.Diagnostics;
 using ElwMeteo.Core.Maps;
 using ElwMeteo.Core.Services;
+using ElwMeteo.Presentation.Platform;
 
-namespace ElwMeteo.App.ViewModels;
+namespace ElwMeteo.Presentation.ViewModels;
 
 /// <summary>
 /// Tab 6 — what the application asked for, what came back, and which services
@@ -21,18 +21,24 @@ public sealed partial class DiagnosticsViewModel : ObservableObject
     private readonly RequestLog _log;
     private readonly ConnectivityCheck _connectivity;
     private readonly WmsCapabilitiesService _capabilities;
+    private readonly IUiDispatcher _dispatcher;
+    private readonly IClipboardService _clipboard;
 
     public DiagnosticsViewModel(
         RequestLog log,
         ConnectivityCheck connectivity,
-        WmsCapabilitiesService capabilities)
+        WmsCapabilitiesService capabilities,
+        IUiDispatcher dispatcher,
+        IClipboardService clipboard)
     {
         _log = log;
         _connectivity = connectivity;
         _capabilities = capabilities;
+        _dispatcher = dispatcher;
+        _clipboard = clipboard;
 
         // The handler records from background threads; marshal to the UI.
-        _log.Recorded += _ => Dispatch(RefreshFromLog);
+        _log.Recorded += _ => _dispatcher.Post(RefreshFromLog);
 
         RefreshFromLog();
     }
@@ -138,15 +144,9 @@ public sealed partial class DiagnosticsViewModel : ObservableObject
     {
         string text = BuildReport();
 
-        try
-        {
-            Clipboard.SetText(text);
-            StatusMessage = "Protokoll in die Zwischenablage kopiert.";
-        }
-        catch (Exception)
-        {
-            StatusMessage = "Zwischenablage ist belegt — bitte erneut versuchen.";
-        }
+        StatusMessage = _clipboard.TrySetText(text)
+            ? "Protokoll in die Zwischenablage kopiert."
+            : "Zwischenablage ist belegt — bitte erneut versuchen.";
     }
 
     [RelayCommand]
@@ -242,18 +242,4 @@ public sealed partial class DiagnosticsViewModel : ObservableObject
         }
     }
 
-    /// <summary>Records arrive from background threads.</summary>
-    private static void Dispatch(Action action)
-    {
-        System.Windows.Threading.Dispatcher? dispatcher = Application.Current?.Dispatcher;
-
-        if (dispatcher is null || dispatcher.CheckAccess())
-        {
-            action();
-        }
-        else
-        {
-            dispatcher.BeginInvoke(action);
-        }
-    }
 }

@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <!-- No -windows suffix: this is the head that runs on Linux and macOS too. -->
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>ElwMeteo.Desktop</RootNamespace>
+    <AssemblyName>ELW-Meteo</AssemblyName>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="12.1.0" />
+    <PackageReference Include="Avalonia.Desktop" Version="12.1.0" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.0" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="12.1.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ElwMeteo.Core\ElwMeteo.Core.csproj" />
+    <ProjectReference Include="..\ElwMeteo.Presentation\ElwMeteo.Presentation.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The Leaflet page is opened in the system browser on platforms without an
+         embedded one, so it has to be next to the executable. -->
+    <Content Include="..\ElwMeteo.App\Assets\map.html" Link="Assets\map.html">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+</Project>

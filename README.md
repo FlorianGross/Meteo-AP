@@ -5,7 +5,13 @@ meteorologische Lage an der eigenen Position — plus eine Kartenansicht mit
 Regenradar, Nowcast und DWD-Fachkarten und die Radarseiten der Anbieter als
 eingebettete Browseransicht.
 
-Windows-Desktop, C# / .NET 8, WPF.
+Zwei Ausgaben aus einem Kern:
+
+- **Windows** — WPF, mit eingebettetem Browser für Karte und Web-Radar
+- **Linux, macOS und Windows** — Avalonia, dieselben Registerkarten; Karte und
+  Web-Radar öffnen im Standardbrowser
+
+C# / .NET 8.
 
 ---
 
@@ -427,23 +433,45 @@ src/ElwMeteo.Core/     net8.0      — Fachlogik, plattformneutral und testbar
   Configuration/                    Einstellungen
   Maps/                             Layer-Katalog, Radar- und Webquellen
 
-src/ElwMeteo.App/      net8.0-windows — WPF-Oberfläche (MVVM)
+src/ElwMeteo.Presentation/ net8.0  — Ansichtsmodelle, von beiden Oberflächen
+  ViewModels/                       je Registerkarte plus Uhr und Schale
+  Services/                         GPS-Schnittstelle, Positionsauflösung
+  Charting/                         Diagrammmodell ohne Zeichentypen
+  Platform/                         IUiDispatcher, IUiTimer, IClipboardService,
+                                    IShellLauncher, UiColour
+
+src/ElwMeteo.Desktop/  net8.0      — Avalonia-Oberfläche (Linux, macOS, Windows)
+  Views/                            dieselben sieben Registerkarten
+  Controls/TrendChart.cs            Diagramm, für Avalonia gezeichnet
+  Platform/                         Avalonia-Antworten auf die Schnittstellen
+
+src/ElwMeteo.App/      net8.0-windows — WPF-Oberfläche (Windows)
   Views/                            Uhr, Dashboard, Karte, Web-Radar, Verlauf,
                                     Diagnose, Einstellungen
   Controls/                         Diagramm für den Wetterverlauf
-  ViewModels/                       je Registerkarte plus Uhr und Shell
-  Services/                         GPS-Schnittstelle, Positionsauflösung
   Assets/map.html                   Leaflet-Karte für WebView2
   Assets/elw-meteo.ico              Anwendungssymbol (aus tools/make-icon.py)
   Themes/                           dunkles, kontrastreiches Farbschema
 
 tools/make-icon.py                  erzeugt das Anwendungssymbol reproduzierbar
 
-tests/ElwMeteo.Core.Tests/          xUnit — 356 Tests
+tests/ElwMeteo.Core.Tests/          xUnit — 367 Tests
+tests/ElwMeteo.Desktop.Tests/       Avalonia-Rauchtests, kopflos
 ```
 
-Die gesamte Fachlogik liegt in `ElwMeteo.Core` und hat keine Abhängigkeit zu
-WPF. Sonnenstandsberechnung, Ausbreitungsklassen, NMEA-Dekodierung und alle
+Die gesamte Fachlogik liegt in `ElwMeteo.Core`, alle Ansichtsmodelle in
+`ElwMeteo.Presentation` — beide ohne jede Abhängigkeit zu WPF oder Avalonia.
+Die wenigen Dinge, die eine Oberfläche entscheiden muss — auf welchem Faden
+gearbeitet wird, was eine Zwischenablage ist, wie ein Zeitgeber tickt, was aus
+einer Farbe wird — liegen als Schnittstellen in `Presentation/Platform` und
+werden von jeder Ausgabe einmal beantwortet.
+
+Das ist keine Formsache: die CI baut und testet diesen Teil auf Ubuntu, macOS
+und Windows, und die Avalonia-Ansichten werden dabei kopflos wirklich
+aufgebaut. Ein Windows-spezifischer Typ im Kern lässt den Lauf sofort rot
+werden.
+
+ Sonnenstandsberechnung, Ausbreitungsklassen, NMEA-Dekodierung und alle
 Parser sind damit ohne Oberfläche testbar — die Sonnenzeiten sind gegen
 veröffentlichte Almanachwerte für Frankfurt am Main geprüft.
 

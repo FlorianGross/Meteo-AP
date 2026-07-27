@@ -1,17 +1,17 @@
 using System.Collections.ObjectModel;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ElwMeteo.Core.Assessment;
 using ElwMeteo.Core.Configuration;
 using ElwMeteo.Core.Maps;
+using ElwMeteo.Presentation.Platform;
 using ElwMeteo.Core.Meteorology;
 using ElwMeteo.Core.Models;
 using ElwMeteo.Core.Services;
 
-namespace ElwMeteo.App.ViewModels;
+namespace ElwMeteo.Presentation.ViewModels;
 
 /// <summary>A toggleable overlay in the layer panel.</summary>
 public sealed partial class LayerToggle(MapLayerDefinition definition, bool isEnabled, Action onChanged)
@@ -66,7 +66,7 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
     private readonly IWeatherProvider _weather;
     private readonly SettingsStore _store;
     private readonly AppSettings _settings;
-    private readonly DispatcherTimer _animationTimer;
+    private readonly IUiTimer _animationTimer;
 
     private RadarTimeline _timeline = RadarTimeline.Empty;
 
@@ -89,7 +89,8 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
         WmsCapabilitiesService capabilities,
         WindFieldProvider windFieldProvider,
         IWeatherProvider weather,
-        SettingsStore store)
+        SettingsStore store,
+        IUiTimerFactory timers)
     {
         _radar = radar;
         _capabilities = capabilities;
@@ -99,11 +100,9 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
         _settings = store.Settings;
         AppSettings settings = _settings;
 
-        _animationTimer = new DispatcherTimer
-        {
-            Interval = TimeSpan.FromMilliseconds(Math.Max(100, settings.RadarFrameDelayMs))
-        };
-        _animationTimer.Tick += (_, _) => AdvanceFrame();
+        _animationTimer = timers.Create(
+            TimeSpan.FromMilliseconds(Math.Max(100, _settings.RadarFrameDelayMs)),
+            AdvanceFrame);
 
         _suppressPush = true;
         try

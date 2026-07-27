@@ -5,8 +5,10 @@ using System.Net.Http.Headers;
 using System.Windows;
 using System.Windows.Markup;
 using System.Windows.Threading;
-using ElwMeteo.App.Services;
-using ElwMeteo.App.ViewModels;
+using ElwMeteo.App.Platform;
+using ElwMeteo.Presentation.Platform;
+using ElwMeteo.Presentation.Services;
+using ElwMeteo.Presentation.ViewModels;
 using ElwMeteo.Core.Configuration;
 using ElwMeteo.Core.Diagnostics;
 using ElwMeteo.Core.Reporting;
@@ -67,16 +69,25 @@ public partial class App : Application
         var csvLogger = new SnapshotCsvLogger(settings.ResolveCsvDirectory());
         var locationResolver = new LocationResolver(settings, _gps, ipLocation);
 
+        // The view models live in a platform-neutral project; these are the WPF
+        // answers to the few things they cannot decide for themselves.
+        var dispatcher = new WpfDispatcher();
+        var timers = new WpfTimerFactory();
+        var clipboard = new WpfClipboard();
+        var shell = new SystemShellLauncher();
+
         _mainViewModel = new MainViewModel(
-            new ClockViewModel(),
-            new DashboardViewModel(weather, warnings, geocoding, locationResolver, csvLogger, brightSky, settings),
-            new MapViewModel(radar, capabilities, windField, weather, _settingsStore),
-            new WebRadarViewModel(_settingsStore),
+            new ClockViewModel(timers),
+            new DashboardViewModel(weather, warnings, geocoding, locationResolver, csvLogger, brightSky, settings, clipboard),
+            new MapViewModel(radar, capabilities, windField, weather, _settingsStore, timers),
+            new WebRadarViewModel(_settingsStore, shell),
             new TrendViewModel(),
-            new DiagnosticsViewModel(_requestLog, connectivity, capabilities),
-            new SettingsViewModel(_settingsStore, _gps, geocoding),
+            new DiagnosticsViewModel(_requestLog, connectivity, capabilities, dispatcher, clipboard),
+            new SettingsViewModel(_settingsStore, _gps, geocoding, shell),
             settings,
-            _gps);
+            _gps,
+            timers,
+            dispatcher);
 
         // Map tile failures happen inside the page; route them into the same log.
         Views.MapView.SharedLog = _requestLog;

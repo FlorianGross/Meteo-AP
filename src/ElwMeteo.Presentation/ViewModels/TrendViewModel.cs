@@ -1,16 +1,16 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
-using System.Windows.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
-using ElwMeteo.App.Controls;
+using ElwMeteo.Presentation.Charting;
+using ElwMeteo.Presentation.Platform;
 using ElwMeteo.Core.Assessment;
 using ElwMeteo.Core.Models;
 using ElwMeteo.Core.Time;
 
-namespace ElwMeteo.App.ViewModels;
+namespace ElwMeteo.Presentation.ViewModels;
 
 /// <summary>A legend entry, so identity is never carried by colour alone.</summary>
-public sealed record LegendEntry(string Name, Brush Swatch, string Detail);
+public sealed record LegendEntry(string Name, UiColour Swatch, string Detail);
 
 /// <summary>One day of the outlook, for the table underneath the chart.</summary>
 public sealed record DayRow(string Day, string Minimum, string Maximum, string Precipitation, string Uv, string Gust);
@@ -24,9 +24,9 @@ public sealed partial class TrendViewModel : ObservableObject
     // data-viz validator against this application's panel surface (#171C24):
     // lightness band, chroma floor, all-pairs CVD separation, normal-vision
     // separation and contrast all pass. Do not re-tint these individually.
-    private static readonly Color TemperatureColour = Color.FromRgb(0xD9, 0x59, 0x26); // orange
-    private static readonly Color DewPointColour = Color.FromRgb(0x19, 0x9E, 0x70);    // aqua
-    private static readonly Color PrecipitationColour = Color.FromRgb(0x39, 0x87, 0xE5); // blue
+    private static readonly UiColour TemperatureColour = UiColour.FromRgb(0xD9, 0x59, 0x26); // orange
+    private static readonly UiColour DewPointColour = UiColour.FromRgb(0x19, 0x9E, 0x70);    // aqua
+    private static readonly UiColour PrecipitationColour = UiColour.FromRgb(0x39, 0x87, 0xE5); // blue
 
     [ObservableProperty]
     private TrendChartModel _chart = TrendChartModel.Empty;
@@ -133,18 +133,18 @@ public sealed partial class TrendViewModel : ObservableObject
 
         Legend.Add(new LegendEntry(
             "Temperatur",
-            Frozen(TemperatureColour),
+            TemperatureColour,
             $"aktuell {Format(assessment.Snapshot.TemperatureC, "°C")}"));
 
         Legend.Add(new LegendEntry(
             "Taupunkt",
-            Frozen(DewPointColour),
+            DewPointColour,
             $"aktuell {Format(assessment.Snapshot.DewPointC, "°C")}"));
 
         double total = hourly.Sum(h => h.PrecipitationMm ?? 0);
         Legend.Add(new LegendEntry(
             "Niederschlag",
-            Frozen(PrecipitationColour),
+            PrecipitationColour,
             $"Summe {total.ToString("F1", German)} mm im Zeitraum"));
     }
 
@@ -198,11 +198,4 @@ public sealed partial class TrendViewModel : ObservableObject
 
     private static string Format(double? value, string unit) =>
         value is null || double.IsNaN(value.Value) ? "—" : $"{value.Value.ToString("F1", German)} {unit}";
-
-    private static Brush Frozen(Color colour)
-    {
-        var brush = new SolidColorBrush(colour);
-        brush.Freeze();
-        return brush;
-    }
 }

@@ -1,0 +1,75 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:ElwMeteo.Desktop.Controls"
+             xmlns:local="clr-namespace:ElwMeteo.Desktop"
+             x:Class="ElwMeteo.Desktop.Views.TrendView"
+             Background="{StaticResource BackgroundBrush}">
+
+    <Grid RowDefinitions="Auto,*,Auto" Margin="18">
+
+        <StackPanel Grid.Row="0" Margin="0,0,0,12">
+            <TextBlock Text="{Binding Headline}" FontSize="17" FontWeight="SemiBold" TextWrapping="Wrap" />
+            <TextBlock Text="{Binding Range}" Classes="label" FontWeight="Normal" />
+            <TextBlock Text="{Binding Extremes}" Classes="body" Margin="0,6,0,0" TextWrapping="Wrap" />
+
+            <!-- Legend, because there is more than one series and no dual axis
+                 to lean on. -->
+            <ItemsControl ItemsSource="{Binding Legend}" Margin="0,10,0,0">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Orientation="Horizontal" Spacing="18" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <Rectangle Width="14" Height="4" RadiusX="2" RadiusY="2"
+                                       VerticalAlignment="Center"
+                                       Fill="{Binding Swatch, Converter={x:Static local:Converters.ColourToBrush}}" />
+                            <TextBlock Text="{Binding Name}" FontSize="12" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding Detail}" Classes="label" FontWeight="Normal" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </StackPanel>
+
+        <Border Grid.Row="1"
+                Background="{StaticResource PanelBrush}"
+                BorderBrush="{StaticResource BorderBrush}"
+                BorderThickness="1" CornerRadius="6" Padding="12">
+            <controls:TrendChart Model="{Binding Chart}" />
+        </Border>
+
+        <!-- The same numbers as a table: the chart must never be the only way
+             to reach them. -->
+        <ItemsControl Grid.Row="2" ItemsSource="{Binding Days}" Margin="0,14,0,0">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <StackPanel Orientation="Horizontal" Spacing="10" />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <Border Background="{StaticResource PanelBrush}"
+                            BorderBrush="{StaticResource BorderBrush}"
+                            BorderThickness="1" CornerRadius="6" Padding="12" MinWidth="150">
+                        <StackPanel>
+                            <TextBlock Text="{Binding Day}" FontWeight="SemiBold" />
+                            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto" Margin="0,6,0,0">
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Min" Classes="label" />
+                                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding MinTemperature}" Classes="mono" HorizontalAlignment="Right" />
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Max" Classes="label" />
+                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding MaxTemperature}" Classes="mono" HorizontalAlignment="Right" />
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="Niederschlag" Classes="label" />
+                                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding Precipitation}" Classes="mono" HorizontalAlignment="Right" />
+                                <TextBlock Grid.Row="3" Grid.Column="0" Text="Böen" Classes="label" />
+                                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding WindGust}" Classes="mono" HorizontalAlignment="Right" />
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+    </Grid>
+</UserControl>

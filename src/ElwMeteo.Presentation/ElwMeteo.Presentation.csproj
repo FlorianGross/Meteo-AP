@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Deliberately not net8.0-windows: this project holds every view model,
+         and both the WPF head and the Avalonia head consume it. The moment a
+         Windows-only type creeps in, this stops building on Linux and macOS. -->
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>ElwMeteo.Presentation</RootNamespace>
+    <AssemblyName>ElwMeteo.Presentation</AssemblyName>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageReference Include="System.IO.Ports" Version="10.0.10" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ElwMeteo.Core\ElwMeteo.Core.csproj" />
+  </ItemGroup>
+
+</Project>
