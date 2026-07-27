@@ -133,12 +133,25 @@ eingeblendet, wenn seine Kacheln geladen sind — kein Flackern.
 
 **Radarquelle wählbar.** Vier Quellen stehen zur Auswahl:
 
-| Quelle | Eigenschaft |
-|---|---|
-| RainViewer | weltweit, animiert, mit 30-Minuten-Nowcast — die einzige mit Zeitleiste |
-| DWD-Niederschlagsradar | amtliches RADOLAN-Komposit, aktuelles Bild ohne Zeitverlauf |
-| DWD-Radarvorhersage | Extrapolation über zwei Stunden |
-| OpenWeatherMap | weltweit, benötigt einen eigenen kostenlosen API-Schlüssel |
+| Quelle | Zeitachse | Eigenschaft |
+|---|---|---|
+| **DWD-Radar mit Vorhersage (WN)** | ✔ 5-Min-Schritte | amtliches Komposit **plus zwei Stunden Extrapolation**, alle fünf Minuten aktualisiert |
+| RainViewer | ✔ 10-Min-Schritte | weltweit, rund 2 h Messung plus 30 min Nowcast |
+| DWD-Niederschlagsradar | — | amtliches RADOLAN-Komposit als Momentaufnahme |
+| DWD-Radarvorhersage (FX) | ✔ | Extrapolation über zwei Stunden |
+| OpenWeatherMap | — | weltweit, benötigt einen eigenen kostenlosen Schlüssel |
+
+**Der amtliche Weg zur Zeitachse.** Die DWD-Layer veröffentlichen im
+GetCapabilities-Dokument eine **TIME-Dimension** — die Liste der Zeitpunkte, für
+die der Server ein Bild rendern kann. Die Anwendung liest diese Liste aus und
+macht daraus die Zeitleiste; jedes Einzelbild ist dann eine GetMap-Anfrage mit
+`TIME=`. Damit animiert das amtliche Produkt genauso wie ein Kacheldienst — in
+5-Minuten-Schritten und damit feiner als jeder davon.
+
+Weil die Zeitpunkte vom Server kommen statt aus einer festen Annahme, stimmt die
+Zeitleiste automatisch, auch wenn der DWD Taktung oder Vorhersagelänge ändert.
+Die Layernamen werden dabei ebenfalls aufgelöst: Jede Quelle nennt mehrere
+Kandidaten, und genommen wird der, den der Server tatsächlich anbietet.
 
 Zwei unabhängige Produkte nebeneinander sind operativ wertvoll: Sieht das
 Radarbild seltsam aus, lässt sich das durch Vergleich klären, statt einer

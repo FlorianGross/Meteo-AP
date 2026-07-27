@@ -300,9 +300,10 @@
     var radarWmsLayer = null;
     var radarWmsKey = null;
 
-    function applyRadarWms(wmsUrl, wmsLayers, attribution, opacity, maxZoom) {
+    function applyRadarWms(wmsUrl, wmsLayers, time, attribution, opacity, maxZoom) {
         var wanted = wmsUrl && wmsLayers && !(typeof maxZoom === "number" && map.getZoom() > maxZoom);
-        var key = wanted ? wmsUrl + "|" + wmsLayers : null;
+        // The instant is part of the identity: a new TIME means a new frame.
+        var key = wanted ? wmsUrl + "|" + wmsLayers + "|" + (time || "") : null;
 
         if (key === radarWmsKey) {
             if (radarWmsLayer) {
@@ -311,23 +312,42 @@
             return wmsUrl && wmsLayers && !wanted;
         }
 
-        if (radarWmsLayer && map.hasLayer(radarWmsLayer)) {
-            map.removeLayer(radarWmsLayer);
-        }
-        radarWmsLayer = null;
+        var previous = radarWmsLayer;
         radarWmsKey = key;
 
-        if (wanted) {
-            radarWmsLayer = L.tileLayer.wms(wmsUrl, {
+        if (!wanted) {
+            if (previous && map.hasLayer(previous)) {
+                map.removeLayer(previous);
+            }
+            radarWmsLayer = null;
+        } else {
+            var options = {
                 layers: wmsLayers,
                 format: "image/png",
                 transparent: true,
-                opacity: opacity,
+                // Start invisible and reveal on load, so stepping through the
+                // timeline does not flash the base map between frames.
+                opacity: 0,
                 zIndex: 400,
                 attribution: attribution,
                 uppercase: true
-            });
+            };
+
+            // GeoServer selects the frame from the TIME parameter (ISO 8601).
+            if (time) {
+                options.time = time;
+            }
+
+            radarWmsLayer = L.tileLayer.wms(wmsUrl, options);
             watchTileErrors(radarWmsLayer, "Radar (WMS)");
+
+            radarWmsLayer.on("load", function () {
+                radarWmsLayer.setOpacity(opacity);
+                if (previous && map.hasLayer(previous)) {
+                    map.removeLayer(previous);
+                }
+            });
+
             radarWmsLayer.addTo(map);
         }
 
@@ -894,7 +914,7 @@
                 applyLayers(state.layers || []);
                 applySatellite(state.satelliteTileUrl, state.satelliteOpacity);
 
-                if (applyRadarWms(state.radarWmsUrl, state.radarWmsLayers,
+                if (applyRadarWms(state.radarWmsUrl, state.radarWmsLayers, state.radarWmsTime,
                         state.radarAttribution, state.radarOpacity, state.radarMaxZoom)) {
                     zoomHidden.push("Radar");
                 }
@@ -941,7 +961,7 @@
             // applyLayers recomputes zoomHidden, which applyRadar folds into the notice.
             applyLayers(lastState.layers || []);
 
-            if (applyRadarWms(lastState.radarWmsUrl, lastState.radarWmsLayers,
+            if (applyRadarWms(lastState.radarWmsUrl, lastState.radarWmsLayers, lastState.radarWmsTime,
                     lastState.radarAttribution, lastState.radarOpacity, lastState.radarMaxZoom)) {
                 zoomHidden.push("Radar");
             }
