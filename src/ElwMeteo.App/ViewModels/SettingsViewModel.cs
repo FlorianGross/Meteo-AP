@@ -12,12 +12,15 @@ namespace ElwMeteo.App.ViewModels;
 /// <summary>Tab 3 — position source, refresh intervals and logging.</summary>
 public sealed partial class SettingsViewModel : ObservableObject
 {
+    private readonly SettingsStore _store;
     private readonly AppSettings _settings;
     private readonly GpsSerialService _gps;
     private readonly GeocodingService _geocoding;
 
-    public SettingsViewModel(AppSettings settings, GpsSerialService gps, GeocodingService geocoding)
+    public SettingsViewModel(SettingsStore store, GpsSerialService gps, GeocodingService geocoding)
     {
+        _store = store;
+        AppSettings settings = store.Settings;
         _settings = settings;
         _gps = gps;
         _geocoding = geocoding;
@@ -259,13 +262,13 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     private void Save()
     {
-        try
+        // Writes everything pending from the other tabs along with it — one
+        // file, one writer.
+        _store.SaveNow();
+
+        if (_store.LastError is { } error)
         {
-            _settings.Save();
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            StatusMessage = $"Einstellungen konnten nicht gespeichert werden: {ex.Message}";
+            StatusMessage = $"Einstellungen konnten nicht gespeichert werden: {error}";
         }
     }
 

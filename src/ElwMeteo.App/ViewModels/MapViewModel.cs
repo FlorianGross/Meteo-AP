@@ -64,6 +64,7 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
     private readonly WmsCapabilitiesService _capabilities;
     private readonly WindFieldProvider _windFieldProvider;
     private readonly IWeatherProvider _weather;
+    private readonly SettingsStore _store;
     private readonly AppSettings _settings;
     private readonly DispatcherTimer _animationTimer;
 
@@ -88,13 +89,15 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
         WmsCapabilitiesService capabilities,
         WindFieldProvider windFieldProvider,
         IWeatherProvider weather,
-        AppSettings settings)
+        SettingsStore store)
     {
         _radar = radar;
         _capabilities = capabilities;
         _windFieldProvider = windFieldProvider;
         _weather = weather;
-        _settings = settings;
+        _store = store;
+        _settings = store.Settings;
+        AppSettings settings = _settings;
 
         _animationTimer = new DispatcherTimer
         {
@@ -110,7 +113,7 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
                 Overlays.Add(new LayerToggle(
                     definition,
                     settings.EnabledOverlayIds.Contains(definition.Id),
-                    PushState));
+                    OnOverlayToggled));
             }
 
             foreach (MapLayerDefinition definition in MapLayerCatalog.BaseLayers)
@@ -284,6 +287,7 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
         if (value is not null)
         {
             _settings.SelectedBaseLayerId = value.Id;
+            RememberSettings();
         }
 
         PushState();
@@ -292,12 +296,14 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
     partial void OnShowHazardConeChanged(bool value)
     {
         _settings.ShowHazardCone = value;
+        RememberSettings();
         PushState();
     }
 
     partial void OnHazardRangeMetresChanged(double value)
     {
         _settings.HazardRangeMetresOverride = value <= 0 ? null : value;
+        RememberSettings();
         PushState();
     }
 
@@ -337,6 +343,7 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
         }
 
         _settings.RadarSourceId = value.Id;
+        RememberSettings();
         RadarMaxZoom = value.MaxUsefulZoom;
 
         // Each source brings its own timeline, so drop the previous one.
@@ -371,6 +378,7 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
         if (value is not null)
         {
             _settings.RadarColourScheme = value.Id;
+            RememberSettings();
         }
 
         PushState();
@@ -379,6 +387,7 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
     partial void OnShowSnowChanged(bool value)
     {
         _settings.RadarShowSnow = value;
+        RememberSettings();
         PushState();
     }
 
@@ -387,6 +396,7 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
     partial void OnShowSatelliteChanged(bool value)
     {
         _settings.ShowSatellite = value;
+        RememberSettings();
         PushState();
     }
 
@@ -395,18 +405,21 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
     partial void OnRadarMaxZoomChanged(int value)
     {
         _settings.RadarMaxZoom = value;
+        RememberSettings();
         PushState();
     }
 
     partial void OnWindAnimationMaxZoomChanged(int value)
     {
         _settings.WindAnimationMaxZoom = value;
+        RememberSettings();
         PushState();
     }
 
     partial void OnShowWindFieldChanged(bool value)
     {
         _settings.ShowWindField = value;
+        RememberSettings();
 
         if (value && _windField.IsEmpty)
         {
@@ -420,6 +433,7 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
     partial void OnShowWindAnimationChanged(bool value)
     {
         _settings.ShowWindAnimation = value;
+        RememberSettings();
 
         if (value && _windField.IsEmpty)
         {
@@ -430,9 +444,17 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
         PushState();
     }
 
-    partial void OnWindFieldGridSizeChanged(int value) => _settings.WindFieldGridSize = value;
+    partial void OnWindFieldGridSizeChanged(int value)
+    {
+        _settings.WindFieldGridSize = value;
+        RememberSettings();
+    }
 
-    partial void OnWindFieldSpacingMetresChanged(double value) => _settings.WindFieldSpacingMetres = value;
+    partial void OnWindFieldSpacingMetresChanged(double value)
+    {
+        _settings.WindFieldSpacingMetres = value;
+        RememberSettings();
+    }
 
     partial void OnFrameIndexChanged(int value)
     {
@@ -916,6 +938,32 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
         RadarFrame frame = _timeline.Frames[FrameIndex];
         string kind = frame.IsForecast ? "Vorhersage" : "Messung";
         FrameLabel = $"{frame.TimeLabel}  ({frame.RelativeLabel(DateTimeOffset.Now)}, {kind})";
+    }
+
+    /// <summary>
+    /// An overlay was ticked: push the new picture and remember the choice.
+    /// Without this the layer selection was rebuilt from the defaults on every
+    /// start — on a vehicle screen that means setting it up again each shift.
+    /// </summary>
+    private void OnOverlayToggled()
+    {
+        PushState();
+        RememberSettings();
+    }
+
+    /// <summary>
+    /// Marks the settings dirty; the shell writes them on its next tick. Not a
+    /// direct write: these are sliders and checkboxes, and one drag would
+    /// otherwise mean dozens of file writes.
+    /// </summary>
+    private void RememberSettings()
+    {
+        // During construction every property fires once with its stored value —
+        // nothing has changed yet.
+        if (!_suppressPush)
+        {
+            _store.RequestSave();
+        }
     }
 
     private void PushState() => PushState(recentre: false);
