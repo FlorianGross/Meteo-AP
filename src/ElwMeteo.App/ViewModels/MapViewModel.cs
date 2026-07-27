@@ -25,6 +25,23 @@ public sealed partial class LayerToggle(MapLayerDefinition definition, bool isEn
 
     public string? Description => Definition.Description;
 
+    /// <summary>
+    /// Availability according to the server's own capabilities document:
+    /// null = not checked yet, true = advertised, false = the server does not
+    /// know this layer name.
+    /// </summary>
+    [ObservableProperty]
+    private bool? _isAvailable;
+
+    public string AvailabilityNote => IsAvailable switch
+    {
+        true => "vom Server bestätigt",
+        false => "Server kennt diesen Layer nicht — Name hat sich vermutlich geändert",
+        _ => Definition.NeedsCapabilityCheck ? "noch nicht geprüft" : string.Empty
+    };
+
+    partial void OnIsAvailableChanged(bool? value) => OnPropertyChanged(nameof(AvailabilityNote));
+
     private bool _isEnabled = isEnabled;
 
     public bool IsEnabled
@@ -44,6 +61,7 @@ public sealed partial class LayerToggle(MapLayerDefinition definition, bool isEn
 public sealed partial class MapViewModel : ObservableObject, IDisposable
 {
     private readonly RainViewerProvider _radar;
+    private readonly WmsCapabilitiesService _capabilities;
     private readonly WindFieldProvider _windFieldProvider;
     private readonly IWeatherProvider _weather;
     private readonly AppSettings _settings;
@@ -63,11 +81,13 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
 
     public MapViewModel(
         RainViewerProvider radar,
+        WmsCapabilitiesService capabilities,
         WindFieldProvider windFieldProvider,
         IWeatherProvider weather,
         AppSettings settings)
     {
         _radar = radar;
+        _capabilities = capabilities;
         _windFieldProvider = windFieldProvider;
         _weather = weather;
         _settings = settings;
@@ -109,6 +129,7 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
             ShowSatellite = settings.ShowSatellite;
             ShowWindField = settings.ShowWindField;
             ShowWindAnimation = settings.ShowWindAnimation;
+            SelectedRadarSource = RadarSourceCatalog.ById(settings.RadarSourceId);
             RadarMaxZoom = settings.RadarMaxZoom;
             WindAnimationMaxZoom = settings.WindAnimationMaxZoom;
             WindFieldGridSize = settings.WindFieldGridSize;
@@ -177,6 +198,15 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
 
     // ------------------------------------------------------- radar styling
 
+    public IReadOnlyList<RadarSourceDefinition> RadarSources => RadarSourceCatalog.All;
+
+    [ObservableProperty]
+    private RadarSourceDefinition? _selectedRadarSource;
+
+    /// <summary>Explains the selected source, including a missing API key.</summary>
+    [ObservableProperty]
+    private string _radarSourceNote = string.Empty;
+
     public IReadOnlyList<RadarColourScheme> ColourSchemes => RadarTimeline.ColourSchemes;
 
     [ObservableProperty]
@@ -222,6 +252,12 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     private double _windFieldSpacingMetres = 2000;
+
+    [ObservableProperty]
+    private string _capabilityStatus = "DWD-Layer noch nicht gegen den Server geprüft.";
+
+    [ObservableProperty]
+    private bool _isCheckingCapabilities;
 
     [ObservableProperty]
     private string _windFieldStatus = "Windfeld nicht geladen.";
@@ -287,6 +323,28 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
 
         static bool Contains(string? haystack, string needle) =>
             haystack is not null && haystack.Contains(needle, StringComparison.CurrentCultureIgnoreCase);
+    }
+
+    partial void OnSelectedRadarSourceChanged(RadarSourceDefinition? value)
+    {
+        if (value is null)
+        {
+            return;
+        }
+
+        _settings.RadarSourceId = value.Id;
+        RadarMaxZoom = value.MaxUsefulZoom;
+
+        RadarSourceNote = value switch
+        {
+            { RequiresApiKey: true } when string.IsNullOrWhiteSpace(_settings.OpenWeatherMapApiKey) =>
+                "Kein API-Schlüssel hinterlegt — Quelle bleibt leer. Schlüssel in den Einstellungen eintragen.",
+            { SupportsTimeline: false } =>
+                "Diese Quelle liefert nur das aktuelle Bild; Zeitleiste und Abspielfunktion bleiben ohne Wirkung.",
+            _ => string.Empty
+        };
+
+        PushState();
     }
 
     partial void OnShowRadarChanged(bool value) => PushState();
@@ -479,6 +537,70 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>Turns every overlay off — the fastest way back to a clean map.</summary>
+    /// <summary>
+    /// Asks the DWD GeoServer which layers it actually offers and marks the
+    /// curated ones accordingly. A renamed product then shows up as a named
+    /// problem instead of an overlay that quietly stays blank.
+    /// </summary>
+    [RelayCommand]
+    private async Task CheckDwdLayersAsync(CancellationToken cancellationToken)
+    {
+        IsCheckingCapabilities = true;
+        try
+        {
+            CapabilityStatus = "Layerliste wird beim DWD abgefragt …";
+
+            IReadOnlyList<WmsLayerInfo> available = await _capabilities
+                .GetLayersAsync(MapLayerCatalog.DwdWmsEndpoint, cancellationToken)
+                .ConfigureAwait(true);
+
+            var names = available.Select(l => l.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            int checkedCount = 0;
+            int missing = 0;
+
+            foreach (LayerToggle toggle in Overlays.Where(t => t.Definition.IsWms))
+            {
+                string? layerName = toggle.Definition.WmsLayers;
+                if (string.IsNullOrWhiteSpace(layerName))
+                {
+                    continue;
+                }
+
+                checkedCount++;
+                bool present = layerName.Split(',')
+                    .Select(part => part.Trim())
+                    .All(names.Contains);
+
+                toggle.IsAvailable = present;
+
+                if (!present)
+                {
+                    missing++;
+                    // A layer the server does not know can only produce error
+                    // tiles, so take it off the map straight away.
+                    toggle.IsEnabled = false;
+                }
+            }
+
+            CapabilityStatus = missing == 0
+                ? $"Alle {checkedCount} DWD-Layer vom Server bestätigt ({available.Count} verfügbar)."
+                : $"{missing} von {checkedCount} DWD-Layern kennt der Server nicht — sie wurden abgeschaltet.";
+        }
+        catch (CapabilitiesException ex)
+        {
+            CapabilityStatus = ex.Message;
+        }
+        catch (OperationCanceledException)
+        {
+            CapabilityStatus = "Prüfung abgebrochen.";
+        }
+        finally
+        {
+            IsCheckingCapabilities = false;
+        }
+    }
+
     [RelayCommand]
     private void ClearOverlays()
     {
@@ -680,13 +802,35 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
         }
 
         string? radarTileUrl = null;
+        string? radarWmsUrl = null;
+        string? radarWmsLayers = null;
         string? satelliteTileUrl = null;
+
+        RadarSourceDefinition source = SelectedRadarSource ?? RadarSourceCatalog.Default;
+
+        // Only the animated source is driven by the frame index; the others show
+        // whatever their server currently serves.
+        if (ShowRadar && source.Kind != RadarSourceKind.RainViewerFrames)
+        {
+            switch (source.Kind)
+            {
+                case RadarSourceKind.Wms:
+                    radarWmsUrl = source.WmsUrl;
+                    radarWmsLayers = source.WmsLayers;
+                    break;
+
+                case RadarSourceKind.KeyedTiles when !string.IsNullOrWhiteSpace(_settings.OpenWeatherMapApiKey):
+                    radarTileUrl = source.TileUrlTemplate?
+                        .Replace("{key}", _settings.OpenWeatherMapApiKey.Trim());
+                    break;
+            }
+        }
 
         if (FrameIndex >= 0 && FrameIndex < _timeline.Frames.Count)
         {
             RadarFrame frame = _timeline.Frames[FrameIndex];
 
-            if (ShowRadar)
+            if (ShowRadar && source.Kind == RadarSourceKind.RainViewerFrames)
             {
                 radarTileUrl = _timeline.TileUrlTemplate(
                     frame,
@@ -768,6 +912,9 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
         return new MapState(
             layers,
             radarTileUrl,
+            radarWmsUrl,
+            radarWmsLayers,
+            source.Attribution,
             RadarOpacity,
             satelliteTileUrl,
             SatelliteOpacity,
@@ -788,6 +935,9 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
     private sealed record MapState(
         IReadOnlyList<MapLayerState> Layers,
         string? RadarTileUrl,
+        string? RadarWmsUrl,
+        string? RadarWmsLayers,
+        string RadarAttribution,
         double RadarOpacity,
         string? SatelliteTileUrl,
         double SatelliteOpacity,
@@ -832,7 +982,8 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
         string Attribution,
         double Opacity,
         int MaxZoom,
-        int? MaxUsefulZoom)
+        int? MaxUsefulZoom,
+        string? Subdomains)
     {
         public static MapLayerState From(MapLayerDefinition definition, bool enabled) => new(
             definition.Id,
@@ -847,7 +998,8 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
             definition.Attribution,
             definition.Opacity,
             definition.MaxZoom,
-            definition.MaxUsefulZoom);
+            definition.MaxUsefulZoom,
+            definition.Subdomains);
     }
 
     private sealed record MarkerState(

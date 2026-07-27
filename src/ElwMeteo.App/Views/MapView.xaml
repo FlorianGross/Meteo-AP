@@ -101,6 +101,21 @@
 
                     <CheckBox Content="Radar einblenden" IsChecked="{Binding ShowRadar}" />
 
+                    <TextBlock Text="QUELLE" Style="{StaticResource LabelText}" Margin="0,10,0,3" />
+                    <ComboBox ItemsSource="{Binding RadarSources}"
+                              SelectedItem="{Binding SelectedRadarSource}"
+                              DisplayMemberPath="Title" />
+                    <TextBlock Text="{Binding SelectedRadarSource.Description}"
+                               Style="{StaticResource LabelText}"
+                               FontWeight="Normal" TextWrapping="Wrap"
+                               Margin="0,4,0,0" />
+                    <TextBlock Text="{Binding RadarSourceNote}"
+                               Style="{StaticResource BodyText}" FontSize="11.5"
+                               Foreground="{StaticResource CautionBrush}"
+                               TextWrapping="Wrap"
+                               Margin="0,4,0,0"
+                               Visibility="{Binding RadarSourceNote, Converter={StaticResource StringToVisibility}}" />
+
                     <TextBlock Text="{Binding FrameLabel}"
                                FontFamily="{StaticResource MonoFont}"
                                FontSize="14" FontWeight="Bold"
@@ -256,11 +271,22 @@
                                 ToolTip="Filter zurücksetzen" />
                     </Grid>
 
-                    <Button Content="Alle Overlays aus"
-                            Command="{Binding ClearOverlaysCommand}"
-                            HorizontalContentAlignment="Left"
-                            Padding="9,4" FontSize="11"
-                            Margin="0,0,0,8" />
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                        <Button Content="Alle Overlays aus"
+                                Command="{Binding ClearOverlaysCommand}"
+                                HorizontalContentAlignment="Left"
+                                Padding="9,4" FontSize="11" />
+                        <Button Content="DWD-Layer prüfen"
+                                Command="{Binding CheckDwdLayersCommand}"
+                                IsEnabled="{Binding IsCheckingCapabilities, Converter={StaticResource Not}}"
+                                ToolTip="Fragt beim DWD-Server ab, welche Layer er tatsächlich anbietet."
+                                Padding="9,4" FontSize="11" Margin="5,0,0,0" />
+                    </StackPanel>
+
+                    <TextBlock Text="{Binding CapabilityStatus}"
+                               Style="{StaticResource LabelText}"
+                               FontWeight="Normal" TextWrapping="Wrap"
+                               Margin="0,0,0,8" />
 
                     <ItemsControl ItemsSource="{Binding Source={StaticResource GroupedOverlays}}">
                         <ItemsControl.GroupStyle>
@@ -288,6 +314,25 @@
                                                        FontWeight="Normal"
                                                        TextWrapping="Wrap"
                                                        Margin="0,2,0,0" />
+                                            <TextBlock Text="{Binding AvailabilityNote}"
+                                                       TextWrapping="Wrap"
+                                                       Margin="0,2,0,0"
+                                                       Visibility="{Binding AvailabilityNote, Converter={StaticResource StringToVisibility}}">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock" BasedOn="{StaticResource LabelText}">
+                                                        <Setter Property="FontWeight" Value="Normal" />
+                                                        <Style.Triggers>
+                                                            <!-- A layer the server does not know is a real problem. -->
+                                                            <DataTrigger Binding="{Binding IsAvailable}" Value="False">
+                                                                <Setter Property="Foreground" Value="{StaticResource WarningBrush}" />
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding IsAvailable}" Value="True">
+                                                                <Setter Property="Foreground" Value="{StaticResource OkBrush}" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
                                         </StackPanel>
                                     </CheckBox>
                                 </Border>

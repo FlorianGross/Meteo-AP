@@ -35,6 +35,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         _alwaysOnTop = settings.AlwaysOnTop;
         _hazardInnerRadiusMetres = settings.HazardInnerRadiusMetres;
         _radarFrameDelayMs = settings.RadarFrameDelayMs;
+        _openWeatherMapApiKey = settings.OpenWeatherMapApiKey;
 
         RefreshPorts();
     }
@@ -89,6 +90,10 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     [ObservableProperty]
     private int _radarFrameDelayMs = 450;
+
+    /// <summary>Only needed for radar sources that require a key; otherwise empty.</summary>
+    [ObservableProperty]
+    private string _openWeatherMapApiKey = string.Empty;
 
     [ObservableProperty]
     private string _gpsStatus = "GPS nicht verbunden.";
@@ -231,6 +236,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         _settings.AlwaysOnTop = AlwaysOnTop;
         _settings.HazardInnerRadiusMetres = Math.Clamp(HazardInnerRadiusMetres, 10, 1000);
         _settings.RadarFrameDelayMs = Math.Clamp(RadarFrameDelayMs, 100, 3000);
+        _settings.OpenWeatherMapApiKey = OpenWeatherMapApiKey.Trim();
 
         Save();
         SettingsApplied?.Invoke();

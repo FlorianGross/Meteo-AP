@@ -172,6 +172,14 @@
                         <TextBlock Text="BILDDAUER RADARANIMATION IN MILLISEKUNDEN"
                                    Style="{StaticResource LabelText}" Margin="0,0,0,4" />
                         <TextBox Text="{Binding RadarFrameDelayMs}" Style="{StaticResource Field}" />
+
+                        <TextBlock Text="OPENWEATHERMAP-API-SCHLÜSSEL (OPTIONAL)"
+                                   Style="{StaticResource LabelText}" Margin="0,0,0,4" />
+                        <TextBox Text="{Binding OpenWeatherMapApiKey}" Style="{StaticResource Field}" />
+                        <TextBlock Style="{StaticResource BodyText}" FontSize="12"
+                                   Foreground="{StaticResource MutedBrush}"
+                                   TextWrapping="Wrap"
+                                   Text="Nur nötig, wenn auf der Karte OpenWeatherMap als Radarquelle gewählt wird. Alle anderen Quellen kommen ohne Schlüssel aus." />
                     </StackPanel>
                 </Border>
 

@@ -50,6 +50,7 @@ public partial class App : Application
         var warnings = new CompositeWarningProvider(brightSky, new DwdWarningProvider(_httpClient));
         var radar = new RainViewerProvider(_httpClient);
         var windField = new WindFieldProvider(_httpClient);
+        var capabilities = new WmsCapabilitiesService(_httpClient);
         var geocoding = new GeocodingService(_httpClient);
         var ipLocation = new IpLocationProvider(_httpClient);
         var csvLogger = new SnapshotCsvLogger(settings.ResolveCsvDirectory());
@@ -58,7 +59,7 @@ public partial class App : Application
         _mainViewModel = new MainViewModel(
             new ClockViewModel(),
             new DashboardViewModel(weather, warnings, geocoding, locationResolver, csvLogger, brightSky, settings),
-            new MapViewModel(radar, windField, weather, settings),
+            new MapViewModel(radar, capabilities, windField, weather, settings),
             new TrendViewModel(),
             new SettingsViewModel(settings, _gps, geocoding),
             settings,
