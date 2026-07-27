@@ -45,6 +45,7 @@ public sealed partial class DashboardViewModel : ObservableObject
     private readonly GeocodingService _geocoding;
     private readonly LocationResolver _location;
     private readonly SnapshotCsvLogger _csvLogger;
+    private readonly BrightSkyProvider _brightSky;
     private readonly AppSettings _settings;
 
     private static readonly CultureInfo German = CultureInfo.GetCultureInfo("de-DE");
@@ -55,6 +56,7 @@ public sealed partial class DashboardViewModel : ObservableObject
         GeocodingService geocoding,
         LocationResolver location,
         SnapshotCsvLogger csvLogger,
+        BrightSkyProvider brightSky,
         AppSettings settings)
     {
         _weather = weather;
@@ -62,6 +64,7 @@ public sealed partial class DashboardViewModel : ObservableObject
         _geocoding = geocoding;
         _location = location;
         _csvLogger = csvLogger;
+        _brightSky = brightSky;
         _settings = settings;
     }
 
@@ -237,6 +240,54 @@ public sealed partial class DashboardViewModel : ObservableObject
 
     public ObservableCollection<DwdWarning> Warnings { get; } = [];
 
+    // --------------------------------------------- measured station values
+
+    /// <summary>True once a DWD station reading has been retrieved.</summary>
+    [ObservableProperty]
+    private bool _hasStation;
+
+    [ObservableProperty]
+    private string _stationName = "—";
+
+    [ObservableProperty]
+    private string _stationDistance = string.Empty;
+
+    [ObservableProperty]
+    private string _stationAge = string.Empty;
+
+    [ObservableProperty]
+    private string _stationTemperature = "—";
+
+    [ObservableProperty]
+    private string _stationWind = "—";
+
+    [ObservableProperty]
+    private string _stationHumidity = "—";
+
+    [ObservableProperty]
+    private string _stationPressure = "—";
+
+    /// <summary>Set when the nearest station is too far away to speak for the site.</summary>
+    [ObservableProperty]
+    private string _stationCaveat = string.Empty;
+
+    /// <summary>Difference between the model temperature and the measured one.</summary>
+    [ObservableProperty]
+    private string _modelDeviation = string.Empty;
+
+    // ------------------------------------------------- DWD radar at the point
+
+    [ObservableProperty]
+    private string _dwdRadarSummary = "DWD-Radarwerte noch nicht abgerufen.";
+
+    [ObservableProperty]
+    private bool _hasDwdRadar;
+
+    public ObservableCollection<NowcastBar> DwdRadarBars { get; } = [];
+
+    [ObservableProperty]
+    private string _warningSource = string.Empty;
+
     [ObservableProperty]
     private string _warningSummary = "Keine Warnungen für diese Position.";
 
@@ -276,6 +327,8 @@ public sealed partial class DashboardViewModel : ObservableObject
             // The remaining steps are decoration: a failure there must not mark
             // the refresh as failed, because the weather itself arrived fine.
             await UpdateAddressAsync(position, cancellationToken).ConfigureAwait(true);
+            await UpdateStationAsync(position, snapshot, cancellationToken).ConfigureAwait(true);
+            await UpdateDwdRadarAsync(position, now, cancellationToken).ConfigureAwait(true);
             await UpdateWarningsAsync(position, cancellationToken).ConfigureAwait(true);
             await LogSnapshotAsync(assessment, now, cancellationToken).ConfigureAwait(true);
         }
@@ -395,6 +448,123 @@ public sealed partial class DashboardViewModel : ObservableObject
         AddressLine = address ?? string.Empty;
     }
 
+    /// <summary>
+    /// Pulls the nearest DWD station reading. Model output is interpolated; this
+    /// is what an instrument actually recorded, which is the number that settles
+    /// an argument on scene.
+    /// </summary>
+    private async Task UpdateStationAsync(
+        GeoPosition position,
+        WeatherSnapshot snapshot,
+        CancellationToken cancellationToken)
+    {
+        StationObservation? station = await _brightSky
+            .GetCurrentStationAsync(position, cancellationToken)
+            .ConfigureAwait(true);
+
+        if (station is null)
+        {
+            HasStation = false;
+            return;
+        }
+
+        HasStation = true;
+        StationName = station.StationName;
+        StationDistance = $"{station.DistanceLabel} entfernt";
+
+        TimeSpan age = station.AgeAt(DateTimeOffset.UtcNow);
+        StationAge = age.TotalMinutes < 90
+            ? $"Messung vor {(int)age.TotalMinutes} min"
+            : $"Messung {station.Timestamp.ToLocalTime():dd.MM. HH:mm}";
+
+        StationTemperature = Unit(station.TemperatureC, "F1", "°C");
+        StationHumidity = Unit(station.RelativeHumidityPercent, "F0", "%");
+        StationPressure = Unit(station.PressureMslHpa, "F0", "hPa");
+
+        StationWind = station.WindSpeedMs is { } wind
+            ? $"{WindScale.MsToKmh(wind).ToString("F0", German)} km/h aus " +
+              $"{WindScale.CompassPoint(station.WindDirectionDeg ?? 0)}"
+            : "—";
+
+        StationCaveat = station.IsRepresentative
+            ? string.Empty
+            : "Nächste Station weit entfernt — Messwerte nur bedingt auf die Einsatzstelle übertragbar.";
+
+        // Where model and measurement disagree noticeably, say so: it is a hint
+        // that local terrain or an inversion is doing something the model missed.
+        if (station.TemperatureC is { } measured && snapshot.TemperatureC is { } modelled)
+        {
+            double delta = modelled - measured;
+            ModelDeviation = Math.Abs(delta) >= 1.5
+                ? $"Modell weicht um {delta.ToString("+0.0;-0.0", German)} K von der Station ab."
+                : string.Empty;
+        }
+        else
+        {
+            ModelDeviation = string.Empty;
+        }
+    }
+
+    /// <summary>
+    /// Reads the DWD radar composite at the exact position: measured five-minute
+    /// steps followed by the RV extrapolation, rather than a picture to eyeball.
+    /// </summary>
+    private async Task UpdateDwdRadarAsync(
+        GeoPosition position,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        DwdRadarBars.Clear();
+
+        try
+        {
+            RadarPointSeries series = await _brightSky
+                .GetRadarSeriesAsync(position, cancellationToken: cancellationToken)
+                .ConfigureAwait(true);
+
+            if (series.IsEmpty)
+            {
+                HasDwdRadar = false;
+                DwdRadarSummary = "Keine DWD-Radarwerte für diese Position (außerhalb der Radarabdeckung?).";
+                return;
+            }
+
+            HasDwdRadar = true;
+
+            double peak = Math.Max(0.5, series.PeakMillimetresPerHour);
+            const double maxHeight = 46.0;
+
+            foreach (RadarPointStep step in series.Steps)
+            {
+                DwdRadarBars.Add(new NowcastBar(
+                    step.Time.ToLocalTime().ToString("HH:mm"),
+                    // The bar model carries millimetres; the label divides back out.
+                    step.MillimetresPerHour / 4.0,
+                    Math.Max(2.0, step.MillimetresPerHour / peak * maxHeight),
+                    !step.IsForecast && step.Time >= now.AddMinutes(-5)));
+            }
+
+            RadarPointStep? current = series.At(now);
+            RadarPointStep? starts = series.FirstWetForecast;
+
+            DwdRadarSummary = (current, starts) switch
+            {
+                ({ } c, _) when c.HasPrecipitation =>
+                    $"Am Standort {c.MillimetresPerHour.ToString("F1", German)} mm/h · " +
+                    $"Spitze im Zeitraum {series.PeakMillimetresPerHour.ToString("F1", German)} mm/h.",
+                (_, { } s) =>
+                    $"Trocken — Niederschlag laut Radar ab {s.Time.ToLocalTime():HH:mm} Uhr " +
+                    $"({s.MillimetresPerHour.ToString("F1", German)} mm/h).",
+                _ => "Radar zeigt am Standort keinen Niederschlag im Vorhersagezeitraum."
+            };
+        }
+        catch (RadarProviderException ex)
+        {
+            HasDwdRadar = false;
+            DwdRadarSummary = ex.Message;
+        }
+    }
+
     private async Task UpdateWarningsAsync(GeoPosition position, CancellationToken cancellationToken)
     {
         try
@@ -409,6 +579,9 @@ public sealed partial class DashboardViewModel : ObservableObject
             }
 
             HasWarnings = Warnings.Count > 0;
+            WarningSource = _warnings is CompositeWarningProvider composite
+                ? $"Quelle: {composite.LastSourceLabel}"
+                : string.Empty;
             WarningSummary = HasWarnings
                 ? $"{Warnings.Count} amtliche Warnung(en) — höchste Stufe: {Warnings[0].LevelLabel}"
                 : "Keine amtlichen Warnungen für diese Position.";

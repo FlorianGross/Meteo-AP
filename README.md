@@ -85,8 +85,23 @@ sortiert. Unter anderem:
 - Sonnenuntergang binnen einer Stunde
 - Starkregen im Nowcast
 
+**Messwerte der nächsten DWD-Station.** Kein Modellwert, sondern das, was ein
+Instrument tatsächlich aufgezeichnet hat: Station, Entfernung, Alter der Messung
+sowie Temperatur, Wind, Feuchte und Druck. Weicht das Modell um mehr als 1,5 K
+von der Station ab, wird das ausdrücklich gemeldet — meist ein Hinweis auf
+Geländeeinfluss oder eine Inversion. Ist die nächste Station zu weit entfernt,
+sagt die Anwendung das dazu, statt den Wert als lokale Messung auszugeben.
+
+**DWD-Radar am Standort** in 5-Minuten-Schritten: der RADOLAN-Wert genau an der
+Einsatzstelle, gefolgt von der RV-Extrapolation des DWD. Kräftige Balken sind
+Messung, blasse Vorhersage. Dazu die Klartextaussage, ab wann es laut Radar
+regnet — ein Zahlenwert statt eines Bildes, das man interpretieren muss.
+
 **Amtliche DWD-Warnungen** für die Gemeinde an der aktuellen Position, mit
-Warnstufe, Gültigkeit, Beschreibung und Verhaltenshinweis.
+Warnstufe, Gültigkeit, Beschreibung und Verhaltenshinweis. Bezogen aus dem
+CAP-Feed des DWD — derselben Quelle, die auch hinter der WarnWetter-App liegt;
+schlägt die fehl, übernimmt der DWD-GeoServer als Ausweichweg. Welche Quelle
+geliefert hat, steht unter der Zusammenfassung.
 
 **Nowcast-Streifen** — Niederschlag der nächsten drei Stunden in
 15-Minuten-Schritten als Balken, mit Klartextzusammenfassung („Niederschlag
@@ -105,7 +120,14 @@ Leaflet-Karte in einem WebView2-Steuerelement.
 **Regenradar mit Zeitleiste.** Rund zwei Stunden gemessene Radarkomposite plus
 30 Minuten Nowcast in 10-Minuten-Schritten. Ab einer einstellbaren Zoomstufe
 (Vorgabe 11) blendet sich das Radar aus und sagt das an: Komposite haben rund
-einen Kilometer je Bildpunkt, näher herangezoomt wird nur noch hochskaliert. Abspielen, Einzelschritt, Sprung
+einen Kilometer je Bildpunkt, näher herangezoomt wird nur noch hochskaliert.
+
+Dieselbe Zoomgrenze gilt layerweise für alle grob gerasterten Produkte —
+DWD-Niederschlagsradar, Radarvorhersage, Waldbrand- und Graslandfeuerindex,
+gefühlte Temperatur und Windböen. Überschrittene Layer werden ausgeblendet und
+oben in der Karte namentlich genannt. Das fängt auch den Fall ab, in dem ein
+Server die Fehlermeldung als gültiges Bild ausliefert — eine Fehlerkachel, die
+kein Ladefehler-Handler bemerken kann. Abspielen, Einzelschritt, Sprung
 auf „jetzt“, einstellbare Deckkraft. Beim Bildwechsel wird das neue Bild erst
 eingeblendet, wenn seine Kacheln geladen sind — kein Flackern.
 
@@ -323,6 +345,7 @@ veröffentlichte Almanachwerte für Frankfurt am Main geprüft.
 | Messwerte, Nowcast, Vorhersage | [Open-Meteo](https://open-meteo.com) (ICON des DWD) | CC BY 4.0, kein Schlüssel nötig |
 | Amtliche Warnungen, Fachkarten | [DWD GeoServer](https://maps.dwd.de) | Open Data nach GeoNutzV |
 | Radarbilder, Nowcast und Infrarot-Satellit | [RainViewer](https://www.rainviewer.com/) | kostenfreie öffentliche API |
+| Stationsmesswerte, DWD-Warnungen (CAP), RADOLAN am Punkt | [Bright Sky](https://brightsky.dev) | freier JSON-Zugang zu DWD Open Data, ohne Schlüssel |
 | Luftbild und Reliefschummerung | Esri / ArcGIS Online | kostenfrei mit Quellenangabe |
 | Kartengrundlage | OpenStreetMap, OpenTopoMap | ODbL bzw. CC BY-SA |
 | Adressauflösung | Nominatim | Nutzungsrichtlinie, identifizierender User-Agent gesetzt |

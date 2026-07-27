@@ -831,7 +831,8 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
         bool WmsTransparent,
         string Attribution,
         double Opacity,
-        int MaxZoom)
+        int MaxZoom,
+        int? MaxUsefulZoom)
     {
         public static MapLayerState From(MapLayerDefinition definition, bool enabled) => new(
             definition.Id,
@@ -845,7 +846,8 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
             definition.WmsTransparent,
             definition.Attribution,
             definition.Opacity,
-            definition.MaxZoom);
+            definition.MaxZoom,
+            definition.MaxUsefulZoom);
     }
 
     private sealed record MarkerState(
