@@ -255,7 +255,32 @@ Die Serienfarben stammen aus einer geprüften Palette und wurden gegen die
 tatsächliche Panelfläche der Anwendung validiert (Helligkeitsband, Chroma,
 Farbfehlsichtigkeits- und Normalsicht-Abstand über alle Paare, Kontrast).
 
-### Registerkarte 5 — Einstellungen
+### Registerkarte 5 — Diagnose
+
+Für den Fall, dass etwas nicht funktioniert. Jede Fernabfrage der Anwendung
+sieht im Fehlerfall gleich aus — eine leere Anzeige — und ohne die tatsächliche
+URL und den Statuscode ist die Ursache Ratesache. Diese Registerkarte liefert
+beides.
+
+**Verbindungsprotokoll.** Jede ausgehende Anfrage mit Zeitpunkt, vollständiger
+URL, Statuscode, Dauer und, im Fehlerfall, der innersten Fehlermeldung — die
+nennt die eigentliche Ursache, etwa eine gescheiterte Namensauflösung oder ein
+abgelehntes Zertifikat hinter einem Firmenproxy. Auch Kachelfehler der Karte
+landen hier, obwohl sie gar nicht über den HTTP-Client der Anwendung laufen.
+
+**Verbindungstest.** Prüft jeden genutzten Dienst einzeln. Fällt alles aus, liegt
+es am Netz — Anmeldeportal im WLAN, Proxy oder kein Mobilfunk. Fallen einzelne
+aus, ist es der Anbieter oder eine Filterung. Das unterscheidet zwei Ursachen,
+die sonst gleich aussehen.
+
+**DWD-Layerliste.** Die Liste, die der DWD-Server selbst ausgibt, mit Suchfeld
+und Markierung, welche Layer eine Zeitachse haben. Das ist die verbindliche
+Antwort auf die Frage, wie ein Layer wirklich heißt.
+
+„Kopieren" legt alle drei Teile als Text in die Zwischenablage — genau das, was
+für eine Fehlermeldung gebraucht wird.
+
+### Registerkarte 6 — Einstellungen
 
 Positionsquelle, GPS-Schnittstelle, Ortssuche, Aktualisierungsintervall,
 Gefahrenbereichsradius, Protokollierung und die Quellenangaben.

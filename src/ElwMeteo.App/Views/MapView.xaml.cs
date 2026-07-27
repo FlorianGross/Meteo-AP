@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
 using ElwMeteo.App.ViewModels;
+using ElwMeteo.Core.Diagnostics;
 using Microsoft.Web.WebView2.Core;
 
 namespace ElwMeteo.App.Views;
@@ -15,6 +16,13 @@ public partial class MapView : UserControl
 {
     private MapViewModel? _viewModel;
     private bool _isWebViewReady;
+
+    /// <summary>
+    /// Tile failures inside the page never reach HttpClient, so they are pushed
+    /// into the shared log here — otherwise the diagnostics tab would show a
+    /// clean sheet while the map is visibly broken.
+    /// </summary>
+    public static RequestLog? SharedLog { get; set; }
 
     /// <summary>State pushed before the page was ready, replayed once it is.</summary>
     private string? _pendingState;
@@ -149,6 +157,16 @@ public partial class MapView : UserControl
                     {
                         Apply(_pendingState);
                         _pendingState = null;
+                    }
+
+                    break;
+
+                case "layerError":
+                    if (root.TryGetProperty("title", out JsonElement failed))
+                    {
+                        SharedLog?.AddExternalFailure(
+                            failed.GetString() ?? "Kartenlayer",
+                            "Kacheln konnten nicht geladen werden.");
                     }
 
                     break;

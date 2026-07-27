@@ -8,6 +8,7 @@ using System.Windows.Threading;
 using ElwMeteo.App.Services;
 using ElwMeteo.App.ViewModels;
 using ElwMeteo.Core.Configuration;
+using ElwMeteo.Core.Diagnostics;
 using ElwMeteo.Core.Reporting;
 using ElwMeteo.Core.Services;
 
@@ -20,6 +21,7 @@ namespace ElwMeteo.App;
 public partial class App : Application
 {
     private HttpClient? _httpClient;
+    private RequestLog? _requestLog;
     private GpsSerialService? _gps;
     private MainViewModel? _mainViewModel;
 
@@ -41,7 +43,8 @@ public partial class App : Application
 
         AppSettings settings = AppSettings.Load();
 
-        _httpClient = CreateHttpClient();
+        _requestLog = new RequestLog();
+        _httpClient = CreateHttpClient(_requestLog);
         _gps = new GpsSerialService();
 
         var weather = new OpenMeteoWeatherProvider(_httpClient);
@@ -51,6 +54,7 @@ public partial class App : Application
         var radar = new RainViewerProvider(_httpClient);
         var windField = new WindFieldProvider(_httpClient);
         var capabilities = new WmsCapabilitiesService(_httpClient);
+        var connectivity = new ConnectivityCheck(_httpClient);
         var geocoding = new GeocodingService(_httpClient);
         var ipLocation = new IpLocationProvider(_httpClient);
         var csvLogger = new SnapshotCsvLogger(settings.ResolveCsvDirectory());
@@ -61,9 +65,13 @@ public partial class App : Application
             new DashboardViewModel(weather, warnings, geocoding, locationResolver, csvLogger, brightSky, settings),
             new MapViewModel(radar, capabilities, windField, weather, settings),
             new TrendViewModel(),
+            new DiagnosticsViewModel(_requestLog, connectivity, capabilities),
             new SettingsViewModel(settings, _gps, geocoding),
             settings,
             _gps);
+
+        // Map tile failures happen inside the page; route them into the same log.
+        Views.MapView.SharedLog = _requestLog;
 
         var window = new MainWindow { DataContext = _mainViewModel };
         MainWindow = window;
@@ -73,14 +81,16 @@ public partial class App : Application
         _ = Dispatcher.InvokeAsync(async () => await _mainViewModel.InitialiseAsync());
     }
 
-    private static HttpClient CreateHttpClient()
+    private static HttpClient CreateHttpClient(RequestLog log)
     {
         var handler = new HttpClientHandler
         {
             AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate
         };
 
-        var client = new HttpClient(handler)
+        // Every call is recorded, so a failure can be diagnosed from the URL and
+        // status rather than from an empty panel.
+        var client = new HttpClient(new RequestLoggingHandler(log) { InnerHandler = handler })
         {
             // Long enough for a slow cellular link, short enough that a dead
             // network does not leave the refresh button stuck.
