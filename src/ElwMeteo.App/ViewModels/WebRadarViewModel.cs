@@ -1,6 +1,5 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
-using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ElwMeteo.Core.Assessment;
@@ -50,6 +49,7 @@ public sealed partial class WebSourceToggle : ObservableObject
 /// </summary>
 public sealed partial class WebRadarViewModel : ObservableObject
 {
+    private readonly SettingsStore _store;
     private readonly AppSettings _settings;
     private double _latitude;
     private double _longitude;
@@ -57,8 +57,10 @@ public sealed partial class WebRadarViewModel : ObservableObject
     /// <summary>Set while the list is rebuilt, so toggles do not write back mid-flight.</summary>
     private bool _isReloading;
 
-    public WebRadarViewModel(AppSettings settings)
+    public WebRadarViewModel(SettingsStore store)
     {
+        _store = store;
+        AppSettings settings = store.Settings;
         _settings = settings;
         _latitude = settings.HomeLatitude;
         _longitude = settings.HomeLongitude;
@@ -115,12 +117,14 @@ public sealed partial class WebRadarViewModel : ObservableObject
         }
 
         _settings.SelectedWebSourceId = value.Id;
+        _store.RequestSave();
         Navigate();
     }
 
     partial void OnZoomChanged(int value)
     {
         _settings.WebSourceZoom = value;
+        _store.RequestSave();
 
         // Only worth re-navigating for a viewer that reads the zoom.
         if (SelectedSource?.UrlTemplate.Contains("{zoom}", StringComparison.Ordinal) == true)
@@ -353,15 +357,17 @@ public sealed partial class WebRadarViewModel : ObservableObject
         ReloadSources();
     }
 
+    /// <summary>
+    /// Adding or removing an entry is a deliberate act, so it is written at
+    /// once rather than left to the next tick.
+    /// </summary>
     private void Persist()
     {
-        try
+        _store.SaveNow();
+
+        if (_store.LastError is { } error)
         {
-            _settings.Save();
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            EditorMessage = $"Einstellungen konnten nicht gespeichert werden: {ex.Message}";
+            EditorMessage = $"Einstellungen konnten nicht gespeichert werden: {error}";
         }
     }
 

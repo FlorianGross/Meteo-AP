@@ -22,6 +22,8 @@ public partial class App : Application
 {
     private HttpClient? _httpClient;
     private RequestLog? _requestLog;
+    private SettingsStore? _settingsStore;
+    private DispatcherTimer? _settingsFlushTimer;
     private GpsSerialService? _gps;
     private MainViewModel? _mainViewModel;
 
@@ -43,6 +45,11 @@ public partial class App : Application
 
         AppSettings settings = AppSettings.Load();
 
+        // One writer for the whole application. Changes on any tab are marked
+        // dirty and flushed on a timer, so a slider drag costs one file write
+        // rather than one per pixel — and nothing is lost on the next start.
+        _settingsStore = new SettingsStore(settings);
+
         _requestLog = new RequestLog();
         _httpClient = CreateHttpClient(_requestLog);
         _gps = new GpsSerialService();
@@ -63,11 +70,11 @@ public partial class App : Application
         _mainViewModel = new MainViewModel(
             new ClockViewModel(),
             new DashboardViewModel(weather, warnings, geocoding, locationResolver, csvLogger, brightSky, settings),
-            new MapViewModel(radar, capabilities, windField, weather, settings),
-            new WebRadarViewModel(settings),
+            new MapViewModel(radar, capabilities, windField, weather, _settingsStore),
+            new WebRadarViewModel(_settingsStore),
             new TrendViewModel(),
             new DiagnosticsViewModel(_requestLog, connectivity, capabilities),
-            new SettingsViewModel(settings, _gps, geocoding),
+            new SettingsViewModel(_settingsStore, _gps, geocoding),
             settings,
             _gps);
 
@@ -77,6 +84,13 @@ public partial class App : Application
         var window = new MainWindow { DataContext = _mainViewModel };
         MainWindow = window;
         window.Show();
+
+        // Pending settings are written a couple of seconds after the last
+        // change — long enough that a slider drag is a single write, short
+        // enough that a power cut mid-shift does not cost the setup.
+        _settingsFlushTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+        _settingsFlushTimer.Tick += (_, _) => _settingsStore.Flush();
+        _settingsFlushTimer.Start();
 
         // Kick off the first fetch after the window is up, so the UI paints first.
         _ = Dispatcher.InvokeAsync(async () => await _mainViewModel.InitialiseAsync());
@@ -120,6 +134,10 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        // Anything changed in the last two seconds would otherwise be lost.
+        _settingsFlushTimer?.Stop();
+        _settingsStore?.Flush();
+
         _mainViewModel?.Dispose();
         _gps?.Dispose();
         _httpClient?.Dispose();

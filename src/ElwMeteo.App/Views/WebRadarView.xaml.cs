@@ -42,6 +42,15 @@ public partial class WebRadarView : UserControl
         if (_viewModel is not null)
         {
             _viewModel.NavigationRequested += OnNavigationRequested;
+
+            // The view model picks its viewer in its constructor, so that first
+            // request is raised before anyone is subscribed. If the browser was
+            // already up when the data context arrived, nothing would ever ask
+            // it to navigate and the panel would stay blank.
+            if (_isWebViewReady)
+            {
+                _viewModel.NotifyViewReady();
+            }
         }
     }
 
@@ -170,9 +179,20 @@ public partial class WebRadarView : UserControl
 
     private void OnNavigationCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs e)
     {
-        _viewModel?.ReportNavigationCompleted(
-            e.IsSuccess,
-            e.IsSuccess ? null : DescribeError(e.WebErrorStatus));
+        string? detail = e.IsSuccess ? null : DescribeError(e.WebErrorStatus);
+
+        _viewModel?.ReportNavigationCompleted(e.IsSuccess, detail);
+
+        // The browser does its own fetching, so a failure here never reaches
+        // HttpClient. Without this the diagnostics tab would show a clean sheet
+        // while this panel is visibly broken — the same reason the map view
+        // reports its tile errors.
+        if (!e.IsSuccess && detail is not null)
+        {
+            MapView.SharedLog?.AddExternalFailure(
+                _viewModel?.CurrentUrl ?? "Web-Radar",
+                detail);
+        }
     }
 
     private void OnNewWindowRequested(object? sender, CoreWebView2NewWindowRequestedEventArgs e)
