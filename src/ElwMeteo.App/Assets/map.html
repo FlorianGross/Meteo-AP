@@ -219,6 +219,9 @@
             return L.tileLayer(spec.tileUrl, {
                 opacity: spec.opacity,
                 attribution: spec.attribution,
+                // Several community services publish a subdomain pool and
+                // rate-limit a client that hammers a single host.
+                subdomains: spec.subdomains || "abc",
                 // Keep zooming past the layer's native maximum by upscaling tiles,
                 // so switching base maps never dumps the operator out of their view.
                 maxZoom: 19,
@@ -292,6 +295,45 @@
     }
 
     // -------------------------------------------------------------- radar
+
+    // A WMS radar source has no frame timeline; it is one live layer.
+    var radarWmsLayer = null;
+    var radarWmsKey = null;
+
+    function applyRadarWms(wmsUrl, wmsLayers, attribution, opacity, maxZoom) {
+        var wanted = wmsUrl && wmsLayers && !(typeof maxZoom === "number" && map.getZoom() > maxZoom);
+        var key = wanted ? wmsUrl + "|" + wmsLayers : null;
+
+        if (key === radarWmsKey) {
+            if (radarWmsLayer) {
+                radarWmsLayer.setOpacity(opacity);
+            }
+            return wmsUrl && wmsLayers && !wanted;
+        }
+
+        if (radarWmsLayer && map.hasLayer(radarWmsLayer)) {
+            map.removeLayer(radarWmsLayer);
+        }
+        radarWmsLayer = null;
+        radarWmsKey = key;
+
+        if (wanted) {
+            radarWmsLayer = L.tileLayer.wms(wmsUrl, {
+                layers: wmsLayers,
+                format: "image/png",
+                transparent: true,
+                opacity: opacity,
+                zIndex: 400,
+                attribution: attribution,
+                uppercase: true
+            });
+            watchTileErrors(radarWmsLayer, "Radar (WMS)");
+            radarWmsLayer.addTo(map);
+        }
+
+        // Report whether the source was suppressed purely because of the zoom.
+        return wmsUrl && wmsLayers && !wanted;
+    }
 
     function applyRadar(url, opacity, maxZoom) {
         radarOpacity = typeof opacity === "number" ? opacity : radarOpacity;
@@ -851,6 +893,12 @@
                 lastState = state;
                 applyLayers(state.layers || []);
                 applySatellite(state.satelliteTileUrl, state.satelliteOpacity);
+
+                if (applyRadarWms(state.radarWmsUrl, state.radarWmsLayers,
+                        state.radarAttribution, state.radarOpacity, state.radarMaxZoom)) {
+                    zoomHidden.push("Radar");
+                }
+
                 applyRadar(state.radarTileUrl, state.radarOpacity, state.radarMaxZoom);
                 applyWindField(state.windArrows);
                 applyWindAnimation(state.windGrid, state.windAnimationMaxZoom);
@@ -892,6 +940,12 @@
         if (lastState) {
             // applyLayers recomputes zoomHidden, which applyRadar folds into the notice.
             applyLayers(lastState.layers || []);
+
+            if (applyRadarWms(lastState.radarWmsUrl, lastState.radarWmsLayers,
+                    lastState.radarAttribution, lastState.radarOpacity, lastState.radarMaxZoom)) {
+                zoomHidden.push("Radar");
+            }
+
             applyRadar(lastState.radarTileUrl, lastState.radarOpacity, lastState.radarMaxZoom);
             applyWindAnimation(lastState.windGrid, lastState.windAnimationMaxZoom);
         }

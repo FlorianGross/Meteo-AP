@@ -23,8 +23,14 @@ public sealed record MapLayerDefinition
     /// <summary>Grouping shown in the layer panel.</summary>
     public string Group { get; init; } = "Allgemein";
 
-    /// <summary>XYZ tile template, for tile layers.</summary>
+    /// <summary>XYZ tile template, for tile layers. May contain {s} for subdomains.</summary>
     public string? TileUrl { get; init; }
+
+    /// <summary>
+    /// Subdomains for a {s} placeholder. Several community tile services spread
+    /// load across a/b/c and rate-limit or refuse a client that hammers one host.
+    /// </summary>
+    public string? Subdomains { get; init; }
 
     /// <summary>WMS base URL, for WMS layers.</summary>
     public string? WmsUrl { get; init; }
@@ -47,6 +53,12 @@ public sealed record MapLayerDefinition
 
     /// <summary>One-line explanation shown as a tooltip in the layer panel.</summary>
     public string? Description { get; init; }
+
+    /// <summary>
+    /// True when the layer name still has to be confirmed against the server's
+    /// capabilities document. The map panel marks these until the check has run.
+    /// </summary>
+    public bool NeedsCapabilityCheck { get; init; }
 
     /// <summary>
     /// Highest zoom at which this layer still carries information. Above it the
@@ -73,6 +85,9 @@ public sealed record MapLayerDefinition
 public static class MapLayerCatalog
 {
     private const string DwdWms = "https://maps.dwd.de/geoserver/dwd/wms";
+
+    /// <summary>The DWD GeoServer endpoint, for the runtime capability check.</summary>
+    public static string DwdWmsEndpoint => DwdWms;
 
     private const string DwdAttribution = "&copy; Deutscher Wetterdienst (GeoNutzV)";
 
@@ -142,7 +157,8 @@ public static class MapLayerCatalog
             Title = "OSM Humanitarian",
             Kind = MapLayerKind.Base,
             Group = "Karte",
-            TileUrl = "https://tile-a.openstreetmap.fr/hot/{z}/{x}/{y}.png",
+            TileUrl = "https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png",
+            Subdomains = "abc",
             Attribution = "&copy; OpenStreetMap-Mitwirkende, Humanitarian OSM Team",
             MaxZoom = 19,
             Description = "Kontrastreicher Stil für Einsatzlagen — betont Wege, Wasser und Infrastruktur."
@@ -153,7 +169,8 @@ public static class MapLayerCatalog
             Title = "Dunkel (nachttauglich)",
             Kind = MapLayerKind.Base,
             Group = "Karte",
-            TileUrl = "https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
+            TileUrl = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
+            Subdomains = "abcd",
             Attribution = "&copy; OpenStreetMap-Mitwirkende, &copy; CARTO",
             MaxZoom = 19,
             Description = "Dunkle Karte — blendet nachts im Fahrzeug nicht und hebt farbige Overlays hervor."
@@ -175,7 +192,8 @@ public static class MapLayerCatalog
             Title = "CyclOSM (Wege)",
             Kind = MapLayerKind.Base,
             Group = "Karte",
-            TileUrl = "https://a.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png",
+            TileUrl = "https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png",
+            Subdomains = "abc",
             Attribution = "&copy; OpenStreetMap-Mitwirkende, CyclOSM",
             MaxZoom = 18,
             Description = "Betont Wirtschaftswege und Pfade — nützlich für Zugänge abseits der Straße."
@@ -201,6 +219,7 @@ public static class MapLayerCatalog
             Group = "Warnungen",
             WmsUrl = DwdWms,
             WmsLayers = "dwd:Warnungen_Gemeinden",
+            NeedsCapabilityCheck = true,
             Attribution = DwdAttribution,
             Opacity = 0.55,
             EnabledByDefault = true,
@@ -215,6 +234,7 @@ public static class MapLayerCatalog
             Group = "Warnungen",
             WmsUrl = DwdWms,
             WmsLayers = "dwd:Warnungen_Landkreise_Gemeinden_vereinigt",
+            NeedsCapabilityCheck = true,
             Attribution = DwdAttribution,
             Opacity = 0.5,
             MaxUsefulZoom = 12,
@@ -228,6 +248,7 @@ public static class MapLayerCatalog
             Group = "Niederschlag",
             WmsUrl = DwdWms,
             WmsLayers = "dwd:Niederschlagsradar",
+            NeedsCapabilityCheck = true,
             Attribution = DwdAttribution,
             Opacity = 0.7,
             MaxUsefulZoom = 11,
@@ -241,6 +262,7 @@ public static class MapLayerCatalog
             Group = "Niederschlag",
             WmsUrl = DwdWms,
             WmsLayers = "dwd:FX-Produkt",
+            NeedsCapabilityCheck = true,
             Attribution = DwdAttribution,
             Opacity = 0.7,
             MaxUsefulZoom = 11,
@@ -254,6 +276,7 @@ public static class MapLayerCatalog
             Group = "Vegetationsbrand",
             WmsUrl = DwdWms,
             WmsLayers = "dwd:Waldbrandgefahrenindex",
+            NeedsCapabilityCheck = true,
             Attribution = DwdAttribution,
             Opacity = 0.55,
             MaxUsefulZoom = 10,
@@ -267,6 +290,7 @@ public static class MapLayerCatalog
             Group = "Vegetationsbrand",
             WmsUrl = DwdWms,
             WmsLayers = "dwd:Graslandfeuerindex",
+            NeedsCapabilityCheck = true,
             Attribution = DwdAttribution,
             Opacity = 0.55,
             MaxUsefulZoom = 10,
@@ -280,6 +304,7 @@ public static class MapLayerCatalog
             Group = "Belastung",
             WmsUrl = DwdWms,
             WmsLayers = "dwd:GefuehlteTemperatur",
+            NeedsCapabilityCheck = true,
             Attribution = DwdAttribution,
             Opacity = 0.5,
             MaxUsefulZoom = 9,
@@ -287,12 +312,13 @@ public static class MapLayerCatalog
         },
         new MapLayerDefinition
         {
-            Id = "owm-wind",
-            Title = "Windfeld",
+            Id = "dwd-windboeen",
+            Title = "Windböen (Modell)",
             Kind = MapLayerKind.Overlay,
             Group = "Wind",
             WmsUrl = DwdWms,
             WmsLayers = "dwd:Windboeen",
+            NeedsCapabilityCheck = true,
             Attribution = DwdAttribution,
             Opacity = 0.5,
             MaxUsefulZoom = 9,
@@ -330,7 +356,8 @@ public static class MapLayerCatalog
             Title = "Bahnanlagen",
             Kind = MapLayerKind.Overlay,
             Group = "Infrastruktur",
-            TileUrl = "https://a.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png",
+            TileUrl = "https://{s}.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png",
+            Subdomains = "abc",
             Attribution = "&copy; OpenStreetMap-Mitwirkende, OpenRailwayMap (CC-BY-SA)",
             Opacity = 0.85,
             MaxZoom = 19,

@@ -66,6 +66,12 @@ public sealed class AppSettings
     /// <summary>Radar animation frame duration in milliseconds.</summary>
     public int RadarFrameDelayMs { get; set; } = 450;
 
+    /// <summary>Id from <see cref="Maps.RadarSourceCatalog"/>.</summary>
+    public string RadarSourceId { get; set; } = "rainviewer";
+
+    /// <summary>API key for radar sources that need one; empty disables them.</summary>
+    public string OpenWeatherMapApiKey { get; set; } = string.Empty;
+
     /// <summary>RainViewer colour ramp id; 4 is the Weather Channel scheme.</summary>
     public int RadarColourScheme { get; set; } = 4;
 

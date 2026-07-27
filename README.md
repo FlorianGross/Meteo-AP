@@ -131,6 +131,20 @@ kein Ladefehler-Handler bemerken kann. Abspielen, Einzelschritt, Sprung
 auf „jetzt“, einstellbare Deckkraft. Beim Bildwechsel wird das neue Bild erst
 eingeblendet, wenn seine Kacheln geladen sind — kein Flackern.
 
+**Radarquelle wählbar.** Vier Quellen stehen zur Auswahl:
+
+| Quelle | Eigenschaft |
+|---|---|
+| RainViewer | weltweit, animiert, mit 30-Minuten-Nowcast — die einzige mit Zeitleiste |
+| DWD-Niederschlagsradar | amtliches RADOLAN-Komposit, aktuelles Bild ohne Zeitverlauf |
+| DWD-Radarvorhersage | Extrapolation über zwei Stunden |
+| OpenWeatherMap | weltweit, benötigt einen eigenen kostenlosen API-Schlüssel |
+
+Zwei unabhängige Produkte nebeneinander sind operativ wertvoll: Sieht das
+Radarbild seltsam aus, lässt sich das durch Vergleich klären, statt einer
+einzelnen Quelle glauben zu müssen. Die Oberfläche sagt an, wenn eine Quelle
+keinen Zeitverlauf liefert oder der Schlüssel fehlt.
+
 Farbschema der Radarbilder ist wählbar (neun RainViewer-Rampen), Schnee lässt
 sich getrennt einfärben und die Kantenglättung abschalten.
 
@@ -184,6 +198,15 @@ Overlays klar hervortreten.
 Beschreibung — „wind", „brand" oder „warn" finden die passenden Layer, ohne
 dass man ihre Namen kennt. Eine Schaltfläche schaltet alle Overlays auf einmal
 ab.
+
+**Layerprüfung gegen den Server.** Der DWD benennt Layer um, wenn sich ein
+Produkt ändert, und ein falscher Name scheitert unsichtbar: Der Server
+antwortet mit einer Fehlergrafik, die Leaflet als einwandfreie Kachel annimmt.
+Die Schaltfläche „DWD-Layer prüfen" fragt deshalb das
+GetCapabilities-Dokument ab und markiert jeden Layer als bestätigt oder
+unbekannt; unbekannte werden abgeschaltet. Damit überlebt die Anwendung eine
+Umbenennung ohne Codeänderung — und der Grund steht in der Oberfläche statt in
+einem leeren Overlay.
 
 **Ausbreitungskegel.** Aus Windrichtung und Ausbreitungsklasse wird ein
 Gefahrenbereich in die Karte gezeichnet: ein roter Innenkreis (Vorgabe 50 m
@@ -347,6 +370,7 @@ veröffentlichte Almanachwerte für Frankfurt am Main geprüft.
 | Radarbilder, Nowcast und Infrarot-Satellit | [RainViewer](https://www.rainviewer.com/) | kostenfreie öffentliche API |
 | Stationsmesswerte, DWD-Warnungen (CAP), RADOLAN am Punkt | [Bright Sky](https://brightsky.dev) | freier JSON-Zugang zu DWD Open Data, ohne Schlüssel |
 | Luftbild und Reliefschummerung | Esri / ArcGIS Online | kostenfrei mit Quellenangabe |
+| Radarkacheln (optional) | OpenWeatherMap | benötigt einen eigenen kostenlosen Schlüssel |
 | Kartengrundlage | OpenStreetMap, OpenTopoMap | ODbL bzw. CC BY-SA |
 | Adressauflösung | Nominatim | Nutzungsrichtlinie, identifizierender User-Agent gesetzt |
 
