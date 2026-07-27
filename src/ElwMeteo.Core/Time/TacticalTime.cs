@@ -79,19 +79,4 @@ public static class TacticalTime
     /// </summary>
     public static string FormatShort(DateTimeOffset instant) =>
         $"{instant.Day:00} / {instant.Hour:00}:{instant.Minute:00}";
-
-    /// <summary>
-    /// Elapsed time since an operation started, as used on the operations board:
-    /// <c>H:MM:SS</c>, growing past 24 h without rolling over.
-    /// </summary>
-    public static string FormatElapsed(TimeSpan elapsed)
-    {
-        if (elapsed < TimeSpan.Zero)
-        {
-            elapsed = TimeSpan.Zero;
-        }
-
-        int totalHours = (int)elapsed.TotalHours;
-        return $"{totalHours}:{elapsed.Minutes:00}:{elapsed.Seconds:00}";
-    }
 }

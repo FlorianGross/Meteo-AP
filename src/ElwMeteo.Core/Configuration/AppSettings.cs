@@ -66,6 +66,24 @@ public sealed class AppSettings
     /// <summary>Radar animation frame duration in milliseconds.</summary>
     public int RadarFrameDelayMs { get; set; } = 450;
 
+    /// <summary>RainViewer colour ramp id; 4 is the Weather Channel scheme.</summary>
+    public int RadarColourScheme { get; set; } = 4;
+
+    /// <summary>Render snow in its own colour rather than as rain.</summary>
+    public bool RadarShowSnow { get; set; } = true;
+
+    /// <summary>Show the infrared satellite layer beneath the radar.</summary>
+    public bool ShowSatellite { get; set; }
+
+    /// <summary>Draw the grid of wind arrows around the position.</summary>
+    public bool ShowWindField { get; set; }
+
+    /// <summary>Nodes per side of the wind grid (2–9).</summary>
+    public int WindFieldGridSize { get; set; } = 5;
+
+    /// <summary>Distance between wind grid nodes in metres.</summary>
+    public double WindFieldSpacingMetres { get; set; } = 2000;
+
     public double MapZoom { get; set; } = 11;
 
     /// <summary>Keep the window above other applications — usual choice on a vehicle screen.</summary>

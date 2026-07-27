@@ -1,19 +1,13 @@
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
 using ElwMeteo.Core.Time;
 
 namespace ElwMeteo.App.ViewModels;
 
-/// <summary>
-/// The clock block: wall clock, UTC, tactical date-time groups and the elapsed
-/// time since the operation was declared started.
-/// </summary>
+/// <summary>The clock block: wall clock, UTC and the tactical date-time groups.</summary>
 public sealed partial class ClockViewModel : ObservableObject, IDisposable
 {
     private readonly DispatcherTimer _timer;
-    private DateTimeOffset? _operationStart;
-    private TimeSpan _accumulated = TimeSpan.Zero;
 
     public ClockViewModel()
     {
@@ -48,18 +42,6 @@ public sealed partial class ClockViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private string _tacticalZulu = string.Empty;
 
-    [ObservableProperty]
-    private string _operationElapsed = "0:00:00";
-
-    [ObservableProperty]
-    private string _operationStartLabel = "—";
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(OperationButtonLabel))]
-    private bool _isOperationRunning;
-
-    public string OperationButtonLabel => IsOperationRunning ? "Stopp" : "Start";
-
     /// <summary>Fired once per tick so dependent view models can refresh derived values.</summary>
     public event Action<DateTimeOffset>? Tick;
 
@@ -75,50 +57,7 @@ public sealed partial class ClockViewModel : ObservableObject, IDisposable
         TacticalLocal = TacticalTime.FormatLocal(now);
         TacticalZulu = TacticalTime.FormatZulu(now);
 
-        OperationElapsed = TacticalTime.FormatElapsed(CurrentElapsed(now));
-
         Tick?.Invoke(now);
-    }
-
-    private TimeSpan CurrentElapsed(DateTimeOffset now) =>
-        _operationStart is { } start ? _accumulated + (now - start) : _accumulated;
-
-    /// <summary>Starts or pauses the operation timer without losing the accumulated time.</summary>
-    [RelayCommand]
-    private void ToggleOperation()
-    {
-        DateTimeOffset now = DateTimeOffset.Now;
-
-        if (IsOperationRunning)
-        {
-            _accumulated = CurrentElapsed(now);
-            _operationStart = null;
-            IsOperationRunning = false;
-        }
-        else
-        {
-            _operationStart = now;
-            IsOperationRunning = true;
-
-            // Only stamp the label on a fresh start, not when resuming.
-            if (_accumulated == TimeSpan.Zero)
-            {
-                OperationStartLabel = $"{TacticalTime.FormatLocal(now)}  ({now:HH:mm})";
-            }
-        }
-
-        Update();
-    }
-
-    [RelayCommand]
-    private void ResetOperation()
-    {
-        _accumulated = TimeSpan.Zero;
-        _operationStart = IsOperationRunning ? DateTimeOffset.Now : null;
-        OperationStartLabel = IsOperationRunning
-            ? $"{TacticalTime.FormatLocal(DateTimeOffset.Now)}  ({DateTimeOffset.Now:HH:mm})"
-            : "—";
-        Update();
     }
 
     public void Dispose() => _timer.Stop();

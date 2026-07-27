@@ -114,6 +114,17 @@ public static class MapLayerCatalog
             MaxZoom = 18,
             Description = "Betont Wirtschaftswege und Pfade — nützlich für Zugänge abseits der Straße."
         },
+        new MapLayerDefinition
+        {
+            Id = "esri-imagery",
+            Title = "Luftbild",
+            Kind = MapLayerKind.Base,
+            Group = "Karte",
+            TileUrl = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+            Attribution = "Luftbild: Esri, Maxar, Earthstar Geographics",
+            MaxZoom = 18,
+            Description = "Satelliten- und Luftbild — zeigt Bebauung, Hallen, Lagerflächen und Zufahrten."
+        },
 
         // ------------------------------------------------------------- overlay
         new MapLayerDefinition
@@ -219,10 +230,12 @@ public static class MapLayerCatalog
             Title = "Schummerung (Relief)",
             Kind = MapLayerKind.Overlay,
             Group = "Gelände",
-            TileUrl = "https://tiles.wmflabs.org/hillshading/{z}/{x}/{y}.png",
-            Attribution = "Schummerung: Wikimedia Labs, SRTM",
-            Opacity = 0.4,
-            MaxZoom = 15,
+            // The old Wikimedia Labs hillshading service is retired; Esri's
+            // World Hillshade is the drop-in replacement and note the {y}/{x} order.
+            TileUrl = "https://server.arcgisonline.com/ArcGIS/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}",
+            Attribution = "Schummerung: Esri, USGS, NOAA",
+            Opacity = 0.45,
+            MaxZoom = 16,
             Description = "Reliefschattierung zur Beurteilung von Hanglagen."
         },
         new MapLayerDefinition

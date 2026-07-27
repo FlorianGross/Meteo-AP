@@ -199,6 +199,88 @@
                                    FontWeight="Normal" Margin="0,6,0,0" />
                     </StackPanel>
                 </Border>
+
+                <!-- wind forecast -->
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="WINDVORHERSAGE — NÄCHSTE 12 STUNDEN" Style="{StaticResource SectionHeader}" />
+                        <TextBlock Text="{Binding WindShiftDetail}" Style="{StaticResource BodyText}" Margin="0,0,0,12" />
+
+                        <ItemsControl ItemsSource="{Binding WindForecast}" Height="118">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <UniformGrid Rows="1" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel VerticalAlignment="Bottom" Margin="1,0"
+                                                ToolTip="{Binding Compass}">
+                                        <!-- Arrow shows where the air is heading in that hour. -->
+                                        <Path Fill="{StaticResource MutedBrush}"
+                                              Data="M 0,-7 L 4,2 L 1.4,2 L 1.4,7 L -1.4,7 L -1.4,2 L -4,2 Z"
+                                              Width="16" Height="16"
+                                              Stretch="None"
+                                              HorizontalAlignment="Center"
+                                              RenderTransformOrigin="0.5,0.5">
+                                            <Path.RenderTransform>
+                                                <RotateTransform Angle="{Binding ArrowAngle}" />
+                                            </Path.RenderTransform>
+                                        </Path>
+
+                                        <TextBlock Text="{Binding GustLabel}"
+                                                   Style="{StaticResource ScaleLabel}"
+                                                   Foreground="{StaticResource CautionBrush}"
+                                                   HorizontalAlignment="Center" />
+
+                                        <!-- Gust bar sits behind the mean-wind bar. -->
+                                        <Grid Height="50" VerticalAlignment="Bottom">
+                                            <Rectangle Height="{Binding GustBarHeight}"
+                                                       Fill="{StaticResource CautionBrush}"
+                                                       Opacity="0.35"
+                                                       RadiusX="2" RadiusY="2"
+                                                       VerticalAlignment="Bottom" />
+                                            <Rectangle Height="{Binding SpeedBarHeight}"
+                                                       Fill="{StaticResource AccentBrush}"
+                                                       RadiusX="2" RadiusY="2"
+                                                       VerticalAlignment="Bottom"
+                                                       Margin="3,0" />
+                                        </Grid>
+
+                                        <TextBlock Text="{Binding SpeedLabel}"
+                                                   Style="{StaticResource ScaleLabel}"
+                                                   HorizontalAlignment="Center" />
+
+                                        <TextBlock Text="{Binding TimeLabel}"
+                                                   HorizontalAlignment="Center">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock" BasedOn="{StaticResource ScaleLabel}">
+                                                    <Style.Triggers>
+                                                        <!-- Mark the hour the wind turns. -->
+                                                        <DataTrigger Binding="{Binding IsShiftPoint}" Value="True">
+                                                            <Setter Property="Foreground" Value="{StaticResource WarningBrush}" />
+                                                            <Setter Property="FontWeight" Value="Bold" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <TextBlock Text="Balken: mittlerer Wind (blau) und Böen (orange) in km/h · Pfeil zeigt die Ausbreitungsrichtung"
+                                   Style="{StaticResource LabelText}"
+                                   FontWeight="Normal" TextWrapping="Wrap" Margin="0,6,0,0" />
+
+                        <TextBlock Text="{Binding GustPeakLabel}"
+                                   Style="{StaticResource BodyText}" FontSize="12"
+                                   Foreground="{StaticResource CautionBrush}"
+                                   Margin="0,6,0,0"
+                                   Visibility="{Binding GustPeakLabel, Converter={StaticResource StringToVisibility}}" />
+                    </StackPanel>
+                </Border>
             </StackPanel>
 
             <!-- ================================== column 2: wind + dispersion -->

@@ -1,13 +1,21 @@
-name: Build
+name: Build & Test
 
 on:
   push:
     branches: ["**"]
+    tags-ignore: ["v*"]      # tags are handled by release.yml
   pull_request:
+  workflow_dispatch:
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
 
 jobs:
   # The WPF project only *runs* on Windows, so that is where the real build lives.
   build:
+    name: Windows build, test and publish
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -16,6 +24,13 @@ jobs:
         with:
           dotnet-version: "8.0.x"
 
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/Directory.Build.props') }}
+          restore-keys: ${{ runner.os }}-nuget-
+
       - name: Restore
         run: dotnet restore ELW-Meteo.sln
 
@@ -23,18 +38,36 @@ jobs:
         run: dotnet build ELW-Meteo.sln -c Release --no-restore
 
       - name: Test
-        run: dotnet test tests/ElwMeteo.Core.Tests/ElwMeteo.Core.Tests.csproj -c Release --no-build --verbosity normal
+        run: >
+          dotnet test tests/ElwMeteo.Core.Tests/ElwMeteo.Core.Tests.csproj
+          -c Release --no-build
+          --logger "trx;LogFileName=test-results.trx"
+          --results-directory TestResults
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: TestResults/
+          if-no-files-found: ignore
 
       - name: Publish
-        run: dotnet publish src/ElwMeteo.App -c Release -r win-x64 --self-contained false -o publish
+        run: >
+          dotnet publish src/ElwMeteo.App -c Release -r win-x64
+          --self-contained false -o publish
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload application
+        uses: actions/upload-artifact@v4
         with:
           name: ELW-Meteo-win-x64
           path: publish/
+          retention-days: 30
 
-  # Guards the rule that all domain logic stays free of WPF dependencies.
+  # Guards the rule that all domain logic stays free of WPF dependencies: if this
+  # job fails, something WPF-specific has leaked into ElwMeteo.Core.
   core-crossplatform:
+    name: Domain logic (plattformneutral)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -43,5 +76,27 @@ jobs:
         with:
           dotnet-version: "8.0.x"
 
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/Directory.Build.props') }}
+          restore-keys: ${{ runner.os }}-nuget-
+
       - name: Test domain logic
         run: dotnet test tests/ElwMeteo.Core.Tests/ElwMeteo.Core.Tests.csproj -c Release
+
+  # Formatting is advisory: a style nit must never block a fix from reaching a vehicle.
+  format:
+    name: Codeformatierung
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Verify formatting
+        run: dotnet format src/ElwMeteo.Core tests/ElwMeteo.Core.Tests --verify-no-changes --severity warn

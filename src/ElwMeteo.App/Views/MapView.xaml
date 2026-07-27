@@ -67,6 +67,60 @@
                     <TextBlock Text="RADAR-DECKKRAFT" Style="{StaticResource LabelText}" Margin="0,12,0,3" />
                     <Slider Minimum="0.15" Maximum="1.0" Value="{Binding RadarOpacity}" />
 
+                    <TextBlock Text="FARBSCHEMA" Style="{StaticResource LabelText}" Margin="0,12,0,3" />
+                    <ComboBox ItemsSource="{Binding ColourSchemes}"
+                              SelectedItem="{Binding SelectedColourScheme}"
+                              DisplayMemberPath="Title" />
+
+                    <CheckBox Content="Schnee getrennt einfärben" IsChecked="{Binding ShowSnow}" Margin="0,8,0,0" />
+                    <CheckBox Content="Kanten glätten" IsChecked="{Binding SmoothRadar}" />
+
+                    <Border Height="1" Background="{StaticResource BorderBrush}" Margin="0,16,0,14" />
+
+                    <!-- satellite -->
+                    <TextBlock Text="SATELLIT (INFRAROT)" Style="{StaticResource SectionHeader}" />
+                    <CheckBox Content="Wolkenbild einblenden" IsChecked="{Binding ShowSatellite}" />
+                    <TextBlock Style="{StaticResource LabelText}" FontWeight="Normal" TextWrapping="Wrap"
+                               Margin="0,4,0,6"
+                               Text="Zeigt das Wolkenfeld auch nachts und außerhalb der Radarreichweite. Läuft synchron zur Radar-Zeitleiste." />
+                    <Slider Minimum="0.15" Maximum="1.0" Value="{Binding SatelliteOpacity}" />
+
+                    <Border Height="1" Background="{StaticResource BorderBrush}" Margin="0,16,0,14" />
+
+                    <!-- wind field -->
+                    <TextBlock Text="WINDFELD" Style="{StaticResource SectionHeader}" />
+                    <CheckBox Content="Windpfeile im Umfeld anzeigen" IsChecked="{Binding ShowWindField}" />
+                    <TextBlock Style="{StaticResource LabelText}" FontWeight="Normal" TextWrapping="Wrap"
+                               Margin="0,4,0,8"
+                               Text="Gitter aus Windvektoren rund um die Einsatzstelle. Weicht die Strömung im Umfeld deutlich ab, steuert das Gelände die Ausbreitung." />
+
+                    <TextBlock Style="{StaticResource LabelText}" Margin="0,0,0,3">
+                        <Run Text="GITTER: " />
+                        <Run Text="{Binding WindFieldGridSize, Mode=OneWay}" />
+                        <Run Text=" × " />
+                        <Run Text="{Binding WindFieldGridSize, Mode=OneWay}" />
+                    </TextBlock>
+                    <Slider Minimum="3" Maximum="9" Value="{Binding WindFieldGridSize}"
+                            TickFrequency="2" IsSnapToTickEnabled="True" />
+
+                    <TextBlock Style="{StaticResource LabelText}" Margin="0,10,0,3">
+                        <Run Text="PUNKTABSTAND: " />
+                        <Run Text="{Binding WindFieldSpacingMetres, StringFormat={}{0:F0} m, Mode=OneWay}" />
+                    </TextBlock>
+                    <Slider Minimum="500" Maximum="10000" Value="{Binding WindFieldSpacingMetres}"
+                            TickFrequency="500" IsSnapToTickEnabled="True" />
+
+                    <Button Content="Windfeld laden"
+                            Command="{Binding RefreshWindFieldCommand}"
+                            IsEnabled="{Binding IsWindFieldLoading, Converter={StaticResource Not}}"
+                            Margin="0,8,0,0"
+                            HorizontalContentAlignment="Left" />
+
+                    <TextBlock Text="{Binding WindFieldStatus}"
+                               Style="{StaticResource LabelText}"
+                               FontWeight="Normal" TextWrapping="Wrap"
+                               Margin="0,6,0,0" />
+
                     <Border Height="1" Background="{StaticResource BorderBrush}" Margin="0,16,0,14" />
 
                     <!-- base map -->
@@ -126,14 +180,25 @@
                             Margin="0,7,0,0"
                             HorizontalContentAlignment="Left" />
 
-                    <TextBlock Text="ANGEKLICKTER PUNKT" Style="{StaticResource LabelText}" Margin="0,14,0,3"
-                               Visibility="{Binding ClickedPositionLabel, Converter={StaticResource StringToVisibility}}" />
-                    <TextBlock Text="{Binding ClickedPositionLabel}"
-                               FontFamily="{StaticResource MonoFont}"
-                               FontSize="11"
-                               TextWrapping="Wrap"
-                               Foreground="{StaticResource TextBrush}"
-                               Visibility="{Binding ClickedPositionLabel, Converter={StaticResource StringToVisibility}}" />
+                    <!-- clicked point -->
+                    <StackPanel Visibility="{Binding ClickedPositionLabel, Converter={StaticResource StringToVisibility}}">
+                        <TextBlock Text="ANGEKLICKTER PUNKT" Style="{StaticResource LabelText}" Margin="0,14,0,3" />
+                        <TextBlock Text="{Binding ClickedPositionLabel}"
+                                   FontFamily="{StaticResource MonoFont}"
+                                   FontSize="11"
+                                   TextWrapping="Wrap"
+                                   Foreground="{StaticResource TextBrush}" />
+                        <TextBlock Text="{Binding ClickedWeatherLabel}"
+                                   Style="{StaticResource BodyText}"
+                                   FontSize="12"
+                                   Foreground="{StaticResource AccentBrush}"
+                                   Margin="0,6,0,0" />
+                        <Button Content="Punkt zurücksetzen"
+                                Command="{Binding ClearClickedPointCommand}"
+                                Margin="0,8,0,0"
+                                Padding="9,4" FontSize="11"
+                                HorizontalAlignment="Left" />
+                    </StackPanel>
                 </StackPanel>
             </ScrollViewer>
         </Border>

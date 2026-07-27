@@ -51,6 +51,11 @@ public static class WeatherReportFormatter
         text.AppendLine($"  Ausbreitungsklasse   : {a.Stability.KlugManier} / Pasquill {a.Stability.Pasquill} ({a.Stability.Label})");
         text.AppendLine($"  Hinweis              : {a.Stability.TacticalNote}");
 
+        text.AppendLine();
+        text.AppendLine("WINDENTWICKLUNG (6 h)");
+        text.AppendLine($"  Winddreher           : {(a.WindShift is { } shift ? shift.Describe(now) : "keine relevante Drehung erwartet")}");
+        text.AppendLine($"  Böenspitze           : {(a.GustPeak is { } peak ? peak.Describe(now) : "—")}");
+
         if (a.WbgtShadeC is { } wbgt)
         {
             text.AppendLine();
@@ -124,6 +129,11 @@ public static class WeatherReportFormatter
 
         parts.Add($"Ausbreitung nach {a.DownwindCompass}");
         parts.Add($"Ausbreitungsklasse {a.Stability.KlugManier}");
+
+        if (a.WindShift is { } shift)
+        {
+            parts.Add($"Achtung Winddreher {shift.DirectionLabel} nach {WindScale.CompassPoint(shift.ToDeg)}");
+        }
 
         if (s.RelativeHumidityPercent is { } humidity)
         {
