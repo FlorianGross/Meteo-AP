@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>ElwMeteo.App</RootNamespace>
+    <AssemblyName>ELW-Meteo</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- The vehicle screen is usually scaled; let Windows hand us real pixels. -->
+    <SatelliteResourceLanguages>de;en</SatelliteResourceLanguages>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2903.40" />
+    <PackageReference Include="System.IO.Ports" Version="8.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ElwMeteo.Core\ElwMeteo.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The Leaflet page is loaded into WebView2 from disk at runtime. -->
+    <Content Include="Assets\map.html">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+</Project>

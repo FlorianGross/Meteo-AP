@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ELW-Meteo Karte</title>
+
+    <!--
+        Leaflet is pulled from a CDN. The map tab needs a network connection for
+        map tiles and radar imagery anyway, so there is nothing to gain from
+        vendoring the library — but see README ("Offline-Betrieb") for how to
+        bundle it if the vehicle has to work without internet.
+    -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <style>
+        html, body { margin: 0; padding: 0; height: 100%; background: #0e1116; }
+        #map { position: absolute; inset: 0; background: #0e1116; }
+
+        /* Dark, legible chrome to match the host application. */
+        .leaflet-container { font-family: "Segoe UI", system-ui, sans-serif; background: #0e1116; }
+        .leaflet-control-attribution {
+            background: rgba(14, 17, 22, .82) !important;
+            color: #93a1b1 !important;
+            font-size: 10px;
+        }
+        .leaflet-control-attribution a { color: #6ea8fe !important; }
+        .leaflet-control-scale-line {
+            background: rgba(14, 17, 22, .82);
+            border-color: #2c3542;
+            color: #e6edf3;
+        }
+        .leaflet-bar a, .leaflet-bar a:hover {
+            background: #171c24;
+            color: #e6edf3;
+            border-bottom-color: #2c3542;
+        }
+        .leaflet-popup-content-wrapper, .leaflet-popup-tip {
+            background: #171c24;
+            color: #e6edf3;
+            box-shadow: 0 2px 12px rgba(0,0,0,.6);
+        }
+
+        /* Own position: a ring plus a rotating arrow showing where the air goes. */
+        .elw-marker { position: relative; width: 44px; height: 44px; }
+        .elw-marker .ring {
+            position: absolute; left: 15px; top: 15px;
+            width: 14px; height: 14px; border-radius: 50%;
+            background: #3b82f6; border: 2px solid #e6edf3;
+            box-shadow: 0 0 0 2px rgba(59,130,246,.35);
+        }
+        .elw-marker .arrow {
+            position: absolute; inset: 0;
+            transform-origin: 50% 50%;
+        }
+        .elw-marker .arrow svg { display: block; }
+
+        .elw-banner {
+            position: absolute; left: 10px; top: 10px; z-index: 600;
+            background: rgba(23, 28, 36, .92);
+            border: 1px solid #2c3542; border-radius: 5px;
+            padding: 7px 11px; color: #e6edf3;
+            font-size: 12px; line-height: 1.55; max-width: 290px;
+            pointer-events: none;
+        }
+        .elw-banner b { color: #6ea8fe; }
+        .elw-banner .muted { color: #93a1b1; }
+        .elw-error {
+            position: absolute; left: 10px; bottom: 26px; z-index: 600;
+            background: rgba(230, 57, 70, .92); color: #fff;
+            border-radius: 5px; padding: 6px 10px; font-size: 11px;
+            display: none; max-width: 320px;
+        }
+    </style>
+</head>
+<body>
+<div id="map"></div>
+<div class="elw-banner" id="banner"><span class="muted">Warte auf Daten …</span></div>
+<div class="elw-error" id="error"></div>
+
+<script>
+    "use strict";
+
+    // ---------------------------------------------------------------- setup
+
+    var map = L.map("map", {
+        zoomControl: true,
+        attributionControl: true,
+        preferCanvas: true
+    }).setView([50.1109, 8.6821], 11);
+
+    L.control.scale({ imperial: false, metric: true, position: "bottomleft" }).addTo(map);
+
+    // Layer id -> Leaflet layer, so state pushes can add/remove incrementally.
+    var layers = {};
+    var baseLayerId = null;
+
+    // Radar uses two slots so a frame change does not flash the base map.
+    var radarSlots = [null, null];
+    var radarSlot = 0;
+    var radarUrl = null;
+    var radarOpacity = 0.75;
+
+    var hazardLayers = [];
+    var positionMarker = null;
+    var initialised = false;
+
+    function showError(message) {
+        var element = document.getElementById("error");
+        if (!message) {
+            element.style.display = "none";
+            return;
+        }
+        element.textContent = message;
+        element.style.display = "block";
+    }
+
+    function post(payload) {
+        if (window.chrome && window.chrome.webview) {
+            window.chrome.webview.postMessage(payload);
+        }
+    }
+
+    // ------------------------------------------------------- layer handling
+
+    function buildLayer(spec) {
+        if (spec.wmsUrl) {
+            return L.tileLayer.wms(spec.wmsUrl, {
+                layers: spec.wmsLayers || "",
+                format: spec.wmsFormat || "image/png",
+                transparent: spec.wmsTransparent !== false,
+                opacity: spec.opacity,
+                attribution: spec.attribution,
+                maxZoom: spec.maxZoom || 19,
+                // DWD GeoServer serves EPSG:3857 for the web mercator layers.
+                crs: L.CRS.EPSG3857,
+                uppercase: true
+            });
+        }
+
+        if (spec.tileUrl) {
+            return L.tileLayer(spec.tileUrl, {
+                opacity: spec.opacity,
+                attribution: spec.attribution,
+                // Keep zooming past the layer's native maximum by upscaling tiles,
+                // so switching base maps never dumps the operator out of their view.
+                maxZoom: 19,
+                maxNativeZoom: spec.maxZoom || 19,
+                crossOrigin: true
+            });
+        }
+
+        return null;
+    }
+
+    function applyLayers(specs) {
+        var wanted = {};
+
+        // Base map below (z 100), overlays above it (z 300), radar on top (z 400).
+        specs.forEach(function (spec) {
+            wanted[spec.id] = true;
+
+            var layer = layers[spec.id];
+
+            if (!spec.enabled) {
+                if (layer && map.hasLayer(layer)) {
+                    map.removeLayer(layer);
+                }
+                return;
+            }
+
+            if (!layer) {
+                layer = buildLayer(spec);
+                if (!layer) {
+                    return;
+                }
+                layers[spec.id] = layer;
+            }
+
+            if (!map.hasLayer(layer)) {
+                layer.addTo(map);
+            }
+
+            if (spec.kind === "base") {
+                layer.setZIndex(100);
+                baseLayerId = spec.id;
+            } else {
+                layer.setZIndex(300);
+            }
+        });
+
+        // Drop layers the host no longer mentions at all.
+        Object.keys(layers).forEach(function (id) {
+            if (!wanted[id] && map.hasLayer(layers[id])) {
+                map.removeLayer(layers[id]);
+            }
+        });
+    }
+
+    // -------------------------------------------------------------- radar
+
+    function applyRadar(url, opacity) {
+        radarOpacity = typeof opacity === "number" ? opacity : radarOpacity;
+
+        if (!url) {
+            radarSlots.forEach(function (slot) {
+                if (slot && map.hasLayer(slot)) {
+                    map.removeLayer(slot);
+                }
+            });
+            radarSlots = [null, null];
+            radarUrl = null;
+            return;
+        }
+
+        if (url === radarUrl) {
+            var current = radarSlots[radarSlot];
+            if (current) {
+                current.setOpacity(radarOpacity);
+            }
+            return;
+        }
+
+        radarUrl = url;
+
+        var next = (radarSlot + 1) % 2;
+        var previous = radarSlots[radarSlot];
+
+        var layer = L.tileLayer(url, {
+            opacity: 0,
+            zIndex: 400,
+            maxNativeZoom: 12,
+            maxZoom: 19,
+            attribution: 'Radar: <a href="https://www.rainviewer.com/">RainViewer</a>',
+            crossOrigin: true
+        });
+
+        // Only reveal the new frame once its tiles are there, then drop the old one.
+        layer.on("load", function () {
+            layer.setOpacity(radarOpacity);
+            if (previous && map.hasLayer(previous)) {
+                map.removeLayer(previous);
+            }
+        });
+
+        layer.addTo(map);
+
+        if (radarSlots[next] && map.hasLayer(radarSlots[next])) {
+            map.removeLayer(radarSlots[next]);
+        }
+
+        radarSlots[next] = layer;
+        radarSlot = next;
+    }
+
+    // ------------------------------------------------------------- markers
+
+    function windArrowIcon(bearingDeg) {
+        // An arrow pointing downwind; SVG points up at 0° and is rotated from there.
+        var svg =
+            '<svg width="44" height="44" viewBox="0 0 44 44">' +
+            '<path d="M22 1 L27 13 L23 13 L23 20 L21 20 L21 13 L17 13 Z" ' +
+            'fill="#f59e0b" stroke="#0e1116" stroke-width="1"/></svg>';
+
+        return L.divIcon({
+            className: "",
+            iconSize: [44, 44],
+            iconAnchor: [22, 22],
+            html:
+                '<div class="elw-marker">' +
+                '<div class="arrow" style="transform: rotate(' + bearingDeg + 'deg)">' + svg + '</div>' +
+                '<div class="ring"></div>' +
+                '</div>'
+        });
+    }
+
+    function applyMarker(marker) {
+        if (!marker) {
+            return;
+        }
+
+        var latlng = [marker.latitude, marker.longitude];
+        var icon = windArrowIcon(marker.downwindBearingDeg || 0);
+
+        if (!positionMarker) {
+            positionMarker = L.marker(latlng, { icon: icon, zIndexOffset: 1000 }).addTo(map);
+        } else {
+            positionMarker.setLatLng(latlng);
+            positionMarker.setIcon(icon);
+        }
+
+        var lines = [];
+        lines.push("<b>Eigener Standort</b>");
+        lines.push('<span class="muted">' + marker.sourceLabel + "</span>");
+
+        if (typeof marker.temperatureC === "number") {
+            lines.push(marker.temperatureC.toFixed(1).replace(".", ",") + " °C");
+        }
+
+        if (typeof marker.windSpeedMs === "number") {
+            lines.push(
+                "Wind aus " + marker.windFromCompass + ", " +
+                (marker.windSpeedMs * 3.6).toFixed(0) + " km/h");
+        }
+
+        positionMarker.bindPopup(lines.join("<br>"));
+    }
+
+    // -------------------------------------------------------------- hazard
+
+    function clearHazard() {
+        hazardLayers.forEach(function (layer) {
+            if (map.hasLayer(layer)) {
+                map.removeLayer(layer);
+            }
+        });
+        hazardLayers = [];
+    }
+
+    function applyHazard(hazard) {
+        clearHazard();
+
+        if (!hazard) {
+            return;
+        }
+
+        var cone = L.polygon(hazard.cone, {
+            color: "#f59e0b",
+            weight: 2,
+            opacity: 0.9,
+            fillColor: "#f59e0b",
+            fillOpacity: 0.16,
+            interactive: false
+        }).addTo(map);
+
+        var centre = L.polyline(hazard.centreLine, {
+            color: "#f59e0b",
+            weight: 2,
+            opacity: 0.75,
+            dashArray: "7 6",
+            interactive: false
+        }).addTo(map);
+
+        hazardLayers.push(cone, centre);
+
+        if (hazard.innerRadiusMetres > 0 && hazard.cone.length > 0) {
+            var inner = L.circle(hazard.cone[0], {
+                radius: hazard.innerRadiusMetres,
+                color: "#e63946",
+                weight: 2,
+                fillColor: "#e63946",
+                fillOpacity: 0.12,
+                interactive: false
+            }).addTo(map);
+            hazardLayers.push(inner);
+        }
+    }
+
+    // -------------------------------------------------------------- banner
+
+    function updateBanner(state) {
+        var parts = [];
+
+        if (state.marker) {
+            parts.push(
+                "<b>" + state.marker.latitude.toFixed(5).replace(".", ",") +
+                " / " + state.marker.longitude.toFixed(5).replace(".", ",") + "</b>");
+            parts.push('<span class="muted">' + state.marker.sourceLabel + "</span>");
+        }
+
+        if (state.hazard) {
+            parts.push(
+                "Ausbreitung nach <b>" + state.hazard.downwindCompass + "</b>, " +
+                "Klasse " + state.hazard.stabilityClass);
+            parts.push(
+                '<span class="muted">Kegel ' + Math.round(state.hazard.rangeMetres) +
+                " m, Innenkreis " + Math.round(state.hazard.innerRadiusMetres) + " m</span>");
+        }
+
+        if (parts.length === 0) {
+            parts.push('<span class="muted">Warte auf Daten …</span>');
+        }
+
+        document.getElementById("banner").innerHTML = parts.join("<br>");
+    }
+
+    // ----------------------------------------------------------- host API
+
+    window.elwMeteo = {
+        apply: function (json) {
+            try {
+                var state = typeof json === "string" ? JSON.parse(json) : json;
+
+                applyLayers(state.layers || []);
+                applyRadar(state.radarTileUrl, state.radarOpacity);
+                applyMarker(state.marker);
+                applyHazard(state.hazard);
+                updateBanner(state);
+
+                if (state.marker && (state.recentre || !initialised)) {
+                    var zoom = initialised ? map.getZoom() : (state.zoom || 11);
+                    map.setView([state.marker.latitude, state.marker.longitude], zoom);
+                    initialised = true;
+                }
+
+                showError(null);
+            } catch (e) {
+                showError("Kartenzustand konnte nicht angewendet werden: " + e.message);
+            }
+        }
+    };
+
+    map.on("click", function (event) {
+        post({
+            type: "mapClick",
+            lat: event.latlng.lat,
+            lon: event.latlng.lng
+        });
+    });
+
+    map.on("zoomend", function () {
+        post({ type: "zoomChanged", zoom: map.getZoom() });
+    });
+
+    // Tell the host we are ready to receive state.
+    post({ type: "ready" });
+</script>
+</body>
+</html>

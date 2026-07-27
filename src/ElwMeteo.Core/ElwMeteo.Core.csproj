@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>ElwMeteo.Core</RootNamespace>
+    <AssemblyName>ElwMeteo.Core</AssemblyName>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Lets the tests exercise the parsers and URL builders without making them public API. -->
+    <InternalsVisibleTo Include="ElwMeteo.Core.Tests" />
+  </ItemGroup>
+
+</Project>

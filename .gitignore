@@ -1,0 +1,44 @@
+## .NET / Visual Studio
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Ww][Ii][Nn]32/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+publish/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.vs/
+.vscode/
+*.binlog
+
+## Rider / JetBrains
+.idea/
+*.sln.iml
+
+## Test / coverage
+[Tt]est[Rr]esult*/
+coverage*.json
+coverage*.xml
+*.coverage
+*.trx
+
+## NuGet
+*.nupkg
+*.snupkg
+packages/
+.nuget/
+
+## App runtime output (local user data must never be committed)
+*.log
+elw-meteo-log-*.csv
+settings.local.json
+
+## OS
+.DS_Store
+Thumbs.db

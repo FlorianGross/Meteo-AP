@@ -1,0 +1,245 @@
+<UserControl x:Class="ElwMeteo.App.Views.SettingsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="{StaticResource BackgroundBrush}">
+
+    <UserControl.Resources>
+        <Style x:Key="Field" TargetType="TextBox">
+            <Setter Property="Margin" Value="0,0,0,10" />
+        </Style>
+    </UserControl.Resources>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="18,16">
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" MaxWidth="430" />
+                <ColumnDefinition Width="14" />
+                <ColumnDefinition Width="*" MaxWidth="430" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- ================================================ position ==== -->
+            <StackPanel Grid.Column="0">
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="POSITIONSQUELLE" Style="{StaticResource SectionHeader}" />
+
+                        <ComboBox ItemsSource="{Binding LocationModes}"
+                                  SelectedItem="{Binding LocationMode}"
+                                  Margin="0,0,0,12">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Converter={StaticResource LocationModeLabel}}" />
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+
+                        <TextBlock Text="MANUELLE KOORDINATEN (WGS 84, DEZIMALGRAD)"
+                                   Style="{StaticResource LabelText}" Margin="0,0,0,4" />
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="8" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBox Grid.Column="0" Text="{Binding ManualLatitude, StringFormat=F5}" />
+                            <TextBox Grid.Column="2" Text="{Binding ManualLongitude, StringFormat=F5}" />
+                        </Grid>
+
+                        <TextBlock Text="ORTSSUCHE" Style="{StaticResource LabelText}" Margin="0,0,0,4" />
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBox Grid.Column="0" Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}" />
+                            <Button Grid.Column="1" Content="Suchen"
+                                    Command="{Binding SearchPlaceCommand}"
+                                    Margin="6,0,0,0" />
+                        </Grid>
+
+                        <ItemsControl ItemsSource="{Binding SearchResults}" Margin="0,0,0,10">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Button Content="{Binding DisplayName}"
+                                            Command="{Binding DataContext.UsePlaceCommand,
+                                                      RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                            CommandParameter="{Binding}"
+                                            HorizontalContentAlignment="Left"
+                                            Margin="0,0,0,4"
+                                            Padding="9,5"
+                                            FontSize="12" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <TextBlock Text="STANDORT / FEUERWACHE (LETZTER RÜCKFALL)"
+                                   Style="{StaticResource LabelText}" Margin="0,0,0,4" />
+                        <TextBox Text="{Binding HomeName}" Style="{StaticResource Field}" />
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="8" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBox Grid.Column="0" Text="{Binding HomeLatitude, StringFormat=F5}" />
+                            <TextBox Grid.Column="2" Text="{Binding HomeLongitude, StringFormat=F5}" />
+                        </Grid>
+
+                        <Button Content="Manuelle Position als Standort speichern"
+                                Command="{Binding UseManualAsHomeCommand}"
+                                HorizontalContentAlignment="Left" />
+                    </StackPanel>
+                </Border>
+
+                <!-- GPS -->
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="GPS-EMPFÄNGER (NMEA 0183, SERIELL)" Style="{StaticResource SectionHeader}" />
+
+                        <TextBlock Style="{StaticResource BodyText}" FontSize="12"
+                                   Foreground="{StaticResource MutedBrush}"
+                                   Text="Viele Einsatzleitwagen haben einen GPS-Empfänger an einer (virtuellen) COM-Schnittstelle. Damit ist die Position metergenau und funktioniert auch ohne Mobilfunk."
+                                   Margin="0,0,0,12" />
+
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="8" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="8" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Editable so a port that is not currently enumerated can still be typed in. -->
+                            <ComboBox Grid.Column="0"
+                                      ItemsSource="{Binding AvailablePorts}"
+                                      Text="{Binding GpsPortName, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
+                                      IsEditable="True" />
+                            <ComboBox Grid.Column="2"
+                                      ItemsSource="{Binding BaudRates}"
+                                      SelectedItem="{Binding GpsBaudRate}"
+                                      MinWidth="86" />
+                            <Button Grid.Column="4" Content="Ports suchen"
+                                    Command="{Binding RefreshPortsCommand}" />
+                        </Grid>
+
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                            <Button Content="Verbinden" Command="{Binding ConnectGpsCommand}" />
+                            <Button Content="Trennen" Command="{Binding DisconnectGpsCommand}" Margin="6,0,0,0" />
+                            <Button Content="Fix übernehmen" Command="{Binding UseGpsFixAsManualCommand}" Margin="6,0,0,0" />
+                        </StackPanel>
+
+                        <Border Background="{StaticResource PanelAltBrush}" CornerRadius="4" Padding="9,7">
+                            <TextBlock Text="{Binding GpsStatus}"
+                                       Style="{StaticResource BodyText}" FontSize="12"
+                                       FontFamily="{StaticResource MonoFont}" />
+                        </Border>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
+            <!-- ================================================== general ==== -->
+            <StackPanel Grid.Column="2">
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="AKTUALISIERUNG" Style="{StaticResource SectionHeader}" />
+
+                        <TextBlock Text="INTERVALL IN SEKUNDEN (60 – 3600)"
+                                   Style="{StaticResource LabelText}" Margin="0,0,0,4" />
+                        <TextBox Text="{Binding WeatherRefreshSeconds}" Style="{StaticResource Field}" />
+
+                        <TextBlock Style="{StaticResource BodyText}" FontSize="12"
+                                   Foreground="{StaticResource MutedBrush}"
+                                   Text="Die genutzten Dienste sind kostenfrei und ohne Registrierung nutzbar. Ein Intervall unter einer Minute bringt keine neuen Daten und riskiert eine Sperre." />
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="DARSTELLUNG &amp; KARTE" Style="{StaticResource SectionHeader}" />
+
+                        <CheckBox Content="Fenster immer im Vordergrund" IsChecked="{Binding AlwaysOnTop}" />
+
+                        <TextBlock Text="INNENKREIS GEFAHRENBEREICH IN METERN"
+                                   Style="{StaticResource LabelText}" Margin="0,12,0,4" />
+                        <TextBox Text="{Binding HazardInnerRadiusMetres, StringFormat=F0}" Style="{StaticResource Field}" />
+                        <TextBlock Style="{StaticResource BodyText}" FontSize="12"
+                                   Foreground="{StaticResource MutedBrush}"
+                                   Text="FwDV 500 nennt für die Erstphase eines Gefahrstoffeinsatzes 50 m Absperrbereich."
+                                   Margin="0,0,0,12" />
+
+                        <TextBlock Text="BILDDAUER RADARANIMATION IN MILLISEKUNDEN"
+                                   Style="{StaticResource LabelText}" Margin="0,0,0,4" />
+                        <TextBox Text="{Binding RadarFrameDelayMs}" Style="{StaticResource Field}" />
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="PROTOKOLLIERUNG" Style="{StaticResource SectionHeader}" />
+
+                        <CheckBox Content="Jeden Abruf als CSV-Zeile protokollieren"
+                                  IsChecked="{Binding CsvLoggingEnabled}" />
+
+                        <TextBlock Text="ABLAGEORT" Style="{StaticResource LabelText}" Margin="0,12,0,3" />
+                        <TextBlock Text="{Binding CsvDirectory}"
+                                   Style="{StaticResource BodyText}" FontSize="11"
+                                   FontFamily="{StaticResource MonoFont}"
+                                   Foreground="{StaticResource MutedBrush}"
+                                   Margin="0,0,0,9" />
+
+                        <Button Content="Protokollordner öffnen"
+                                Command="{Binding OpenCsvDirectoryCommand}"
+                                HorizontalContentAlignment="Left" />
+
+                        <TextBlock Text="EINSTELLUNGSDATEI" Style="{StaticResource LabelText}" Margin="0,14,0,3" />
+                        <TextBlock Text="{Binding SettingsFilePath}"
+                                   Style="{StaticResource BodyText}" FontSize="11"
+                                   FontFamily="{StaticResource MonoFont}"
+                                   Foreground="{StaticResource MutedBrush}" />
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <Button Content="Einstellungen übernehmen und speichern"
+                                Command="{Binding ApplyCommand}"
+                                Padding="14,10" />
+
+                        <TextBlock Text="{Binding StatusMessage}"
+                                   Style="{StaticResource BodyText}"
+                                   Foreground="{StaticResource AccentBrush}"
+                                   Margin="0,10,0,0"
+                                   Visibility="{Binding StatusMessage, Converter={StaticResource StringToVisibility}}" />
+                    </StackPanel>
+                </Border>
+
+                <!-- attribution -->
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="DATENQUELLEN &amp; NUTZUNGSBEDINGUNGEN" Style="{StaticResource SectionHeader}" />
+                        <TextBlock Style="{StaticResource BodyText}" FontSize="11.5"
+                                   Foreground="{StaticResource MutedBrush}"
+                                   TextWrapping="Wrap">
+                            <Run FontWeight="Bold" Text="Messwerte und Vorhersage:" />
+                            <Run Text="Open-Meteo (CC BY 4.0), basierend auf ICON des Deutschen Wetterdienstes." />
+                            <LineBreak /><LineBreak />
+                            <Run FontWeight="Bold" Text="Warnungen und Fachkarten:" />
+                            <Run Text="Deutscher Wetterdienst, Open Data nach GeoNutzV. Amtlich sind ausschließlich die Veröffentlichungen des DWD selbst." />
+                            <LineBreak /><LineBreak />
+                            <Run FontWeight="Bold" Text="Radarbilder und Nowcast:" />
+                            <Run Text="RainViewer." />
+                            <LineBreak /><LineBreak />
+                            <Run FontWeight="Bold" Text="Kartengrundlage:" />
+                            <Run Text="OpenStreetMap-Mitwirkende (ODbL), OpenTopoMap (CC BY-SA), Nominatim für die Adressauflösung." />
+                            <LineBreak /><LineBreak />
+                            <Run FontWeight="Bold" Text="Hinweis:" />
+                            <Run Text="Diese Anwendung ist eine Entscheidungshilfe. Sie ersetzt weder die amtliche Warnlage des DWD noch die Beurteilung durch die Einsatzleitung." />
+                        </TextBlock>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </Grid>
+    </ScrollViewer>
+</UserControl>
