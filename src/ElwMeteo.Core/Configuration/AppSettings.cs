@@ -13,6 +13,15 @@ public enum LocationMode
     Manual
 }
 
+/// <summary>A web viewer the operator added themselves.</summary>
+public sealed class CustomWebSource
+{
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>May contain {lat}, {lon} and {zoom}.</summary>
+    public string UrlTemplate { get; set; } = string.Empty;
+}
+
 /// <summary>
 /// User settings, persisted as JSON next to the application data. Deliberately a
 /// mutable class with defaults for every member so an older or hand-edited file
@@ -106,6 +115,23 @@ public sealed class AppSettings
     public double WindFieldSpacingMetres { get; set; } = 2000;
 
     public double MapZoom { get; set; } = 11;
+
+    // ------------------------------------------------- embedded web viewers
+
+    /// <summary>Ids of the built-in web viewers to show; empty means all of them.</summary>
+    public List<string> EnabledWebSourceIds { get; set; } = [];
+
+    /// <summary>Viewer selected when the browser tab opens.</summary>
+    public string SelectedWebSourceId { get; set; } = "rainviewer-web";
+
+    /// <summary>
+    /// Extra viewers the operator added. Persisted as name/URL pairs so a
+    /// service can be swapped without a new build.
+    /// </summary>
+    public List<CustomWebSource> CustomWebSources { get; set; } = [];
+
+    /// <summary>Zoom passed to viewers whose URL carries a {zoom} placeholder.</summary>
+    public int WebSourceZoom { get; set; } = 9;
 
     /// <summary>Keep the window above other applications — usual choice on a vehicle screen.</summary>
     public bool AlwaysOnTop { get; set; }

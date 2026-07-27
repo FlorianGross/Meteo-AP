@@ -2,7 +2,8 @@
 
 Desktop-Anwendung für den Einsatzleitwagen: Uhrzeit, taktische Zeit und die
 meteorologische Lage an der eigenen Position — plus eine Kartenansicht mit
-Regenradar, Nowcast und DWD-Fachkarten.
+Regenradar, Nowcast und DWD-Fachkarten und die Radarseiten der Anbieter als
+eingebettete Browseransicht.
 
 Windows-Desktop, C# / .NET 8, WPF.
 
@@ -236,7 +237,55 @@ Evakuierungsziel prüfen, bevor man ihn festlegt.
 Schlägt eine Kachelquelle fehl, nennt die Karte den betroffenen Layer im
 Klartext, statt eine Fehlerkachel stehen zu lassen.
 
-### Registerkarte 4 — Verlauf
+### Registerkarte 4 — Web-Radar
+
+Die Regenradar-Seiten der Anbieter direkt in der Anwendung.
+
+Jede Schnittstelle in dieser Anwendung kann ausfallen, umbenannt werden oder
+still falsche Werte liefern — und jeder dieser Fälle sieht gleich aus: eine
+leere Anzeige. Die eigene Seite eines Anbieters funktioniert in aller Regel
+weiter, wenn dessen API es nicht tut. Damit wird aus einer Sackgasse eine
+zweite Meinung, ohne die Anwendung zu verlassen.
+
+Mitgeliefert sind:
+
+| Ansicht | Was sie zeigt |
+|---|---|
+| RainViewer | weltweites Radar mit Zeitleiste und Nowcast — dieselbe Quelle wie auf der Kartenregisterkarte, hier mit voller Bedienoberfläche |
+| Windy — Radar | Radaranimation zusammen mit Wind, Böen und Gewittern |
+| Ventusky — Niederschlag | Niederschlagsradar mit Zeitachse; Ventusky bietet keine API an, als Seite aber uneingeschränkt nutzbar |
+| Kachelmannwetter | hoch aufgelöstes Radar für Deutschland mit eigener Nachbearbeitung |
+| DWD — Warnlage | amtliche Warnkarte auf Gemeindeebene |
+| DWD — Niederschlagsradar | amtliches Radarbild und Radarfilm |
+| NINA | Warnungen des Bundes: Gefahrstoff, Ausfälle, Bevölkerungsschutz |
+| Blitzortung | Blitzeinschläge in Echtzeit — zeigt die Zugbahn einer Gewitterzelle oft früher als das Radar |
+| meteoblue | Modellkarten für Niederschlag, Wind und Temperatur |
+| Windy — Wind und Böen | Windfeld und Böenprognose als Strömungsbild |
+
+Ansichten, deren Adresse die Platzhalter `{lat}`, `{lon}` und `{zoom}` trägt,
+öffnen an der Einsatzstelle statt auf einer Landesübersicht und folgen einer
+neuen Position. Ansichten ohne Platzhalter bleiben stehen, wo hingezoomt
+wurde — eine Positionsmeldung soll den Ausschnitt nicht wegreißen.
+
+**Eigene Adressen.** Unter „Quellen verwalten" lässt sich jede beliebige Seite
+mit Namen hinterlegen, mit denselben Platzhaltern. „Aktuelle übernehmen" füllt
+das Feld mit der Adresse der gewählten Ansicht, sodass eine mitgelieferte
+Ansicht als Vorlage für eine angepasste dienen kann. Mitgelieferte Ansichten,
+die nicht gebraucht werden, lassen sich ausblenden. Auswahl, Zoomstufe und
+eigene Einträge werden sofort in der Einstellungsdatei gespeichert.
+
+Nur `http` und `https` werden geöffnet — eine von Hand eingetragene `file:`-
+oder `javascript:`-Adresse wird abgewiesen, auch wenn sie in der
+Einstellungsdatei steht. Links mit `target="_blank"` bleiben in der
+Registerkarte, statt ein Browserfenster ohne Bedienelemente aufzumachen, und
+Downloads werden abgelehnt: Ein Speichern-Dialog auf einem Fahrzeugbildschirm
+ist nur im Weg. Schlägt der Aufruf fehl, nennt die Anwendung den Grund im
+Klartext — nicht die Fehlerseite des Browsers.
+
+„Im Browser öffnen" ruft dieselbe Adresse im Standardbrowser des Rechners auf;
+das funktioniert auch dort, wo die WebView2-Runtime fehlt.
+
+### Registerkarte 5 — Verlauf
 
 Temperatur- und Niederschlagsverlauf über die kommenden zwei Tage.
 
@@ -255,7 +304,7 @@ Die Serienfarben stammen aus einer geprüften Palette und wurden gegen die
 tatsächliche Panelfläche der Anwendung validiert (Helligkeitsband, Chroma,
 Farbfehlsichtigkeits- und Normalsicht-Abstand über alle Paare, Kontrast).
 
-### Registerkarte 5 — Diagnose
+### Registerkarte 6 — Diagnose
 
 Für den Fall, dass etwas nicht funktioniert. Jede Fernabfrage der Anwendung
 sieht im Fehlerfall gleich aus — eine leere Anzeige — und ohne die tatsächliche
@@ -280,7 +329,7 @@ Antwort auf die Frage, wie ein Layer wirklich heißt.
 „Kopieren" legt alle drei Teile als Text in die Zwischenablage — genau das, was
 für eine Fehlermeldung gebraucht wird.
 
-### Registerkarte 6 — Einstellungen
+### Registerkarte 7 — Einstellungen
 
 Positionsquelle, GPS-Schnittstelle, Ortssuche, Aktualisierungsintervall,
 Gefahrenbereichsradius, Protokollierung und die Quellenangaben.
@@ -376,10 +425,11 @@ src/ElwMeteo.Core/     net8.0      — Fachlogik, plattformneutral und testbar
   Services/                         Open-Meteo, DWD, RainViewer, NMEA, Geocoding
   Reporting/                        Textblöcke und CSV-Protokoll
   Configuration/                    Einstellungen
-  Maps/                             Layer-Katalog
+  Maps/                             Layer-Katalog, Radar- und Webquellen
 
 src/ElwMeteo.App/      net8.0-windows — WPF-Oberfläche (MVVM)
-  Views/                            Uhr, Dashboard, Karte, Verlauf, Einstellungen
+  Views/                            Uhr, Dashboard, Karte, Web-Radar, Verlauf,
+                                    Diagnose, Einstellungen
   Controls/                         Diagramm für den Wetterverlauf
   ViewModels/                       je Registerkarte plus Uhr und Shell
   Services/                         GPS-Schnittstelle, Positionsauflösung
@@ -389,7 +439,7 @@ src/ElwMeteo.App/      net8.0-windows — WPF-Oberfläche (MVVM)
 
 tools/make-icon.py                  erzeugt das Anwendungssymbol reproduzierbar
 
-tests/ElwMeteo.Core.Tests/          xUnit — 227 Tests
+tests/ElwMeteo.Core.Tests/          xUnit — 356 Tests
 ```
 
 Die gesamte Fachlogik liegt in `ElwMeteo.Core` und hat keine Abhängigkeit zu
@@ -411,6 +461,7 @@ veröffentlichte Almanachwerte für Frankfurt am Main geprüft.
 | Radarkacheln (optional) | OpenWeatherMap | benötigt einen eigenen kostenlosen Schlüssel |
 | Kartengrundlage | OpenStreetMap, OpenTopoMap | ODbL bzw. CC BY-SA |
 | Adressauflösung | Nominatim | Nutzungsrichtlinie, identifizierender User-Agent gesetzt |
+| Eingebettete Radarseiten | RainViewer, Windy, Ventusky, Kachelmannwetter, DWD, NINA, Blitzortung, meteoblue | öffentliche Seiten, als gewöhnlicher Seitenaufruf geöffnet — Marke, Quellenangabe und Nutzungsbedingungen des Anbieters bleiben sichtbar |
 
 Keine Registrierung, keine API-Schlüssel.
 

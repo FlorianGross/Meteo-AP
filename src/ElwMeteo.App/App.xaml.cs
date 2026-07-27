@@ -64,6 +64,7 @@ public partial class App : Application
             new ClockViewModel(),
             new DashboardViewModel(weather, warnings, geocoding, locationResolver, csvLogger, brightSky, settings),
             new MapViewModel(radar, capabilities, windField, weather, settings),
+            new WebRadarViewModel(settings),
             new TrendViewModel(),
             new DiagnosticsViewModel(_requestLog, connectivity, capabilities),
             new SettingsViewModel(settings, _gps, geocoding),
