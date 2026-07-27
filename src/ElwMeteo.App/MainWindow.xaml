@@ -127,6 +127,9 @@
             <TabItem Header="Karten &amp; Radar">
                 <views:MapView DataContext="{Binding Map}" />
             </TabItem>
+            <TabItem Header="Web-Radar">
+                <views:WebRadarView DataContext="{Binding WebRadar}" />
+            </TabItem>
             <TabItem Header="Verlauf">
                 <views:TrendView DataContext="{Binding Trend}" />
             </TabItem>

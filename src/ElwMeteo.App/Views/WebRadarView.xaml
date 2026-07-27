@@ -1,0 +1,308 @@
+<UserControl x:Class="ElwMeteo.App.Views.WebRadarView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
+             Background="{StaticResource BackgroundBrush}">
+
+    <UserControl.Resources>
+        <!-- Grouped by topic so Regenradar, Amtlich and Modelle stay apart. -->
+        <CollectionViewSource x:Key="GroupedSources" Source="{Binding Sources}">
+            <CollectionViewSource.GroupDescriptions>
+                <PropertyGroupDescription PropertyName="Group" />
+            </CollectionViewSource.GroupDescriptions>
+        </CollectionViewSource>
+
+        <CollectionViewSource x:Key="GroupedManaged" Source="{Binding ManagedSources}">
+            <CollectionViewSource.GroupDescriptions>
+                <PropertyGroupDescription PropertyName="Group" />
+            </CollectionViewSource.GroupDescriptions>
+        </CollectionViewSource>
+
+        <DataTemplate x:Key="WebGroupHeader">
+            <StackPanel Orientation="Horizontal" Margin="0,11,0,5">
+                <Rectangle Width="3" Height="11"
+                           Fill="{StaticResource AccentBrush}"
+                           RadiusX="1.5" RadiusY="1.5"
+                           VerticalAlignment="Center" />
+                <TextBlock Text="{Binding Name}"
+                           Style="{StaticResource LabelText}"
+                           Margin="6,0,0,0"
+                           VerticalAlignment="Center" />
+            </StackPanel>
+        </DataTemplate>
+
+        <Style x:Key="SourceList" TargetType="ListBox">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
+        </Style>
+
+        <Style x:Key="SourceItem" TargetType="ListBoxItem">
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="Root"
+                                Background="Transparent"
+                                BorderBrush="Transparent"
+                                BorderThickness="3,0,0,0"
+                                CornerRadius="0,4,4,0"
+                                Padding="9,6"
+                                Margin="0,0,0,3">
+                            <ContentPresenter />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Root" Property="Background" Value="{StaticResource PanelAltBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Root" Property="Background" Value="{StaticResource PanelAltBrush}" />
+                                <Setter TargetName="Root" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="292" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <!-- =============================================== control panel ==== -->
+        <Border Grid.Column="0"
+                Background="{StaticResource PanelBrush}"
+                BorderBrush="{StaticResource BorderBrush}"
+                BorderThickness="0,0,1,0">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="14,14,10,14">
+                <StackPanel>
+
+                    <TextBlock Text="ANSICHT WÄHLEN" Style="{StaticResource SectionHeader}" />
+                    <TextBlock Style="{StaticResource LabelText}" FontWeight="Normal" TextWrapping="Wrap"
+                               Margin="0,0,0,4"
+                               Text="Die Seiten der Anbieter direkt in der Anwendung. Bleibt bedienbar, wenn eine Schnittstelle ausfällt — und zeigt jeweils die volle Oberfläche des Anbieters." />
+
+                    <ListBox ItemsSource="{Binding Source={StaticResource GroupedSources}}"
+                             SelectedItem="{Binding SelectedSource}"
+                             Style="{StaticResource SourceList}"
+                             ItemContainerStyle="{StaticResource SourceItem}">
+                        <ListBox.GroupStyle>
+                            <GroupStyle HeaderTemplate="{StaticResource WebGroupHeader}" />
+                        </ListBox.GroupStyle>
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Title}"
+                                               Style="{StaticResource BodyText}"
+                                               FontWeight="SemiBold" FontSize="12.5"
+                                               TextWrapping="Wrap" />
+                                    <TextBlock Text="{Binding Description}"
+                                               Style="{StaticResource LabelText}"
+                                               FontWeight="Normal"
+                                               TextWrapping="Wrap"
+                                               Margin="0,2,0,0" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+
+                    <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                        <Button Content="Neu laden" Command="{Binding ReloadCommand}" Padding="9,5" />
+                        <Button Content="Im Browser öffnen"
+                                Command="{Binding OpenExternallyCommand}"
+                                Margin="5,0,0,0" Padding="9,5"
+                                ToolTip="Öffnet die aktuelle Seite im Standardbrowser des Rechners." />
+                    </StackPanel>
+
+                    <TextBlock Style="{StaticResource LabelText}" Margin="0,14,0,3">
+                        <Run Text="ZOOMSTUFE: " />
+                        <Run Text="{Binding Zoom, Mode=OneWay}" />
+                    </TextBlock>
+                    <Slider Minimum="4" Maximum="15" Value="{Binding Zoom}"
+                            TickFrequency="1" IsSnapToTickEnabled="True" />
+                    <TextBlock Style="{StaticResource LabelText}" FontWeight="Normal" TextWrapping="Wrap"
+                               Margin="0,3,0,0"
+                               Text="Gilt beim Öffnen einer Ansicht, die Position und Zoom in der Adresse trägt. Danach zoomt die Seite selbst." />
+
+                    <Border Height="1" Background="{StaticResource BorderBrush}" Margin="0,16,0,14" />
+
+                    <!-- ============================================ management -->
+                    <TextBlock Text="QUELLEN VERWALTEN" Style="{StaticResource SectionHeader}" />
+
+                    <!-- CheckBox rather than Expander: the theme styles CheckBox,
+                         and an unstyled Expander would render in Windows' light chrome. -->
+                    <CheckBox x:Name="ShowEditor" Content="Eigene Adresse hinterlegen" Margin="0,0,0,4" />
+
+                    <Border Margin="0,0,0,8"
+                            Visibility="{Binding IsChecked, ElementName=ShowEditor, Converter={StaticResource BoolToVisibility}}">
+                        <StackPanel Margin="0,4,0,0">
+                            <TextBlock Text="NAME" Style="{StaticResource LabelText}" Margin="0,0,0,3" />
+                            <TextBox Text="{Binding NewSourceName, UpdateSourceTrigger=PropertyChanged}" />
+
+                            <TextBlock Text="ADRESSE" Style="{StaticResource LabelText}" Margin="0,9,0,3" />
+                            <TextBox Text="{Binding NewSourceUrl, UpdateSourceTrigger=PropertyChanged}"
+                                     TextWrapping="Wrap" AcceptsReturn="False"
+                                     FontFamily="{StaticResource MonoFont}" FontSize="11" />
+
+                            <TextBlock Style="{StaticResource LabelText}" FontWeight="Normal" TextWrapping="Wrap"
+                                       Margin="0,5,0,0"
+                                       Text="Die Platzhalter {lat}, {lon} und {zoom} werden durch die Einsatzstelle ersetzt — z. B. https://www.ventusky.com/?p={lat};{lon};{zoom}&#38;l=radar. Ohne Platzhalter wird die Seite unverändert geöffnet." />
+
+                            <StackPanel Orientation="Horizontal" Margin="0,9,0,0">
+                                <Button Content="Hinzufügen" Command="{Binding AddCustomSourceCommand}" Padding="9,5" />
+                                <Button Content="Aktuelle übernehmen"
+                                        Command="{Binding CopyToEditorCommand}"
+                                        CommandParameter="{Binding SelectedSource}"
+                                        Margin="5,0,0,0" Padding="9,5"
+                                        ToolTip="Übernimmt die Adresse der gewählten Ansicht zum Anpassen." />
+                            </StackPanel>
+
+                            <TextBlock Text="{Binding EditorMessage}"
+                                       Style="{StaticResource LabelText}"
+                                       FontWeight="Normal" TextWrapping="Wrap"
+                                       Foreground="{StaticResource AccentBrush}"
+                                       Margin="0,7,0,0"
+                                       Visibility="{Binding EditorMessage, Converter={StaticResource StringToVisibility}}" />
+                        </StackPanel>
+                    </Border>
+
+                    <ItemsControl ItemsSource="{Binding CustomSources}" Margin="0,0,0,8">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="0,0,0,3">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Text="{Binding Name}"
+                                                   Style="{StaticResource BodyText}"
+                                                   FontSize="12" FontWeight="SemiBold"
+                                                   TextWrapping="Wrap" />
+                                        <TextBlock Text="{Binding UrlTemplate}"
+                                                   Style="{StaticResource LabelText}"
+                                                   FontWeight="Normal"
+                                                   TextTrimming="CharacterEllipsis" />
+                                    </StackPanel>
+                                    <Button Grid.Column="1" Content="✕"
+                                            Command="{Binding DataContext.RemoveCustomSourceCommand,
+                                                              RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                            CommandParameter="{Binding}"
+                                            Padding="8,3" Margin="5,0,0,0"
+                                            VerticalAlignment="Top"
+                                            ToolTip="Eigene Quelle entfernen" />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <CheckBox x:Name="ShowCatalogue" Content="Mitgelieferte Ansichten ein- und ausblenden" />
+
+                    <Border Visibility="{Binding IsChecked, ElementName=ShowCatalogue, Converter={StaticResource BoolToVisibility}}">
+                        <ItemsControl ItemsSource="{Binding Source={StaticResource GroupedManaged}}" Margin="0,6,0,0">
+                            <ItemsControl.GroupStyle>
+                                <GroupStyle>
+                                    <GroupStyle.HeaderTemplate>
+                                        <StaticResource ResourceKey="WebGroupHeader" />
+                                    </GroupStyle.HeaderTemplate>
+                                </GroupStyle>
+                            </ItemsControl.GroupStyle>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <CheckBox IsChecked="{Binding IsVisible}"
+                                              Content="{Binding Title}"
+                                              ToolTip="{Binding Description}"
+                                              Margin="0,0,0,3" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
+
+        <!-- ==================================================== browser ==== -->
+        <Grid Grid.Column="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <!-- address strip: the operator must be able to see where they are -->
+            <Border Grid.Row="0"
+                    Background="{StaticResource PanelBrush}"
+                    BorderBrush="{StaticResource BorderBrush}"
+                    BorderThickness="0,0,0,1"
+                    Padding="12,7">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock Grid.Column="0"
+                               Text="{Binding SelectedSource.Title}"
+                               Style="{StaticResource BodyText}"
+                               FontWeight="SemiBold"
+                               VerticalAlignment="Center"
+                               Margin="0,0,12,0" />
+
+                    <TextBlock Grid.Column="1"
+                               Text="{Binding CurrentUrl}"
+                               FontFamily="{StaticResource MonoFont}"
+                               FontSize="11"
+                               Foreground="{StaticResource MutedBrush}"
+                               TextTrimming="CharacterEllipsis"
+                               VerticalAlignment="Center" />
+
+                    <TextBlock Grid.Column="2"
+                               Text="lädt …"
+                               Style="{StaticResource LabelText}"
+                               VerticalAlignment="Center"
+                               Margin="12,0,0,0"
+                               Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibility}}" />
+                </Grid>
+            </Border>
+
+            <Grid Grid.Row="1">
+                <wv2:WebView2 x:Name="RadarWebView" DefaultBackgroundColor="#0E1116" />
+
+                <!-- Shown until WebView2 is ready, or if it is missing entirely. -->
+                <Border x:Name="WebOverlay"
+                        Background="{StaticResource BackgroundBrush}"
+                        Visibility="Visible">
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="470">
+                        <TextBlock x:Name="WebOverlayTitle"
+                                   Text="Ansicht wird geladen …"
+                                   FontSize="17" FontWeight="SemiBold"
+                                   HorizontalAlignment="Center"
+                                   Foreground="{StaticResource TextBrush}" />
+                        <TextBlock x:Name="WebOverlayText"
+                                   Text="WebView2 wird initialisiert."
+                                   Style="{StaticResource BodyText}"
+                                   TextAlignment="Center"
+                                   Foreground="{StaticResource MutedBrush}"
+                                   Margin="0,10,0,0" />
+                    </StackPanel>
+                </Border>
+
+                <!-- Failures are reported here rather than inside the page. -->
+                <Border VerticalAlignment="Bottom"
+                        Background="{StaticResource PanelBrush}"
+                        BorderBrush="{StaticResource WarningBrush}"
+                        BorderThickness="0,2,0,0"
+                        Padding="14,9"
+                        Visibility="{Binding StatusMessage, Converter={StaticResource StringToVisibility}}">
+                    <TextBlock Text="{Binding StatusMessage}"
+                               Style="{StaticResource BodyText}"
+                               TextWrapping="Wrap" />
+                </Border>
+            </Grid>
+        </Grid>
+    </Grid>
+</UserControl>

@@ -20,6 +20,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         ClockViewModel clock,
         DashboardViewModel dashboard,
         MapViewModel map,
+        WebRadarViewModel webRadar,
         TrendViewModel trend,
         DiagnosticsViewModel diagnostics,
         SettingsViewModel settings,
@@ -29,6 +30,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         Clock = clock;
         Dashboard = dashboard;
         Map = map;
+        WebRadar = webRadar;
         Trend = trend;
         Diagnostics = diagnostics;
         Settings = settings;
@@ -40,6 +42,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
         // A new assessment flows straight through to the map and the trend chart.
         Dashboard.AssessmentUpdated += Map.ApplyAssessment;
+        Dashboard.AssessmentUpdated += WebRadar.ApplyAssessment;
         Dashboard.AssessmentUpdated += OnAssessmentForTrend;
 
         Settings.SettingsApplied += OnSettingsApplied;
@@ -61,6 +64,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     public DashboardViewModel Dashboard { get; }
 
     public MapViewModel Map { get; }
+
+    public WebRadarViewModel WebRadar { get; }
 
     public TrendViewModel Trend { get; }
 
@@ -140,6 +145,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _refreshTimer.Stop();
         Clock.Tick -= OnTick;
         Dashboard.AssessmentUpdated -= Map.ApplyAssessment;
+        Dashboard.AssessmentUpdated -= WebRadar.ApplyAssessment;
         Dashboard.AssessmentUpdated -= OnAssessmentForTrend;
         Settings.SettingsApplied -= OnSettingsApplied;
         _gps.StatusChanged -= OnGpsStatus;
