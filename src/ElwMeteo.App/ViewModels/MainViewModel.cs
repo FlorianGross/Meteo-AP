@@ -20,6 +20,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         ClockViewModel clock,
         DashboardViewModel dashboard,
         MapViewModel map,
+        TrendViewModel trend,
         SettingsViewModel settings,
         AppSettings appSettings,
         GpsSerialService gps)
@@ -27,6 +28,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         Clock = clock;
         Dashboard = dashboard;
         Map = map;
+        Trend = trend;
         Settings = settings;
         _settings = appSettings;
         _gps = gps;
@@ -34,8 +36,9 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         // Keep the "data age" label truthful between refreshes.
         Clock.Tick += OnTick;
 
-        // A new assessment flows straight through to the map.
+        // A new assessment flows straight through to the map and the trend chart.
         Dashboard.AssessmentUpdated += Map.ApplyAssessment;
+        Dashboard.AssessmentUpdated += OnAssessmentForTrend;
 
         Settings.SettingsApplied += OnSettingsApplied;
 
@@ -56,6 +59,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     public DashboardViewModel Dashboard { get; }
 
     public MapViewModel Map { get; }
+
+    public TrendViewModel Trend { get; }
 
     public SettingsViewModel Settings { get; }
 
@@ -91,6 +96,9 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     }
 
     private void OnTick(DateTimeOffset now) => Dashboard.UpdateAge(now);
+
+    private void OnAssessmentForTrend(Core.Assessment.TacticalAssessment assessment) =>
+        Trend.Apply(assessment, DateTimeOffset.Now);
 
     private void OnSettingsApplied()
     {
@@ -128,6 +136,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _refreshTimer.Stop();
         Clock.Tick -= OnTick;
         Dashboard.AssessmentUpdated -= Map.ApplyAssessment;
+        Dashboard.AssessmentUpdated -= OnAssessmentForTrend;
         Settings.SettingsApplied -= OnSettingsApplied;
         _gps.StatusChanged -= OnGpsStatus;
         _gps.FixReceived -= OnGpsFix;

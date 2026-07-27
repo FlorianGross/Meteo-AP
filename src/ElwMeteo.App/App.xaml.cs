@@ -57,6 +57,7 @@ public partial class App : Application
             new ClockViewModel(),
             new DashboardViewModel(weather, warnings, geocoding, locationResolver, csvLogger, settings),
             new MapViewModel(radar, windField, weather, settings),
+            new TrendViewModel(),
             new SettingsViewModel(settings, _gps, geocoding),
             settings,
             _gps);

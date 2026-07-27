@@ -81,6 +81,18 @@ public sealed class AppSettings
     /// <summary>Animate the wind field as drifting particles.</summary>
     public bool ShowWindAnimation { get; set; }
 
+    /// <summary>
+    /// Highest zoom at which radar tiles are drawn. Composites hold roughly a
+    /// kilometre per pixel, so past this the picture is upscaled mush.
+    /// </summary>
+    public int RadarMaxZoom { get; set; } = 11;
+
+    /// <summary>
+    /// Highest zoom at which the wind animation is drawn. Beyond it the view fits
+    /// inside a single grid cell and every particle carries the same vector.
+    /// </summary>
+    public int WindAnimationMaxZoom { get; set; } = 13;
+
     /// <summary>Nodes per side of the wind grid (2–9).</summary>
     public int WindFieldGridSize { get; set; } = 5;
 
