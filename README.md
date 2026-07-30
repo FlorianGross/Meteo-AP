@@ -337,8 +337,53 @@ für eine Fehlermeldung gebraucht wird.
 
 ### Registerkarte 7 — Einstellungen
 
-Positionsquelle, GPS-Schnittstelle, Ortssuche, Aktualisierungsintervall,
+Positionsquelle, GPS-Schnittstelle, Ortssuche, Abrufintervall,
 Gefahrenbereichsradius, Protokollierung und die Quellenangaben.
+
+#### Programm-Aktualisierung
+
+Die Anwendung sieht einmal täglich beim GitHub-Repository nach, ob es eine
+neuere Freigabe gibt, und wählt das Paket für die laufende Plattform aus.
+Heruntergeladen und eingespielt wird **nichts** ohne ausdrücklichen Klick —
+drei Schritte, drei Klicks:
+
+1. **Prüfen** — fragt die Freigaben ab und zeigt Version, Paketgröße und die
+   Freigabenotizen. Passiert bei aktivierter Einstellung auch von selbst,
+   höchstens einmal je Intervall (Voreinstellung 24 Stunden; GitHub erlaubt
+   ohne Anmeldung 60 Anfragen je Stunde).
+2. **Herunterladen und prüfen** — lädt das Paket, vergleicht Größe und
+   SHA-256 mit dem, was die GitHub-API gemeldet hat, entpackt es in einen
+   Zwischenordner und prüft, dass das Programm darin überhaupt enthalten ist.
+   Die Installation wird dabei nicht angefasst.
+3. **Einspielen und neu starten** — der einzige Schritt, der die Installation
+   verändert.
+
+**Warum drei Schritte und nicht einer.** Eine Anwendung, die sich selbst
+herunterlädt und neu startet, tut das irgendwann in dem Moment, in dem jemand
+eine Windrichtung von ihr abliest. Das ist schlimmer als eine veraltete
+Version.
+
+**Wie der Austausch abläuft.** Ein laufendes Programm kann seine eigenen
+Dateien nicht ersetzen — unter Windows ist die `.exe` gesperrt. Deshalb
+schreibt die Anwendung ein kleines Skript und beendet sich. Das Skript
+wartet auf das Ende des Prozesses (höchstens 60 Sekunden, danach bricht es
+ab — es beendet den Prozess **nicht** von sich aus), benennt die alte
+Installation zur Seite, verschiebt die neue an ihre Stelle und startet sie.
+Scheitert das Verschieben, wird die alte Installation zurückgeholt.
+
+Gelöscht wird nichts: die vorige Version bleibt als Nachbarordner
+`…​.vor-<Version>` liegen, und alles Weitere protokolliert
+`%APPDATA%/ELW-Meteo/Update/apply-update.log`. Ein halb ersetzter Ordner ist
+der eine Ausgang, der wirklich weh tut — vermischte Programmteile aus zwei
+Versionen scheitern beim Laden und sehen aus wie ein kaputter Rechner, nicht
+wie eine fehlgeschlagene Aktualisierung.
+
+**Grenzen, offen gesagt.** Liegt die Anwendung in einem schreibgeschützten
+Ordner — typisch unter `C:\Programme` — verweigert sie den Austausch und sagt
+das, statt es zu versuchen. Die Prüfsumme schützt gegen einen abgebrochenen
+Download über eine Mobilfunkstrecke, sie ist **keine Signatur**: Datei und
+Prüfsumme kommen von derselben Stelle. Der eigentliche Vertrauensanker ist,
+dass beides über TLS von `api.github.com` geholt wird.
 
 ---
 
@@ -432,6 +477,8 @@ src/ElwMeteo.Core/     net8.0      — Fachlogik, plattformneutral und testbar
   Reporting/                        Textblöcke und CSV-Protokoll
   Configuration/                    Einstellungen
   Maps/                             Layer-Katalog, Radar- und Webquellen
+  Updates/                          Versionsvergleich, GitHub-Freigaben,
+                                    Paketauswahl, Prüfsumme, Austauschskript
 
 src/ElwMeteo.Presentation/ net8.0  — Ansichtsmodelle, von beiden Oberflächen
   ViewModels/                       je Registerkarte plus Uhr und Schale
@@ -455,7 +502,7 @@ src/ElwMeteo.App/      net8.0-windows — WPF-Oberfläche (Windows)
 
 tools/make-icon.py                  erzeugt das Anwendungssymbol reproduzierbar
 
-tests/ElwMeteo.Core.Tests/          xUnit — 367 Tests
+tests/ElwMeteo.Core.Tests/          xUnit — 445 Tests
 tests/ElwMeteo.Desktop.Tests/       Avalonia-Rauchtests, kopflos
 ```
 

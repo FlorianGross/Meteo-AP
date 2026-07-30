@@ -8,6 +8,7 @@ using ElwMeteo.Core.Configuration;
 using ElwMeteo.Core.Diagnostics;
 using ElwMeteo.Core.Reporting;
 using ElwMeteo.Core.Services;
+using ElwMeteo.Core.Updates;
 using ElwMeteo.Desktop.Platform;
 using ElwMeteo.Presentation.Platform;
 using ElwMeteo.Presentation.Services;
@@ -62,6 +63,10 @@ public partial class App : global::Avalonia.Application
         var csvLogger = new SnapshotCsvLogger(settings.ResolveCsvDirectory());
         var locationResolver = new LocationResolver(settings, _gps, ipLocation);
 
+        var updateDownloader = new UpdateDownloader(_httpClient);
+        var updates = new UpdateService(
+            new GitHubReleaseProvider(_httpClient), updateDownloader, new UpdateInstaller());
+
         var dispatcher = new AvaloniaUiDispatcher();
         var timers = new AvaloniaTimerFactory();
         var clipboard = new AvaloniaClipboard();
@@ -75,10 +80,15 @@ public partial class App : global::Avalonia.Application
             new TrendViewModel(),
             new DiagnosticsViewModel(_requestLog, connectivity, capabilities, dispatcher, clipboard),
             new SettingsViewModel(_settingsStore, _gps, geocoding, shell),
+            new UpdateViewModel(updates, _settingsStore, shell, updateDownloader),
             settings,
             _gps,
             timers,
             dispatcher);
+
+        // The swap script waits for this process; shutting down is what
+        // releases it.
+        _mainViewModel.Update.RestartRequested += () => desktop.Shutdown();
 
         desktop.MainWindow = new MainWindow { DataContext = _mainViewModel };
         desktop.ShutdownRequested += (_, _) => Shutdown();

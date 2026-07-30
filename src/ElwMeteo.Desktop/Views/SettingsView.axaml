@@ -75,7 +75,7 @@
                 </StackPanel>
                 <TextBlock Text="{Binding GpsStatus}" Classes="body" TextWrapping="Wrap" Margin="0,8,0,0" />
 
-                <TextBlock Text="AKTUALISIERUNG UND PROTOKOLL" Classes="section" Margin="0,16,0,6" />
+                <TextBlock Text="ABRUFINTERVALL UND PROTOKOLL" Classes="section" Margin="0,16,0,6" />
                 <TextBlock Text="INTERVALL IN SEKUNDEN" Classes="label" Margin="0,0,0,3" />
                 <TextBox Text="{Binding WeatherRefreshSeconds}" />
                 <TextBlock Text="BILDDAUER RADAR (MS)" Classes="label" Margin="0,9,0,3" />
@@ -99,6 +99,78 @@
                         HorizontalAlignment="Stretch" Margin="0,16,0,0" Padding="14,9" />
                 <TextBlock Text="{Binding StatusMessage}" Classes="body accent" TextWrapping="Wrap" Margin="0,8,0,0"
                            IsVisible="{Binding StatusMessage, Converter={x:Static local:Converters.StringNotEmpty}}" />
+
+                <Border Height="1" Background="{StaticResource BorderBrush}" Margin="0,16" />
+
+                <!-- ============================================ aktualisierung -->
+                <StackPanel DataContext="{Binding $parent[Window].DataContext.Update}">
+                    <TextBlock Text="PROGRAMM-AKTUALISIERUNG" Classes="section" />
+
+                    <TextBlock Text="{Binding CurrentVersionLabel}" Classes="body" FontWeight="SemiBold" />
+                    <TextBlock Text="{Binding PlatformLabel}" Classes="label" FontWeight="Normal" />
+
+                    <CheckBox Content="Täglich nach einer neuen Freigabe sehen"
+                              IsChecked="{Binding UpdateCheckEnabled}" Margin="0,10,0,0" />
+                    <CheckBox Content="Auch Vorabversionen anbieten"
+                              IsChecked="{Binding IncludePreReleases}" />
+
+                    <TextBlock Classes="label" FontWeight="Normal" TextWrapping="Wrap" Margin="0,6,0,0"
+                               Text="Geprüft wird nur — heruntergeladen und eingespielt wird nichts ohne Klick. Eine Anwendung, die sich im Einsatz selbst neu startet, ist schlimmer als eine veraltete." />
+
+                    <TextBlock Text="REPOSITORY" Classes="label" Margin="0,12,0,3" />
+                    <TextBox Text="{Binding Repository}" Classes="mono" FontSize="11" />
+
+                    <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,12,0,0">
+                        <Button Content="Jetzt prüfen"
+                                Command="{Binding CheckCommand}"
+                                IsEnabled="{Binding IsBusy, Converter={x:Static local:Converters.Not}}" />
+                        <Button Content="Freigabeseite öffnen"
+                                Command="{Binding OpenReleasePageCommand}"
+                                IsVisible="{Binding ReleaseUrl, Converter={x:Static local:Converters.StringNotEmpty}}" />
+                    </StackPanel>
+
+                    <TextBlock Text="{Binding Status}" Classes="body" TextWrapping="Wrap" Margin="0,10,0,0" />
+
+                    <!-- Schritt 2 und 3 erscheinen erst, wenn es etwas zu holen gibt. -->
+                    <StackPanel IsVisible="{Binding IsUpdateAvailable}">
+                        <Border Height="1" Background="{StaticResource BorderBrush}" Margin="0,12,0,10" />
+
+                        <TextBlock Text="{Binding ReleaseTitle}" Classes="body" FontWeight="SemiBold" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding PackageLabel}" Classes="label" FontWeight="Normal" />
+                        <TextBlock Text="{Binding IntegrityNote}" Classes="label" FontWeight="Normal"
+                                   TextWrapping="Wrap" Margin="0,4,0,0" />
+
+                        <ScrollViewer MaxHeight="180" Margin="0,8,0,0">
+                            <TextBlock Text="{Binding ReleaseNotes}" Classes="body muted"
+                                       FontSize="11.5" TextWrapping="Wrap" />
+                        </ScrollViewer>
+
+                        <ProgressBar Height="4" Margin="0,10,0,0"
+                                     Minimum="0" Maximum="1" Value="{Binding DownloadProgress}"
+                                     IsVisible="{Binding IsBusy}" />
+
+                        <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,10,0,0">
+                            <Button Content="Herunterladen und prüfen"
+                                    Command="{Binding DownloadCommand}"
+                                    IsEnabled="{Binding IsBusy, Converter={x:Static local:Converters.Not}}" />
+                            <Button Content="Diese Version überspringen"
+                                    Command="{Binding SkipVersionCommand}" />
+                        </StackPanel>
+
+                        <!-- Der einzige Schritt, der die Installation anfasst. -->
+                        <Border Background="#332ECC71" CornerRadius="4" Padding="11" Margin="0,12,0,0"
+                                IsVisible="{Binding IsReadyToInstall}">
+                            <StackPanel>
+                                <TextBlock Classes="body" TextWrapping="Wrap"
+                                           Text="Das Paket ist geladen, seine Prüfsumme stimmt und es ist vollständig entpackt. Beim Einspielen wird die Anwendung beendet, die alte Version daneben aufbewahrt und die neue gestartet." />
+                                <Button Content="Einspielen und neu starten"
+                                        Command="{Binding InstallAndRestartCommand}"
+                                        HorizontalAlignment="Left"
+                                        Margin="0,10,0,0" Padding="14,8" FontWeight="SemiBold" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </StackPanel>
             </StackPanel>
         </Grid>
     </ScrollViewer>

@@ -133,6 +133,29 @@ public sealed class AppSettings
     /// <summary>Zoom passed to viewers whose URL carries a {zoom} placeholder.</summary>
     public int WebSourceZoom { get; set; } = 9;
 
+    // ------------------------------------------------------ auto update
+
+    /// <summary>
+    /// Look for a newer release by itself. Only ever looks — downloading and
+    /// installing always need a click.
+    /// </summary>
+    public bool UpdateCheckEnabled { get; set; } = true;
+
+    /// <summary>Hours between automatic checks; GitHub allows 60 requests/hour unauthenticated.</summary>
+    public int UpdateCheckIntervalHours { get; set; } = 24;
+
+    /// <summary>Repository the packages come from, as owner/name.</summary>
+    public string UpdateRepository { get; set; } = "FlorianGross/ELW-Meteo";
+
+    /// <summary>Offer pre-releases too. Off by default — a vehicle is not a test bench.</summary>
+    public bool UpdateIncludePreReleases { get; set; }
+
+    /// <summary>When the last check ran, so a restart does not trigger a new one.</summary>
+    public DateTimeOffset? LastUpdateCheckUtc { get; set; }
+
+    /// <summary>A version the operator dismissed; it is not offered again.</summary>
+    public string SkippedUpdateVersion { get; set; } = string.Empty;
+
     /// <summary>Keep the window above other applications — usual choice on a vehicle screen.</summary>
     public bool AlwaysOnTop { get; set; }
 
