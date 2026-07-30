@@ -26,7 +26,7 @@ public sealed record InstallLocation(string Directory, bool IsWritable, string? 
             File.Delete(probe);
 
             // The parent is needed too — the swap renames the directory itself.
-            string? parent = Path.GetDirectoryName(directory.TrimEnd(Path.DirectorySeparatorChar));
+            string? parent = Path.GetDirectoryName(directory.TrimEnd('/', '\\'));
 
             if (parent is not null && System.IO.Directory.Exists(parent))
             {
@@ -183,6 +183,7 @@ public sealed class UpdateInstaller
     internal static string BuildWindowsScript(StagedUpdate staged, int processId, string logPath)
     {
         string backup = BackupPath(staged);
+        string executable = Join(staged.InstallDirectory, staged.ExecutableName, '\\');
 
         return $"""
             @echo off
@@ -219,7 +220,7 @@ public sealed class UpdateInstaller
             )
 
             echo [%DATE% %TIME%] Fertig - alte Version liegt in {backup}>>"%LOG%"
-            start "" "{Path.Combine(staged.InstallDirectory, staged.ExecutableName)}"
+            start "" "{executable}"
             endlocal
             """;
     }
@@ -227,7 +228,7 @@ public sealed class UpdateInstaller
     internal static string BuildUnixScript(StagedUpdate staged, int processId, string logPath)
     {
         string backup = BackupPath(staged);
-        string executable = Path.Combine(staged.InstallDirectory, staged.ExecutableName);
+        string executable = Join(staged.InstallDirectory, staged.ExecutableName, '/');
 
         return $"""
             #!/bin/sh
@@ -266,10 +267,26 @@ public sealed class UpdateInstaller
             """;
     }
 
+    /// <summary>
+    /// Joins a path with the separator of the system the script will run on, not
+    /// the one that generated it.
+    ///
+    /// Path.Combine reads the ambient separator, so a Unix script written on
+    /// Windows came out with a backslash in the middle of an absolute path — the
+    /// restart line then pointed nowhere. In practice each script is generated on
+    /// its own platform, but a helper whose output depends on where it ran is not
+    /// one that can be reasoned about, and the test that caught this could not
+    /// have been written against it.
+    /// </summary>
+    internal static string Join(string directory, string fileName, char separator) =>
+        $"{directory.TrimEnd('/', '\\')}{separator}{fileName}";
+
     /// <summary>Where the previous installation is kept after a successful swap.</summary>
     internal static string BackupPath(StagedUpdate staged)
     {
-        string trimmed = staged.InstallDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        // Both separators, for the same reason: the path describes the target
+        // machine, not this one.
+        string trimmed = staged.InstallDirectory.TrimEnd('/', '\\');
 
         return $"{trimmed}.vor-{staged.Version}";
     }

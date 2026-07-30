@@ -389,6 +389,26 @@ public class UpdateInstallerScriptTests
         ExecutableName: "ELW-Meteo");
 
     [Fact]
+    public void JoinUsesTheSeparatorOfTheTargetSystem()
+    {
+        // Path.Combine would use the separator of whichever machine generated the
+        // script. That produced "/opt/elw/app\ELW-Meteo" when the Unix script was
+        // built on Windows — a restart line pointing nowhere.
+        Assert.Equal("/opt/elw/app/ELW-Meteo", UpdateInstaller.Join("/opt/elw/app", "ELW-Meteo", '/'));
+        Assert.Equal("/opt/elw/app/ELW-Meteo", UpdateInstaller.Join("/opt/elw/app/", "ELW-Meteo", '/'));
+        Assert.Equal(@"C:\Tools\ELW\ELW-Meteo.exe", UpdateInstaller.Join(@"C:\Tools\ELW", "ELW-Meteo.exe", '\\'));
+        Assert.Equal(@"C:\Tools\ELW\ELW-Meteo.exe", UpdateInstaller.Join(@"C:\Tools\ELW\", "ELW-Meteo.exe", '\\'));
+    }
+
+    [Fact]
+    public void TheUnixScriptNeverContainsABackslashPath()
+    {
+        string script = UpdateInstaller.BuildUnixScript(Staged, 4242, "/tmp/apply.log");
+
+        Assert.DoesNotContain(@"app\ELW-Meteo", script, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void BackupPath_KeepsTheOldInstallationBesideTheNewOne()
     {
         Assert.Equal("/opt/elw/app.vor-1.2.0", UpdateInstaller.BackupPath(Staged));
