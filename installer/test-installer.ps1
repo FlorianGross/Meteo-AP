@@ -100,22 +100,49 @@ New-Item -ItemType Directory -Force -Path $settingsDirectory | Out-Null
 $marker = Join-Path $settingsDirectory "settings.json"
 Set-Content -Path $marker -Value '{"HomeName":"Testwache"}' -Encoding UTF8
 
-# =============================================================== per user
+$userRoot = Join-Path $env:LOCALAPPDATA "Programs\ELW-Meteo"
+$machineRoot = Join-Path $env:ProgramFiles "ELW-Meteo"
+$userStartMenu = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\ELW-Meteo.lnk"
+$machineStartMenu = Join-Path $env:ProgramData "Microsoft\Windows\Start Menu\Programs\ELW-Meteo.lnk"
+$desktop = Join-Path ([Environment]::GetFolderPath("Desktop")) "ELW-Meteo.lnk"
 
-Write-Host "`n=== Installation pro Benutzer (Voreinstellung) ==="
+function Get-InstalledScope {
+    <#
+        Where the files actually ended up: "user", "machine" or $null.
+    #>
+    if (Test-Path (Join-Path $userRoot "ELW-Meteo.exe")) { return "user" }
+    if (Test-Path (Join-Path $machineRoot "ELW-Meteo.exe")) { return "machine" }
+    return $null
+}
+
+# =============================================================== default
+
+Write-Host "`n=== Installation mit blossem /i ==="
 Invoke-Msi -Arguments @("/i", $msi) -LogName "peruser-install.log"
 
-$userRoot = Join-Path $env:LOCALAPPDATA "Programs\ELW-Meteo"
-$userExe = Join-Path $userRoot "ELW-Meteo.exe"
+# Which side a bare install lands on depends on the privileges of whoever runs
+# it — elevated goes per machine, a plain double-click goes per user. Both are
+# correct. What must never happen is the two halves disagreeing: files in one
+# person's profile with the uninstall entry registered for the whole machine,
+# which is exactly the defect this replaced.
+$scope = Get-InstalledScope
+$entry = Find-UninstallEntry
 
-Assert-That "Anwendung unter $userRoot" (Test-Path $userExe)
-Assert-That "Assets mitinstalliert" (Test-Path (Join-Path $userRoot "Assets\map.html"))
-Assert-That "Fachlogik mitinstalliert" (Test-Path (Join-Path $userRoot "ElwMeteo.Core.dll"))
+Write-Host "  Installationsbereich laut Dateien: $scope"
 
-$startMenu = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\ELW-Meteo.lnk"
+Assert-That "Anwendung installiert" ($null -ne $scope)
+Assert-That "Eintrag in Programme und Features" ($null -ne $entry)
+
+$expectedHive = if ($scope -eq "user") { "HKCU" } else { "HKLM" }
+Assert-That "Ablageort ($scope) und Registrierung ($entry) passen zusammen" ($entry -like "$expectedHive*")
+
+$root = if ($scope -eq "user") { $userRoot } else { $machineRoot }
+$exe = Join-Path $root "ELW-Meteo.exe"
+$startMenu = if ($scope -eq "user") { $userStartMenu } else { $machineStartMenu }
+
+Assert-That "Assets mitinstalliert" (Test-Path (Join-Path $root "Assets\map.html"))
+Assert-That "Fachlogik mitinstalliert" (Test-Path (Join-Path $root "ElwMeteo.Core.dll"))
 Assert-That "Startmenü-Verknüpfung" (Test-Path $startMenu)
-
-$desktop = Join-Path ([Environment]::GetFolderPath("Desktop")) "ELW-Meteo.lnk"
 Assert-That "Desktop-Verknüpfung" (Test-Path $desktop)
 
 # The shortcut has to point at the executable that was actually installed —
@@ -123,36 +150,28 @@ Assert-That "Desktop-Verknüpfung" (Test-Path $desktop)
 if (Test-Path $startMenu) {
     $shell = New-Object -ComObject WScript.Shell
     $target = $shell.CreateShortcut($startMenu).TargetPath
-    Assert-That "Verknüpfung zeigt auf $userExe (ist: $target)" ($target -eq $userExe)
+    Assert-That "Verknüpfung zeigt auf $exe (ist: $target)" ($target -eq $exe)
 }
 
-$userEntry = Find-UninstallEntry
-Assert-That "Eintrag in Programme und Features" ($null -ne $userEntry)
-
-# A per-user layout registered per-machine would offer every user on the box an
-# uninstall for files in somebody else's profile.
-Assert-That "Eintrag liegt im Benutzerzweig (ist: $userEntry)" ($userEntry -like "HKCU*")
-
-Write-Host "`n=== Deinstallation pro Benutzer ==="
+Write-Host "`n=== Deinstallation ==="
 Invoke-Msi -Arguments @("/x", $msi) -LogName "peruser-uninstall.log"
 
-Assert-That "Programmdateien entfernt" (-not (Test-Path $userExe))
+Assert-That "Programmdateien entfernt" ($null -eq (Get-InstalledScope))
 Assert-That "Startmenü-Verknüpfung entfernt" (-not (Test-Path $startMenu))
 Assert-That "Einstellungen bleiben erhalten" (Test-Path $marker)
 
 # ============================================================ per machine
 
-Write-Host "`n=== Installation pro Rechner ==="
+# This is the switch the release notes hand to anybody rolling out a fleet, so
+# it is the one that has to land somewhere predictable.
+Write-Host "`n=== Installation pro Rechner (ALLUSERS=1) ==="
 Invoke-Msi -Arguments @("/i", $msi, "ALLUSERS=1", 'MSIINSTALLPERUSER=""') -LogName "permachine-install.log"
 
-$machineRoot = Join-Path $env:ProgramFiles "ELW-Meteo"
 $machineExe = Join-Path $machineRoot "ELW-Meteo.exe"
 
 Assert-That "Anwendung unter $machineRoot" (Test-Path $machineExe)
 Assert-That "Assets mitinstalliert" (Test-Path (Join-Path $machineRoot "Assets\map.html"))
-
-$allUsersStart = Join-Path $env:ProgramData "Microsoft\Windows\Start Menu\Programs\ELW-Meteo.lnk"
-Assert-That "Startmenü-Verknüpfung für alle Benutzer" (Test-Path $allUsersStart)
+Assert-That "Startmenü-Verknüpfung für alle Benutzer" (Test-Path $machineStartMenu)
 
 $machineEntry = Find-UninstallEntry
 Assert-That "Eintrag in Programme und Features" ($null -ne $machineEntry)
@@ -169,11 +188,11 @@ Assert-That "Einstellungen bleiben erhalten" (Test-Path $marker)
 Write-Host "`n=== Installation ohne Desktop-Verknüpfung ==="
 Invoke-Msi -Arguments @("/i", $msi, "INSTALLDESKTOPSHORTCUT=0") -LogName "nodesktop-install.log"
 
-Assert-That "Anwendung installiert" (Test-Path $userExe)
+Assert-That "Anwendung installiert" ($null -ne (Get-InstalledScope))
 Assert-That "Keine Desktop-Verknüpfung" (-not (Test-Path $desktop))
 
 Invoke-Msi -Arguments @("/x", $msi) -LogName "nodesktop-uninstall.log"
-Assert-That "Restlos entfernt" (-not (Test-Path $userRoot))
+Assert-That "Restlos entfernt" ($null -eq (Get-InstalledScope))
 
 # ------------------------------------------------------------------ result
 

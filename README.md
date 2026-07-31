@@ -492,6 +492,12 @@ Installiert **ohne Administratorrechte** für den angemeldeten Benutzer nach
 `%LocalAppData%\Programs\ELW-Meteo`, legt Start- und Desktop-Verknüpfung an und
 erscheint in „Programme und Features“. Die Runtime ist enthalten.
 
+Wird dasselbe Paket dagegen aus einer bereits erhöhten Eingabeaufforderung
+gestartet, entscheidet der Windows-Installer auf „pro Rechner“ und legt alles
+nach `C:\Programme\ELW-Meteo`. Beides ist richtig; entscheidend ist, dass
+Ablageort und Eintrag in „Programme und Features“ immer zusammenpassen — das
+prüft der Installationstest bei jedem Lauf.
+
 Für die Verteilung auf mehrere Fahrzeugrechner — über Gruppenrichtlinie, Intune
 oder von Hand:
 

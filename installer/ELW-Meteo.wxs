@@ -61,19 +61,28 @@
     <MediaTemplate EmbedCab="yes" />
 
     <!--
-      Where the files go. The per-machine location is declared here; the
-      per-user one is substituted before the directory table is resolved,
-      because ProgramFiles6432Folder does not redirect by itself in a
-      dual-purpose package.
+      Where the files go — and deliberately nothing more than this.
+
+      An earlier version redirected INSTALLFOLDER to LocalAppData itself,
+      conditioned on MSIINSTALLPERUSER. That was wrong, and the installer test
+      caught it: the files landed under the user's profile while Windows
+      registered the uninstall entry under HKLM, because the folder was being
+      decided from a property while the install context was being decided by the
+      installer. The two can disagree — and then every user on the machine is
+      offered an uninstall for files sitting in one person's profile.
+
+      In a dual-purpose package the installer already redirects
+      ProgramFiles6432Folder to %LocalAppData%\Programs when it resolves
+      per-user. Letting it do that is not just simpler, it is the only way the
+      folder and the registration cannot drift apart: one decision, taken once,
+      by the component that also writes the registry.
     -->
     <StandardDirectory Id="ProgramFiles6432Folder">
       <Directory Id="INSTALLFOLDER" Name="ELW-Meteo" />
     </StandardDirectory>
 
-    <SetDirectory Id="INSTALLFOLDER"
-                  Value="[LocalAppDataFolder]Programs\ELW-Meteo"
-                  Condition="MSIINSTALLPERUSER AND NOT Installed"
-                  Sequence="both" />
+    <!-- So "Programme und Features" shows where it actually went. -->
+    <SetProperty Id="ARPINSTALLLOCATION" Value="[INSTALLFOLDER]" After="CostFinalize" />
 
     <StandardDirectory Id="ProgramMenuFolder" />
     <StandardDirectory Id="DesktopFolder" />
