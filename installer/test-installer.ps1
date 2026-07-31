@@ -57,36 +57,42 @@ function Assert-That {
     }
 }
 
-function Find-UninstallEntry {
+function Get-UninstallEntries {
     <#
-        Where „Programme und Features" lists the application, or $null.
+        Every place „Programme und Features" reads from, as objects carrying the
+        hive and the InstallLocation the entry advertises.
 
-        All four locations are searched and the hit is printed, because which
-        one it lands in is the interesting part rather than an implementation
-        detail: a per-user file layout registered under HKLM would mean every
-        user on the machine is offered an uninstall for files that live in one
-        person's profile. Asserting only against the hive I expected would have
-        told me it was missing, not where it went.
+        The hive is reported but deliberately not asserted on. Which one Windows
+        files a per-user installation under depends on whether the installing
+        process was elevated — on a build runner it is, on a vehicle laptop it
+        is not — and neither answer is a defect in the package.
+
+        InstallLocation is the thing worth checking, and it is the direct
+        measurement of the failure that started all this: an entry that offers
+        to uninstall a folder other than the one the files are actually in.
+        Inferring that from the hive was a detour around the question.
     #>
     $roots = @(
-        @{ Name = "HKCU";        Path = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall" }
+        @{ Name = "HKCU";         Path = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall" }
         @{ Name = "HKCU (Wow64)"; Path = "HKCU:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall" }
-        @{ Name = "HKLM";        Path = "HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall" }
+        @{ Name = "HKLM";         Path = "HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall" }
         @{ Name = "HKLM (Wow64)"; Path = "HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall" }
     )
 
-    foreach ($root in $roots) {
-        $hit = Get-ChildItem $root.Path -ErrorAction SilentlyContinue |
-            Where-Object { $_.GetValue("DisplayName") -eq "ELW-Meteo" } |
-            Select-Object -First 1
+    $found = @()
 
-        if ($hit) {
-            Write-Host "        Eintrag gefunden in $($root.Name), InstallLocation=$($hit.GetValue('InstallLocation'))"
-            return $root.Name
+    foreach ($root in $roots) {
+        foreach ($key in (Get-ChildItem $root.Path -ErrorAction SilentlyContinue)) {
+            if ($key.GetValue("DisplayName") -eq "ELW-Meteo") {
+                $found += [PSCustomObject]@{
+                    Hive            = $root.Name
+                    InstallLocation = $key.GetValue("InstallLocation")
+                }
+            }
         }
     }
 
-    return $null
+    return @($found)
 }
 
 # ------------------------------------------------------- settings survive
@@ -122,9 +128,18 @@ Assert-That "Desktop-Verknüpfung" (Test-Path $desktop)
 # its name says is the defect three earlier attempts shipped.
 Assert-That "Nichts unter Programme abgelegt" (-not (Test-Path (Join-Path $machineRoot "ELW-Meteo.exe")))
 
-$entry = Find-UninstallEntry
-Assert-That "Eintrag in Programme und Features" ($null -ne $entry)
-Assert-That "Eintrag im Benutzerzweig (ist: $entry)" ($entry -like "HKCU*")
+$entries = Get-UninstallEntries
+Assert-That "Eintrag in Programme und Features" ($entries.Count -eq 1)
+
+if ($entries.Count -ge 1) {
+    $entry = $entries[0]
+    Write-Host "        Eintrag in $($entry.Hive), InstallLocation=$($entry.InstallLocation)"
+
+    # The invariant the whole installer story turned on: what the entry offers
+    # to uninstall has to be where the files actually are.
+    Assert-That "Eintrag verweist auf $root (ist: $($entry.InstallLocation))" (
+        $entry.InstallLocation -and $entry.InstallLocation.TrimEnd('\') -eq $root.TrimEnd('\'))
+}
 
 # The shortcut has to point at the executable that was actually installed —
 # a shortcut to a path that does not exist is the classic silent installer bug.
@@ -140,7 +155,7 @@ Invoke-Msi -Arguments @("/x", $msi) -LogName "uninstall.log"
 Assert-That "Programmdateien entfernt" (-not (Test-Path $exe))
 Assert-That "Startmenü-Verknüpfung entfernt" (-not (Test-Path $startMenu))
 Assert-That "Desktop-Verknüpfung entfernt" (-not (Test-Path $desktop))
-Assert-That "Eintrag aus Programme und Features entfernt" ($null -eq (Find-UninstallEntry))
+Assert-That "Eintrag aus Programme und Features entfernt" ((Get-UninstallEntries).Count -eq 0)
 
 # The one thing that must survive: the vehicle configuration is the part that
 # took somebody an afternoon, and an update cycle that discards it is one
@@ -168,9 +183,12 @@ Invoke-Msi -Arguments @("/i", $msi) -LogName "reinstall-first.log"
 Invoke-Msi -Arguments @("/i", $msi) -LogName "reinstall-second.log"
 
 Assert-That "Anwendung weiterhin vorhanden" (Test-Path $exe)
-Assert-That "Nur ein Eintrag in Programme und Features" (
-    @(Get-ChildItem "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall" -ErrorAction SilentlyContinue |
-        Where-Object { $_.GetValue("DisplayName") -eq "ELW-Meteo" }).Count -eq 1)
+
+# Two entries would mean MajorUpgrade did not recognise the previous copy —
+# the classic result being an application that cannot be fully uninstalled.
+$afterUpgrade = Get-UninstallEntries
+Assert-That "Nur ein Eintrag in Programme und Features (sind: $($afterUpgrade.Count))" (
+    $afterUpgrade.Count -eq 1)
 
 Invoke-Msi -Arguments @("/x", $msi) -LogName "reinstall-uninstall.log"
 Assert-That "Restlos entfernt" (-not (Test-Path $root))
