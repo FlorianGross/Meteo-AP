@@ -39,10 +39,16 @@ public sealed record InstallLocation(string Directory, bool IsWritable, string? 
         }
         catch (UnauthorizedAccessException)
         {
+            // Naming the likely cause matters more than naming the error. This
+            // is almost always a per-machine MSI install under Program Files,
+            // and in that case the answer is not "move the application" but
+            // "run the new installer" — which is a different action entirely.
             return new InstallLocation(directory, false,
-                "Das Installationsverzeichnis ist schreibgeschützt — typisch für einen Ordner unter " +
-                "„Programme“. Die Anwendung müsste an einen Ort verschoben werden, an dem der " +
-                "angemeldete Benutzer schreiben darf, oder das Paket manuell entpackt werden.");
+                "Das Installationsverzeichnis ist schreibgeschützt — typisch für eine Installation " +
+                "unter „Programme“, wie sie das MSI-Paket mit ALLUSERS=1 anlegt. Eine solche " +
+                "Installation wird über ein neues MSI-Paket aktualisiert, nicht über diesen Weg: " +
+                "Freigabeseite öffnen, die .msi-Datei laden und mit Administratorrechten ausführen. " +
+                "Einstellungen und Protokolle bleiben dabei erhalten.");
         }
         catch (Exception ex) when (ex is IOException)
         {
