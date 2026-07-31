@@ -1,5 +1,5 @@
 using System.Diagnostics;
-using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 
 namespace ElwMeteo.Presentation.Platform;
 
@@ -26,7 +26,7 @@ public sealed class SystemAlertSignal : IAlertSignal
 
     public bool Sound()
     {
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        if (OperatingSystem.IsWindows())
         {
             return WindowsBeep();
         }
@@ -57,7 +57,7 @@ public sealed class SystemAlertSignal : IAlertSignal
 
     private static IEnumerable<(string Program, string Arguments)> Candidates()
     {
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+        if (OperatingSystem.IsMacOS())
         {
             yield return ("/usr/bin/afplay", "/System/Library/Sounds/Sosumi.aiff");
             yield return ("/usr/bin/afplay", "/System/Library/Sounds/Ping.aiff");
@@ -108,7 +108,13 @@ public sealed class SystemAlertSignal : IAlertSignal
     /// <summary>
     /// Two short tones rather than one, because a single beep is what every
     /// other dialogue on the machine also makes.
+    ///
+    /// Marked as Windows-only rather than merely guarded by a runtime check:
+    /// <c>Console.Beep(int, int)</c> throws on Linux and macOS, and the
+    /// attribute is what lets the analyser confirm the call cannot be reached
+    /// there. A caught exception would have hidden the same mistake at runtime.
     /// </summary>
+    [SupportedOSPlatform("windows")]
     private static bool WindowsBeep()
     {
         try
@@ -119,7 +125,7 @@ public sealed class SystemAlertSignal : IAlertSignal
         }
         catch (Exception)
         {
-            // No console, no sound device, or a platform that does not support it.
+            // No console and no sound device are both normal on a vehicle laptop.
             return false;
         }
     }
