@@ -156,6 +156,35 @@ public sealed class AppSettings
     /// <summary>A version the operator dismissed; it is not offered again.</summary>
     public string SkippedUpdateVersion { get; set; } = string.Empty;
 
+    // ------------------------------------------------- warnings and alerts
+
+    /// <summary>
+    /// Sound and flash when a warning arrives that was not there before. On by
+    /// default: an operations vehicle's screen is not watched continuously, and
+    /// a warning nobody notices is one that was not delivered.
+    /// </summary>
+    public bool WarningAlertEnabled { get; set; } = true;
+
+    /// <summary>
+    /// Lowest level worth interrupting somebody for. Level 2 by default —
+    /// alerting on every yellow warning is how people learn to ignore the alert.
+    /// </summary>
+    public Models.WarningLevel AlertMinimumLevel { get; set; } = Models.WarningLevel.Moderate;
+
+    /// <summary>Also fetch civil-protection warnings from NINA (MoWaS, KATWARN, BIWAPP, flooding).</summary>
+    public bool NinaEnabled { get; set; }
+
+    /// <summary>Regional key of the district or city NINA is queried for.</summary>
+    public string NinaArs { get; set; } = string.Empty;
+
+    /// <summary>Plain name of that region, so the settings page can show what was picked.</summary>
+    public string NinaRegionName { get; set; } = string.Empty;
+
+    // ------------------------------------------------------------ reports
+
+    /// <summary>Where printable reports are written; empty uses the default folder.</summary>
+    public string ReportDirectory { get; set; } = string.Empty;
+
     /// <summary>Keep the window above other applications — usual choice on a vehicle screen.</summary>
     public bool AlwaysOnTop { get; set; }
 

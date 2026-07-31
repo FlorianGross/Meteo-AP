@@ -340,6 +340,77 @@ für eine Fehlermeldung gebraucht wird.
 Positionsquelle, GPS-Schnittstelle, Ortssuche, Abrufintervall,
 Gefahrenbereichsradius, Protokollierung und die Quellenangaben.
 
+#### Warnmeldungen und Alarm
+
+Neue Warnungen melden sich von selbst: ein Signalton und ein Balken über allen
+Registerkarten, der stehen bleibt, bis jemand ihn quittiert. Ein Alarm, der
+nach ein paar Sekunden verschwindet, ist einer, den genau die Person verpasst,
+die für diese Sekunden draußen war.
+
+Ausgelöst wird nur bei **Änderung** — eine Warnung, die neu dazukommt, oder
+eine, die sich verschärft. Nicht bei jedem Abruf: Warnungen werden alle paar
+Minuten neu geholt, und ein Ton bei jedem Abruf ist der zuverlässigste Weg,
+Leute darauf zu trainieren, den Ton zu ignorieren. Die Mindeststufe ist
+einstellbar, Voreinstellung ist Stufe 2.
+
+Der Ton ist bewusst die Zugabe, nicht die Hauptsache. .NET hat keine
+plattformübergreifende Tonausgabe; unter Windows kommt der Systemklang, unter
+macOS `afplay`, unter Linux `canberra`/`paplay`/`aplay` — und auf einer
+Maschine ohne Sounddienst eben gar nichts. Genau dann steht es im Balken:
+„Signalton auf diesem Rechner nicht möglich“.
+
+#### NINA — Bevölkerungsschutz
+
+Optional werden zusätzlich die Warnungen des Bundesamts für Bevölkerungsschutz
+abgerufen: **MoWaS, KATWARN, BIWAPP** und das Hochwasserportal. Das ist eine
+andere Kategorie als das Wetter und deshalb überhaupt der Grund dafür —
+Gefahrstoffaustritt, Kampfmittelfund, Trinkwasserhinweis, Evakuierung,
+Pegelstand. Nichts davon steht in einem Wetterfeed.
+
+DWD-Meldungen werden aus NINA **herausgefiltert**: die kommen bereits aus zwei
+eigenen Quellen, die auf die Gemeinde statt auf den ganzen Kreis auflösen.
+Beide Wege zu nehmen hieße, jede Sturmwarnung zweimal und unterschiedlich
+formuliert anzuzeigen — und eine doppelte Warnung ist eine, über die man
+anfängt hinwegzulesen.
+
+Das Bundessystem ist nach **Amtlichem Regionalschlüssel** geordnet, nicht nach
+Koordinaten; einen Endpunkt „Warnungen in der Nähe dieses Punktes“ gibt es
+nicht. Deshalb wird der Kreis einmal in den Einstellungen gewählt, so wie die
+NINA-App selbst danach fragt. Über das Suchfeld genügt der Ortsname, den
+zwölfstelligen Schlüssel muss niemand kennen.
+
+Probealarme (bundesweiter Warntag) werden angezeigt, aber mit `PROBE`
+gekennzeichnet und auf Stufe 1 gesetzt — sie lösen also keinen Alarm aus. Sie
+zu verstecken wäre am Warntag verwirrend, sie Alarm schlagen zu lassen wäre
+schlimmer.
+
+### Wetterbericht drucken
+
+Auf der Registerkarte „Lage & Wetter“ erzeugt **Bericht erstellen und öffnen**
+eine druckfertige Seite: Kopf mit Einsatzbezeichnung, Position und Anschrift,
+amtliche Warnungen im Volltext, aktuelle Messwerte, Ausbreitungsrichtung und
+-klasse, ein 48-Stunden-Diagramm mit Temperatur, Taupunkt, Niederschlag und
+Nachtbändern, Tagesübersicht, Sonne und Mond sowie die Einsatzhinweise.
+
+Die Seite öffnet sich im Systembrowser — dort **Strg+P**, und als Ziel entweder
+der Drucker oder „Als PDF speichern“. Das ist der Grund, warum der Bericht
+HTML ist und nicht über eine PDF-Bibliothek läuft: der Druckdialog ist auf
+Windows, macOS und Linux schon da, es kommt keine zu lizenzierende Abhängigkeit
+ins Paket, und das Ergebnis ist überall dasselbe. Nebenbei bleibt die Datei
+liegen und kann ans Einsatztagebuch geheftet oder weitergeschickt werden, ohne
+sie neu zu erzeugen.
+
+Berichte liegen unter `%APPDATA%\ELW-Meteo\Berichte`; die letzten 40 werden
+aufbewahrt.
+
+Gedruckt wird **schwarz auf weiß**, nicht im dunklen Oberflächenthema — das
+wäre auf Papier unlesbar und eine Tonerpatrone teuer. Temperatur- und
+Taupunktkurve unterscheiden sich zusätzlich durch die Strichelung, damit sie
+auch aus einem Schwarzweißdrucker auseinanderzuhalten sind. Ist der Bericht aus
+dem gespeicherten Stand erzeugt, steht das als Balken darauf: ein Ausdruck
+überlebt die Sitzung, die ihn erzeugt hat, und einer ohne Altersangabe ist eine
+Falle.
+
 #### Programm-Aktualisierung
 
 Die Anwendung sieht einmal täglich beim GitHub-Repository nach, ob es eine
@@ -473,8 +544,11 @@ src/ElwMeteo.Core/     net8.0      — Fachlogik, plattformneutral und testbar
                                     Geodäsie, Ausbreitungskegel, WMO-Codes
   Models/                           Position, Wetterdaten, DWD-Warnung
   Assessment/                       Ableitung der Einsatzhinweise
-  Services/                         Open-Meteo, DWD, RainViewer, NMEA, Geocoding
-  Reporting/                        Textblöcke und CSV-Protokoll
+  Services/                         Open-Meteo, DWD, NINA, RainViewer, NMEA,
+                                    Geocoding, Warnungsmelder
+  Reporting/                        Textblöcke, CSV-Protokoll, Druckbericht
+                                    mit SVG-Diagramm
+  Persistence/                      letzter Stand für den Start ohne Netz
   Configuration/                    Einstellungen
   Maps/                             Layer-Katalog, Radar- und Webquellen
   Updates/                          Versionsvergleich, GitHub-Freigaben,
@@ -482,10 +556,11 @@ src/ElwMeteo.Core/     net8.0      — Fachlogik, plattformneutral und testbar
 
 src/ElwMeteo.Presentation/ net8.0  — Ansichtsmodelle, von beiden Oberflächen
   ViewModels/                       je Registerkarte plus Uhr und Schale
-  Services/                         GPS-Schnittstelle, Positionsauflösung
+  Services/                         GPS-Schnittstelle, Positionsauflösung,
+                                    Berichtsausgabe
   Charting/                         Diagrammmodell ohne Zeichentypen
   Platform/                         IUiDispatcher, IUiTimer, IClipboardService,
-                                    IShellLauncher, UiColour
+                                    IShellLauncher, IAlertSignal, UiColour
 
 src/ElwMeteo.Desktop/  net8.0      — Avalonia-Oberfläche (Linux, macOS, Windows)
   Views/                            dieselben sieben Registerkarten
@@ -502,8 +577,8 @@ src/ElwMeteo.App/      net8.0-windows — WPF-Oberfläche (Windows)
 
 tools/make-icon.py                  erzeugt das Anwendungssymbol reproduzierbar
 
-tests/ElwMeteo.Core.Tests/          xUnit — 445 Tests
-tests/ElwMeteo.Desktop.Tests/       Avalonia-Rauchtests, kopflos
+tests/ElwMeteo.Core.Tests/          xUnit — 542 Tests
+tests/ElwMeteo.Desktop.Tests/       Avalonia-Rauchtests, kopflos — 10 Tests
 ```
 
 Die gesamte Fachlogik liegt in `ElwMeteo.Core`, alle Ansichtsmodelle in
@@ -530,6 +605,7 @@ veröffentlichte Almanachwerte für Frankfurt am Main geprüft.
 |---|---|---|
 | Messwerte, Nowcast, Vorhersage | [Open-Meteo](https://open-meteo.com) (ICON des DWD) | CC BY 4.0, kein Schlüssel nötig |
 | Amtliche Warnungen, Fachkarten | [DWD GeoServer](https://maps.dwd.de) | Open Data nach GeoNutzV |
+| Bevölkerungsschutz (MoWaS, KATWARN, BIWAPP, Hochwasser) | [NINA / warnung.bund.de](https://warnung.bund.de) | öffentliche Schnittstelle des BBK, kein Schlüssel; optional, standardmäßig aus |
 | Radarbilder, Nowcast und Infrarot-Satellit | [RainViewer](https://www.rainviewer.com/) | kostenfreie öffentliche API |
 | Stationsmesswerte, DWD-Warnungen (CAP), RADOLAN am Punkt | [Bright Sky](https://brightsky.dev) | freier JSON-Zugang zu DWD Open Data, ohne Schlüssel |
 | Luftbild und Reliefschummerung | Esri / ArcGIS Online | kostenfrei mit Quellenangabe |
@@ -552,6 +628,30 @@ Ohne Netz laufen Uhr, taktische Zeit, Sonnenstand und Mondphase
 unverändert weiter; die Wetterdaten bleiben mit sichtbarer Altersangabe stehen
 und werden nach 20 Minuten als veraltet markiert. Karte und Radar brauchen
 zwingend eine Verbindung.
+
+**Der letzte Stand übersteht den Neustart.** Nach jedem vollständigen Abruf
+werden Messwerte, Warnungen und Anschrift nach
+`%APPDATA%\ELW-Meteo\last-state.json` geschrieben. Startet die Anwendung ohne
+erreichbares Netz, erscheint dieser Stand sofort — mit einem bernsteinfarbenen
+Balken darüber, der Uhrzeit und Alter nennt. Der gespeicherte Stand
+überschreibt **nie** einen frisch abgerufenen; er erscheint nur, wenn in dieser
+Sitzung noch nie etwas angekommen ist.
+
+Nach **zwölf Stunden** wird er verworfen statt angezeigt. Eine Windrichtung von
+gestern Abend ist nicht alt, sondern falsch, und sie anzubieten wäre schlimmer
+als die leere Anzeige, die das Ganze ersetzen soll.
+
+Geschrieben wird in eine Nebendatei und dann umbenannt: ein Stromausfall
+mitten im Schreiben lässt die vorige Datei heil, statt eine abgeschnittene zu
+hinterlassen.
+
+### Fehlgeschlagener Abruf
+
+Ein misslungener Abruf wird bis zu dreimal wiederholt — nach 20, 40 und 60
+Sekunden, mit sichtbarer Restzeit. Auf einem Fahrzeug ist das Funkloch der
+Normalfall, nicht die Ausnahme; ohne Wiederholung stünde die Fehlermeldung bis
+zum nächsten regulären Intervall, bei 30 Minuten Einstellung also eine halbe
+Stunde.
 
 Leaflet wird in `Assets/map.html` von einem CDN geladen. Soll die Kartenseite
 selbst ohne Internet starten (etwa mit einem lokalen Kachel-Cache), genügt es,

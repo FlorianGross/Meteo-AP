@@ -50,4 +50,37 @@ public class ViewSmokeTests
         Assert.NotNull(window.Content);
         Assert.Equal("ELW-Meteo", window.Title);
     }
+
+    /// <summary>
+    /// The alert banner sits in its own grid row above the tabs. Adding a row
+    /// means every row index below it shifts, and a control left on the old
+    /// index lands silently on top of another one rather than failing to build —
+    /// so the row assignments are asserted rather than eyeballed.
+    /// </summary>
+    [AvaloniaFact]
+    public void TheShellRowsAreNotOffByOne()
+    {
+        var window = new MainWindow();
+        var grid = (Grid)window.Content!;
+
+        Assert.Equal(5, grid.RowDefinitions.Count);
+
+        var tabs = grid.Children.OfType<TabControl>().Single();
+        Assert.Equal(3, Grid.GetRow(tabs));
+
+        // Header, alert, warning summary and status bar: one per remaining row,
+        // none sharing.
+        int[] rows = grid.Children.Where(c => c is not TabControl).Select(Grid.GetRow).Order().ToArray();
+        Assert.Equal([0, 1, 2, 4], rows);
+    }
+
+    [AvaloniaFact]
+    public void EveryTabHasItsView()
+    {
+        var window = new MainWindow();
+        var tabs = ((Grid)window.Content!).Children.OfType<TabControl>().Single();
+
+        Assert.Equal(7, tabs.Items.Count);
+        Assert.All(tabs.Items, item => Assert.NotNull(((TabItem)item!).Content));
+    }
 }

@@ -93,6 +93,42 @@
                 <TextBlock Classes="label" FontWeight="Normal" TextWrapping="Wrap" Margin="0,5,0,0"
                            Text="Nur für die optionale OpenWeatherMap-Radarquelle. Alle anderen Dienste brauchen keinen Schlüssel." />
 
+                <!-- ============================================== warnings -->
+                <TextBlock Text="WARNMELDUNGEN" Classes="section" Margin="0,16,0,6" />
+                <CheckBox Content="Bei neuer Warnung Signal geben"
+                          IsChecked="{Binding WarningAlertEnabled}" />
+                <TextBlock Classes="label" FontWeight="Normal" TextWrapping="Wrap" Margin="0,5,0,0"
+                           Text="Ton und Banner, aber nur wenn eine Warnung neu dazukommt oder sich verschärft — nicht bei jedem Abruf." />
+
+                <TextBlock Text="AB WELCHER STUFE" Classes="label" Margin="0,9,0,3" />
+                <ComboBox ItemsSource="{Binding AlertLevels}" SelectedItem="{Binding AlertMinimumLevel}"
+                          HorizontalAlignment="Stretch" />
+
+                <CheckBox Content="Bevölkerungsschutz-Warnungen über NINA einbeziehen"
+                          IsChecked="{Binding NinaEnabled}" Margin="0,12,0,0" />
+                <TextBlock Classes="label" FontWeight="Normal" TextWrapping="Wrap" Margin="0,5,0,0"
+                           Text="MoWaS, KATWARN, BIWAPP und Hochwasser vom Bundesamt für Bevölkerungsschutz — also Gefahrstoff, Kampfmittel, Trinkwasser, Evakuierung. DWD-Wetterwarnungen kommen weiter aus der genaueren eigenen Quelle." />
+
+                <TextBlock Text="LANDKREIS ODER KREISFREIE STADT" Classes="label" Margin="0,9,0,3" />
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                    <TextBox Grid.Column="0" Text="{Binding NinaQuery}" Watermark="Kreis suchen …" />
+                    <Button Grid.Column="1" Content="Suchen" Command="{Binding SearchNinaRegionCommand}" />
+                </Grid>
+                <ItemsControl ItemsSource="{Binding NinaResults}" Margin="0,6,0,0">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Margin="0,0,0,4"
+                                    Command="{Binding $parent[UserControl].DataContext.UseNinaRegionCommand}"
+                                    CommandParameter="{Binding}">
+                                <TextBlock Text="{Binding Name}" TextWrapping="Wrap" FontSize="12" />
+                            </Button>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <TextBlock Classes="label mono" FontWeight="Normal" Margin="0,5,0,0"
+                           Text="{Binding NinaRegionName}"
+                           IsVisible="{Binding NinaRegionName, Converter={x:Static local:Converters.StringNotEmpty}}" />
+
                 <CheckBox Content="Immer im Vordergrund" IsChecked="{Binding AlwaysOnTop}" Margin="0,16,0,0" />
 
                 <Button Content="Übernehmen" Command="{Binding ApplyCommand}"

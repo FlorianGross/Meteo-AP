@@ -55,6 +55,21 @@ public interface IShellLauncher
 }
 
 /// <summary>
+/// Makes a noise when a new warning arrives.
+///
+/// Deliberately allowed to fail. .NET has no cross-platform audio, so on some
+/// machines there will be no sound at all — which is why the visible alert is
+/// the real one and this is the addition. A feature that only works when the
+/// speakers happen to be wired up must not be the only thing standing between
+/// an operator and a severe weather warning.
+/// </summary>
+public interface IAlertSignal
+{
+    /// <summary>True when something was actually played.</summary>
+    bool Sound();
+}
+
+/// <summary>
 /// Opens a target through the operating system's own handler.
 ///
 /// <c>UseShellExecute</c> is not Windows-only: on Linux .NET hands the target to

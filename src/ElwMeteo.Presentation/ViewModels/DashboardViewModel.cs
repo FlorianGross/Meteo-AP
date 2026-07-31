@@ -9,6 +9,7 @@ using ElwMeteo.Presentation.Platform;
 using ElwMeteo.Core.Configuration;
 using ElwMeteo.Core.Meteorology;
 using ElwMeteo.Core.Models;
+using ElwMeteo.Core.Persistence;
 using ElwMeteo.Core.Reporting;
 using ElwMeteo.Core.Services;
 
@@ -47,6 +48,9 @@ public sealed partial class DashboardViewModel : ObservableObject
     private readonly BrightSkyProvider _brightSky;
     private readonly AppSettings _settings;
     private readonly IClipboardService _clipboard;
+    private readonly SnapshotCache _cache;
+    private readonly ReportPrinter _reports;
+    private readonly WarningMonitor _monitor = new();
 
     private static readonly CultureInfo German = CultureInfo.GetCultureInfo("de-DE");
 
@@ -58,7 +62,9 @@ public sealed partial class DashboardViewModel : ObservableObject
         SnapshotCsvLogger csvLogger,
         BrightSkyProvider brightSky,
         AppSettings settings,
-        IClipboardService clipboard)
+        IClipboardService clipboard,
+        SnapshotCache cache,
+        ReportPrinter reports)
     {
         _weather = weather;
         _warnings = warnings;
@@ -68,12 +74,29 @@ public sealed partial class DashboardViewModel : ObservableObject
         _brightSky = brightSky;
         _settings = settings;
         _clipboard = clipboard;
+        _cache = cache;
+        _reports = reports;
+        _monitor.Threshold = settings.AlertMinimumLevel;
     }
 
     // ------------------------------------------------------------- state
 
     /// <summary>Raised whenever a fresh assessment is available, so the map can follow.</summary>
     public event Action<TacticalAssessment>? AssessmentUpdated;
+
+    /// <summary>Raised when warnings arrive that nobody has seen yet.</summary>
+    public event Action<IReadOnlyList<WarningAlert>>? WarningsAlerted;
+
+    /// <summary>True while the shown data comes from the cache rather than the network.</summary>
+    [ObservableProperty]
+    private bool _isOffline;
+
+    [ObservableProperty]
+    private string _offlineNotice = string.Empty;
+
+    /// <summary>Countdown text while a failed fetch is being retried.</summary>
+    [ObservableProperty]
+    private string _retryNotice = string.Empty;
 
     [ObservableProperty]
     private TacticalAssessment? _assessment;
@@ -321,6 +344,10 @@ public sealed partial class DashboardViewModel : ObservableObject
             Assessment = assessment;
             ApplyAssessment(assessment, now);
 
+            IsOffline = false;
+            OfflineNotice = string.Empty;
+            RetryNotice = string.Empty;
+
             LastUpdateLabel = now.ToString("HH:mm:ss");
             StatusMessage = $"Aktualisiert {LastUpdateLabel} · Quelle {snapshot.ModelName}";
 
@@ -333,6 +360,10 @@ public sealed partial class DashboardViewModel : ObservableObject
             await UpdateDwdRadarAsync(position, now, cancellationToken).ConfigureAwait(true);
             await UpdateWarningsAsync(position, cancellationToken).ConfigureAwait(true);
             await LogSnapshotAsync(assessment, now, cancellationToken).ConfigureAwait(true);
+
+            // Written last, so only a picture that came through completely is
+            // the one offered on the next start without a network.
+            StoreState(snapshot, now);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -354,6 +385,86 @@ public sealed partial class DashboardViewModel : ObservableObject
         finally
         {
             IsBusy = false;
+        }
+
+        if (HasError && Assessment is null)
+        {
+            RestoreFromCache();
+        }
+    }
+
+    // --------------------------------------------------- stored last state
+
+    /// <summary>
+    /// Puts the last good picture on screen when the network has never answered
+    /// in this session.
+    ///
+    /// Only ever when there is nothing else: a stored reading must never
+    /// overwrite one that arrived a minute ago just because a later refresh
+    /// failed. The banner is worded so nobody mistakes it for current — the
+    /// value of this is a starting point for the first assessment, not a
+    /// substitute for the real thing.
+    /// </summary>
+    private void RestoreFromCache()
+    {
+        CachedState? state = _cache.Load(DateTimeOffset.Now);
+
+        if (state is null)
+        {
+            return;
+        }
+
+        DateTimeOffset now = DateTimeOffset.Now;
+        TacticalAssessment assessment = WeatherAssessor.Assess(state.Snapshot, now);
+
+        Assessment = assessment;
+        ApplyAssessment(assessment, now);
+
+        Warnings.Clear();
+        foreach (DwdWarning warning in state.Warnings)
+        {
+            Warnings.Add(warning);
+        }
+
+        HasWarnings = Warnings.Count > 0;
+        AddressLine = state.AddressLine ?? string.Empty;
+        WarningSource = state.WarningSource ?? string.Empty;
+
+        IsOffline = true;
+        OfflineNotice =
+            $"Gespeicherter Stand von {state.SavedAtUtc.ToLocalTime():HH:mm} Uhr " +
+            $"({SnapshotCache.DescribeAge(state.AgeAt(now))}) — kein Abruf möglich. " +
+            "Werte beschreiben nicht die aktuelle Lage.";
+
+        LastUpdateLabel = state.SavedAtUtc.ToLocalTime().ToString("HH:mm:ss");
+
+        // The map and the trend chart get it too: half the application showing
+        // the stored picture and half of it showing nothing would be worse than
+        // either.
+        AssessmentUpdated?.Invoke(assessment);
+    }
+
+    private void StoreState(WeatherSnapshot snapshot, DateTimeOffset now)
+    {
+        _cache.Save(new CachedState
+        {
+            Snapshot = snapshot,
+            Warnings = Warnings.ToList(),
+            AddressLine = string.IsNullOrWhiteSpace(AddressLine) ? null : AddressLine,
+            WarningSource = string.IsNullOrWhiteSpace(WarningSource) ? null : WarningSource,
+            SavedAtUtc = now.ToUniversalTime()
+        });
+    }
+
+    /// <summary>Picks up an alert threshold changed on the settings tab.</summary>
+    public void ApplyAlertSettings() => _monitor.Threshold = _settings.AlertMinimumLevel;
+
+    /// <summary>Loads the stored state at start, before the first fetch answers.</summary>
+    public void ShowStoredStateIfAny()
+    {
+        if (Assessment is null)
+        {
+            RestoreFromCache();
         }
     }
 
@@ -383,6 +494,52 @@ public sealed partial class DashboardViewModel : ObservableObject
         if (TrySetClipboard(WeatherReportFormatter.BuildRadioLine(Assessment)))
         {
             StatusMessage = "Funkspruch in die Zwischenablage kopiert.";
+        }
+    }
+
+    /// <summary>Free text naming the operation; goes into the report header.</summary>
+    [ObservableProperty]
+    private string _incidentLabel = string.Empty;
+
+    /// <summary>
+    /// Writes the printable report and opens it. Everything on screen goes in,
+    /// including the warnings and the offline banner if the picture is a stored
+    /// one — a printed sheet outlives the session that produced it, and one that
+    /// does not say how old its numbers are is a trap.
+    /// </summary>
+    [RelayCommand]
+    private void PrintReport()
+    {
+        if (Assessment is null)
+        {
+            StatusMessage = "Noch keine Daten — es gibt nichts zu drucken.";
+            return;
+        }
+
+        DateTimeOffset now = DateTimeOffset.Now;
+
+        var options = new ReportOptions
+        {
+            IncidentLabel = string.IsNullOrWhiteSpace(IncidentLabel) ? null : IncidentLabel.Trim(),
+            AddressLine = string.IsNullOrWhiteSpace(AddressLine) ? null : AddressLine,
+            Warnings = Warnings.ToList(),
+            WarningSource = string.IsNullOrWhiteSpace(WarningSource) ? null : WarningSource,
+            OfflineAge = IsOffline ? Assessment.Snapshot.AgeAt(now) : null,
+            Organisation = string.IsNullOrWhiteSpace(_settings.HomeName) ? null : _settings.HomeName
+        };
+
+        string html = WeatherReportPage.Build(Assessment, now, options);
+
+        _reports.Produce(html, now, out string message);
+        StatusMessage = message;
+    }
+
+    [RelayCommand]
+    private void OpenReportDirectory()
+    {
+        if (!_reports.OpenDirectory(out string? error))
+        {
+            StatusMessage = $"Berichtsordner ließ sich nicht öffnen: {error}";
         }
     }
 
@@ -578,12 +735,24 @@ public sealed partial class DashboardViewModel : ObservableObject
             }
 
             HasWarnings = Warnings.Count > 0;
-            WarningSource = _warnings is CompositeWarningProvider composite
-                ? $"Quelle: {composite.LastSourceLabel}"
-                : string.Empty;
+            WarningSource = _warnings switch
+            {
+                AggregateWarningProvider aggregate => $"Quelle: {aggregate.LastSourceLabel}",
+                CompositeWarningProvider composite => $"Quelle: {composite.LastSourceLabel}",
+                _ => string.Empty
+            };
             WarningSummary = HasWarnings
                 ? $"{Warnings.Count} amtliche Warnung(en) — höchste Stufe: {Warnings[0].LevelLabel}"
                 : "Keine amtlichen Warnungen für diese Position.";
+
+            // Deciding what is new happens after the list is on screen, so the
+            // alert and the entry it refers to appear together.
+            IReadOnlyList<WarningAlert> alerts = _monitor.Observe(warnings);
+
+            if (alerts.Count > 0 && _settings.WarningAlertEnabled)
+            {
+                WarningsAlerted?.Invoke(alerts);
+            }
         }
         catch (WarningProviderException ex)
         {
