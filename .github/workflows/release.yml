@@ -80,6 +80,23 @@ jobs:
               -o "publish/$rid"
           done
 
+      # The installer is built from the self-contained publish: a package that
+      # installs cleanly and then refuses to start because the machine has no
+      # .NET runtime is the worst of both worlds, and a fleet rollout is exactly
+      # where nobody is standing at the screen to see why.
+      - name: Install WiX
+        run: dotnet tool install --global wix --version 5.0.2
+
+      - name: Build installer
+        run: >
+          pwsh installer/build-installer.ps1
+          -PublishDirectory publish/self-contained
+          -Version ${{ steps.version.outputs.version }}
+          -OutputPath ELW-Meteo-${{ steps.version.outputs.version }}-win-x64.msi
+
+      - name: Test installer
+        run: pwsh installer/test-installer.ps1 -MsiPath ELW-Meteo-${{ steps.version.outputs.version }}-win-x64.msi
+
       - name: Package
         shell: pwsh
         run: |
@@ -98,8 +115,30 @@ jobs:
           generate_release_notes: true
           files: |
             ELW-Meteo-*.zip
+            ELW-Meteo-*.msi
           body: |
             ## Installation
+
+            **`ELW-Meteo-${{ steps.version.outputs.version }}-win-x64.msi`** — der übliche Weg
+            Doppelklick genügt. Installiert **ohne Administratorrechte** für den
+            angemeldeten Benutzer nach `%LocalAppData%\Programs\ELW-Meteo`, legt
+            Start- und Desktop-Verknüpfung an und erscheint in „Programme und
+            Features". Bringt die Runtime mit.
+
+            Still, etwa beim Einrichten mehrerer Fahrzeugrechner:
+
+            ```
+            msiexec /i ELW-Meteo-${{ steps.version.outputs.version }}-win-x64.msi /qn
+            ```
+
+            `INSTALLDESKTOPSHORTCUT=0` lässt die Desktop-Verknüpfung weg.
+            Einstellungen, Protokolle und Berichte unter
+            `%APPDATA%\ELW-Meteo` bleiben beim Deinstallieren erhalten.
+
+            Das Paket installiert ausschließlich pro Benutzer — dadurch bleibt
+            die Selbst-Aktualisierung arbeitsfähig, die unter `C:\Programme`
+            nicht schreiben dürfte. Wer eine geräteweite Installation braucht,
+            nimmt das ZIP-Archiv.
 
             **`ELW-Meteo-${{ steps.version.outputs.version }}-win-x64.zip`**
             Benötigt die .NET-8-Desktop-Runtime auf dem Rechner. Entpacken und

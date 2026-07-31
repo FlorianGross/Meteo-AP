@@ -1,0 +1,26 @@
+ELW-Meteo — Hinweis zur WebView2-Runtime
+========================================
+
+Diese Datei wurde angelegt, weil bei der Installation die Microsoft-Edge-
+WebView2-Runtime auf diesem Rechner nicht gefunden wurde.
+
+Was das bedeutet
+----------------
+ELW-Meteo läuft. Uhr, Lage und Wetter, Web-Radar, Verlauf, Diagnose und
+Einstellungen funktionieren vollständig.
+
+Nur die Registerkarte "Karten & Radar" bleibt leer und zeigt statt der Karte
+einen Hinweis — sie bettet eine Leaflet-Karte ein und braucht dafür die
+Runtime.
+
+Was zu tun ist
+--------------
+Die WebView2-Runtime ist bei Microsoft kostenlos erhältlich; gesucht wird der
+"WebView2 Evergreen Standalone Installer" für x64. Nach deren Installation
+steht die Kartenregisterkarte ohne weiteres Zutun zur Verfügung; ELW-Meteo
+muss dafür nur neu gestartet werden.
+
+Auf aktuellen Windows-11-Installationen ist die Runtime normalerweise bereits
+vorhanden.
+
+Diese Datei darf gelöscht werden.

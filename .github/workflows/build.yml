@@ -57,6 +57,37 @@ jobs:
           dotnet publish src/ElwMeteo.App -c Release -r win-x64
           --self-contained false -o publish
 
+      # The installer is built and then actually run. An installer is the one
+      # artefact whose defects only show up on somebody else's machine — it
+      # builds clean and then puts the folder in the wrong place, or takes the
+      # vehicle's settings with it on uninstall. None of that is visible in the
+      # .wxs, so the runner installs and uninstalls it in both scopes.
+      #
+      # Built here from the framework-dependent publish that already exists, to
+      # keep the pull-request run short. The release workflow runs the same test
+      # against the self-contained package that actually ships, and fails before
+      # the release is created if anything is wrong.
+      - name: Install WiX
+        run: dotnet tool install --global wix --version 5.0.2
+
+      - name: Build installer
+        run: >
+          pwsh installer/build-installer.ps1
+          -PublishDirectory publish
+          -Version 0.0.0
+          -OutputPath ELW-Meteo-test.msi
+
+      - name: Test installer
+        run: pwsh installer/test-installer.ps1 -MsiPath ELW-Meteo-test.msi
+
+      - name: Upload installer logs
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: installer-logs
+          path: installer-logs/
+          if-no-files-found: ignore
+
       - name: Upload application
         uses: actions/upload-artifact@v7
         with:

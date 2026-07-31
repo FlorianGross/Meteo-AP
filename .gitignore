@@ -42,3 +42,8 @@ settings.local.json
 ## OS
 .DS_Store
 Thumbs.db
+
+# Vom Installer erzeugte Dateiliste
+installer/Files.generated.wxs
+installer-logs/
+*.msi

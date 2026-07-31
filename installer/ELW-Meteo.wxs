@@ -1,0 +1,202 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!--
+  Windows-Installer-Paket für ELW-Meteo.
+
+  Dual purpose on purpose. The MSI exists so a fleet of vehicle laptops can be
+  set up the same way — silently, over group policy or Intune, with an entry in
+  „Programme und Features". That is a per-machine job. But installing under
+  Program Files also takes the self-update out of service: a running application
+  cannot replace files there without elevation, and it says so rather than
+  trying. Both are legitimate, so the package asks instead of deciding, and the
+  per-user default keeps the self-update working for anyone who just double-clicks
+  the file.
+
+  Everything below the shortcut components is generated: Files.wxs comes out of
+  build-installer.ps1 and lists whatever the publish step produced. Hand-written
+  file lists rot the first time a dependency is added, and the failure mode is an
+  application that installs and then does not start.
+-->
+
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+
+  <Package Name="ELW-Meteo"
+           Manufacturer="ELW-Meteo"
+           Version="$(var.Version)"
+           UpgradeCode="8C4E1E9A-4A1D-4C2E-9E4B-5F2A6D3B7C10"
+           Scope="perUser"
+           Language="1031"
+           Codepage="1252"
+           InstallerVersion="500"
+           Compressed="yes">
+
+    <SummaryInformation Description="ELW-Meteo — Wetter- und Lageübersicht für den Einsatzleitwagen"
+                        Manufacturer="ELW-Meteo" />
+
+    <!--
+      Per user, fixed — and that decision is the interesting part of this file.
+
+      A package that can install either way looks strictly better until you
+      build one. The only dual-purpose scope shipping WiX offers is
+      perUserOrMachine, and it always writes MSIINSTALLPERUSER=1 into the
+      property table. That property pulls directory resolution towards the user
+      profile, while the install context is settled separately from ALLUSERS and
+      the privileges of whoever launched the package. Two inputs deciding two
+      halves of one thing — and on an elevated silent install they disagreed:
+      files under one account's profile, uninstall entry registered for the
+      whole machine, so every user on the box was offered an uninstall for
+      somebody else's files. Pinning the directories to ALLUSERS did not help,
+      because the installer rewrites that property after the directories are
+      already costed.
+
+      So: one context, no ambiguity, nothing to resolve at install time. The
+      package needs no administrator, which on a vehicle laptop is usually the
+      practical reality anyway, and it leaves the self-update able to do its
+      job — under Program Files it could not write, and would have to refuse.
+
+      Silent installation and deployment still work; they just run in the user
+      context. Anyone who genuinely needs a machine-wide installation is better
+      served by the ZIP than by an installer quietly doing something other than
+      what its name says.
+    -->
+
+    <!-- Newer version already there: stop rather than downgrade silently. -->
+    <MajorUpgrade AllowSameVersionUpgrades="yes"
+                  DowngradeErrorMessage="Es ist bereits eine neuere Version von ELW-Meteo installiert. Diese bitte zuerst deinstallieren." />
+
+    <MediaTemplate EmbedCab="yes" />
+
+    <!--
+      %LocalAppData%\Programs is where a per-user installation belongs — the
+      same place the browsers and the editors put themselves. Stated once, with
+      nothing conditional about it.
+    -->
+    <StandardDirectory Id="LocalAppDataFolder">
+      <Directory Id="ProgramsFolder" Name="Programs">
+        <Directory Id="INSTALLFOLDER" Name="ELW-Meteo" />
+      </Directory>
+    </StandardDirectory>
+
+    <!-- So "Programme und Features" shows where it went. -->
+    <SetProperty Id="ARPINSTALLLOCATION" Value="[INSTALLFOLDER]" After="CostFinalize" />
+
+    <StandardDirectory Id="ProgramMenuFolder" />
+    <StandardDirectory Id="DesktopFolder" />
+
+    <!-- ==================================================== WebView2 ===== -->
+    <!--
+      Only the map tab needs it, and the application already explains itself
+      when it is missing — so this reports, it does not block and it does not
+      install anything uninvited. Redistributing Microsoft's runtime is a
+      separate decision with its own licensing, and making it silently for
+      somebody else's fleet would be the wrong call.
+
+      Three places are searched because the runtime registers per-machine on
+      64-bit, per-machine on 32-bit and per-user, depending on how it arrived.
+    -->
+    <Property Id="WEBVIEW2FOUND">
+      <RegistrySearch Id="WebView2PerMachine64"
+                      Root="HKLM"
+                      Key="SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}"
+                      Name="pv"
+                      Type="raw" />
+    </Property>
+
+    <Property Id="WEBVIEW2FOUND32">
+      <RegistrySearch Id="WebView2PerMachine32"
+                      Root="HKLM"
+                      Key="SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}"
+                      Name="pv"
+                      Type="raw" />
+    </Property>
+
+    <Property Id="WEBVIEW2FOUNDUSER">
+      <RegistrySearch Id="WebView2PerUser"
+                      Root="HKCU"
+                      Key="SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}"
+                      Name="pv"
+                      Type="raw" />
+    </Property>
+
+    <!--
+      Shown on the last page of an interactive install. The standard exit
+      dialog carries this property for exactly this purpose, which beats
+      authoring a dialog that would then only be tested by whoever runs it.
+      A silent install has no last page — that case is covered by the hint
+      file below and by the entry in the MSI log.
+    -->
+    <SetProperty Id="WIXUI_EXITDIALOGOPTIONALTEXT"
+                 Value="Hinweis: Die Microsoft-Edge-WebView2-Runtime wurde auf diesem Rechner nicht gefunden. ELW-Meteo läuft trotzdem — nur die Registerkarte „Karten &amp; Radar&quot; bleibt leer und zeigt einen Hinweis. Die Runtime lässt sich kostenlos von Microsoft nachinstallieren (Suchbegriff: WebView2 Evergreen Standalone Installer)."
+                 Before="ExecuteAction"
+                 Sequence="ui"
+                 Condition="NOT Installed AND NOT WEBVIEW2FOUND AND NOT WEBVIEW2FOUND32 AND NOT WEBVIEW2FOUNDUSER" />
+
+    <!-- ================================================== components ===== -->
+
+    <Feature Id="Main" Title="ELW-Meteo" Level="1" AllowAbsent="no">
+      <ComponentGroupRef Id="AppFiles" />
+      <ComponentRef Id="StartMenuShortcut" />
+      <ComponentRef Id="DesktopShortcut" />
+      <ComponentRef Id="WebView2Hint" />
+    </Feature>
+
+    <!--
+      HKMU, not HKCU or HKLM: it resolves to whichever hive matches the scope
+      the package was installed in, which is the whole point of a dual-purpose
+      package. A shortcut component needs a registry key path, since a shortcut
+      cannot be one itself.
+    -->
+    <ComponentGroup Id="Shortcuts">
+      <Component Id="StartMenuShortcut" Directory="ProgramMenuFolder" Guid="B1E2C3D4-5A6B-4C7D-8E9F-0A1B2C3D4E5F">
+        <Shortcut Id="StartMenuEntry"
+                  Name="ELW-Meteo"
+                  Description="Wetter- und Lageübersicht für den Einsatzleitwagen"
+                  Target="[#MainExecutable]"
+                  WorkingDirectory="INSTALLFOLDER" />
+        <RegistryValue Root="HKMU" Key="Software\ELW-Meteo" Name="StartMenu" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+
+      <!--
+        On a vehicle screen the desktop icon is usually the only thing anybody
+        looks for, so it is on by default. INSTALLDESKTOPSHORTCUT=0 leaves it out.
+
+        The comparison against "0" is the whole point and not redundant. A bare
+        property name in an MSI condition is true whenever the property is set
+        to anything non-empty — so INSTALLDESKTOPSHORTCUT=0 sets it to the
+        string "0", which is non-empty, which is true, and the shortcut appeared
+        anyway. Somebody who explicitly asked for no desktop icon and got one
+        would reasonably conclude the switch is decoration.
+      -->
+      <Component Id="DesktopShortcut" Directory="DesktopFolder" Guid="C2F3D4E5-6B7C-4D8E-9F0A-1B2C3D4E5F60"
+                 Condition="INSTALLDESKTOPSHORTCUT AND INSTALLDESKTOPSHORTCUT &lt;&gt; &quot;0&quot;">
+        <Shortcut Id="DesktopEntry"
+                  Name="ELW-Meteo"
+                  Description="Wetter- und Lageübersicht für den Einsatzleitwagen"
+                  Target="[#MainExecutable]"
+                  WorkingDirectory="INSTALLFOLDER" />
+        <RegistryValue Root="HKMU" Key="Software\ELW-Meteo" Name="Desktop" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+
+      <!-- Written only when the runtime is absent, so a silent install leaves
+           the reason behind for whoever finds the empty map tab later. -->
+      <Component Id="WebView2Hint" Directory="INSTALLFOLDER" Guid="D3A4B5C6-7C8D-4E9F-A0B1-2C3D4E5F6071"
+                 Condition="NOT WEBVIEW2FOUND AND NOT WEBVIEW2FOUND32 AND NOT WEBVIEW2FOUNDUSER">
+        <File Id="WebView2HintFile" Name="HINWEIS-WebView2.txt" Source="$(var.HintFile)" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <Property Id="INSTALLDESKTOPSHORTCUT" Value="1" Secure="yes" />
+
+    <!--
+      Nothing removes %APPDATA%\ELW-Meteo. Settings, the CSV log and the printed
+      reports stay put across an uninstall and a reinstall — the vehicle
+      configuration is the part that took somebody an afternoon, and an update
+      cycle that quietly discards it is the update cycle nobody runs twice.
+    -->
+
+    <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
+    <WixVariable Id="WixUILicenseRtf" Value="$(var.LicenseFile)" />
+
+  </Package>
+</Wix>

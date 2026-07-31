@@ -481,6 +481,71 @@ die aktuelle Position wird zusätzlich in eine Adresszeile rückaufgelöst.
 
 ---
 
+## Installation unter Windows
+
+Es gibt drei Wege, und der erste ist für die meisten der richtige.
+
+### MSI-Paket
+
+`ELW-Meteo-<version>-win-x64.msi` von der Freigabeseite laden und doppelklicken.
+Installiert **ohne Administratorrechte** für den angemeldeten Benutzer nach
+`%LocalAppData%\Programs\ELW-Meteo`, legt Start- und Desktop-Verknüpfung an und
+erscheint in „Programme und Features“. Die Runtime ist enthalten.
+
+Für eine stille Installation, etwa beim Einrichten mehrerer Fahrzeugrechner:
+
+```powershell
+msiexec /i ELW-Meteo-1.4.0-win-x64.msi /qn
+```
+
+| Schalter | Wirkung |
+|---|---|
+| `INSTALLDESKTOPSHORTCUT=0` | keine Desktop-Verknüpfung |
+| `/qn` | ohne Oberfläche |
+| `/l*v protokoll.log` | ausführliches Protokoll |
+
+**Was der Installer nicht anfasst:** `%APPDATA%\ELW-Meteo` mit Einstellungen,
+CSV-Protokoll und Berichten bleibt beim Deinstallieren stehen. Die eingerichtete
+Fahrzeugkonfiguration ist der Teil, der jemanden einen Nachmittag gekostet hat;
+ein Update-Zyklus, der sie stillschweigend wegwirft, ist einer, den niemand ein
+zweites Mal fährt.
+
+**Warum ausschließlich pro Benutzer.** Ein Paket, das beides kann, sieht besser
+aus, bis man es baut. Der einzige Doppelmodus, den ausgeliefertes WiX anbietet,
+schreibt zwingend `MSIINSTALLPERUSER=1` ins Paket. Diese Eigenschaft zieht die
+Verzeichnisauflösung ins Benutzerprofil, während der Installationsbereich
+getrennt davon aus `ALLUSERS` und den Rechten des Aufrufers entschieden wird —
+und bei einer erhöhten stillen Installation gehen die beiden auseinander:
+Dateien im Profil eines Benutzers, Deinstallationseintrag für die ganze
+Maschine. Damit bietet die Maschine jedem Konto die Deinstallation fremder
+Dateien an.
+
+Fest auf pro Benutzer gibt es diese Zweideutigkeit nicht. Nebenbei bleibt so
+die [Selbst-Aktualisierung](#programm-aktualisierung) arbeitsfähig — unter
+`C:\Programme` dürfte die laufende Anwendung nicht schreiben und müsste den
+Austausch verweigern.
+
+Wer eine geräteweite Installation braucht, nimmt das ZIP-Archiv: das ist
+ehrlicher als ein Installer, der etwas anderes tut, als sein Name sagt.
+
+**WebView2** wird bei der Installation geprüft, aber nicht mitinstalliert. Fehlt
+die Runtime, sagt das der letzte Bildschirm der Installation, und im
+Programmordner liegt eine `HINWEIS-WebView2.txt`. Ungefragt eine
+Microsoft-Komponente auf fremde Fahrzeugrechner zu schieben wäre die falsche
+Entscheidung — betroffen ist ohnehin nur die Kartenregisterkarte.
+
+### ZIP-Archiv
+
+`…-win-x64-standalone.zip` entpacken, `ELW-Meteo.exe` starten. Keine
+Installation, kein Eintrag, nichts in der Registry — der Weg für einen
+USB-Stick oder einen Rechner, auf dem nichts installiert werden darf.
+
+### Aus dem Quelltext
+
+Siehe unten.
+
+---
+
 ## Bauen und starten
 
 Voraussetzungen:
@@ -510,6 +575,26 @@ Tests (laufen auf jeder Plattform, da die Fachlogik plattformneutral ist):
 ```powershell
 dotnet test
 ```
+
+MSI-Paket bauen (nur unter Windows — WiX setzt es voraus):
+
+```powershell
+dotnet tool install --global wix --version 5.0.2
+dotnet publish src/ElwMeteo.App -c Release -r win-x64 --self-contained true -o publish
+pwsh installer/build-installer.ps1 -PublishDirectory publish -Version 1.4.0 -OutputPath ELW-Meteo.msi
+```
+
+Die Dateiliste des Pakets wird dabei aus dem Veröffentlichungsordner erzeugt
+(`installer/Files.generated.wxs`, nicht eingecheckt). Eine von Hand gepflegte
+Liste veraltet beim ersten neuen Paket, und zwar lautlos: das Paket installiert
+sich, und dann startet die Anwendung nicht, weil eine Assembly nie aufgeführt
+war.
+
+`installer/test-installer.ps1` installiert und deinstalliert das erzeugte Paket
+in beiden Modi und prüft Ablageort, Verknüpfungsziel, Eintrag in „Programme und
+Features“ und dass die Einstellungen überleben. Die CI führt das bei jedem Pull
+Request aus — ein Installer ist das eine Erzeugnis, dessen Fehler sonst erst auf
+einem fremden Rechner auffallen.
 
 ---
 
@@ -574,6 +659,11 @@ src/ElwMeteo.App/      net8.0-windows — WPF-Oberfläche (Windows)
   Assets/map.html                   Leaflet-Karte für WebView2
   Assets/elw-meteo.ico              Anwendungssymbol (aus tools/make-icon.py)
   Themes/                           dunkles, kontrastreiches Farbschema
+
+installer/ELW-Meteo.wxs             MSI-Paket: Verzeichnisse, Verknüpfungen,
+                                    WebView2-Prüfung, Doppelmodus
+installer/build-installer.ps1       erzeugt die Dateiliste und baut das MSI
+installer/test-installer.ps1        installiert und deinstalliert es wirklich
 
 tools/make-icon.py                  erzeugt das Anwendungssymbol reproduzierbar
 

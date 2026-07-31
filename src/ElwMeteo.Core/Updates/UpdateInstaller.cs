@@ -39,10 +39,18 @@ public sealed record InstallLocation(string Directory, bool IsWritable, string? 
         }
         catch (UnauthorizedAccessException)
         {
+            // Naming the likely cause matters more than naming the error. The
+            // MSI installs per user precisely so this cannot happen, so a
+            // read-only directory means the copy was placed under Program Files
+            // by hand — and then the answer is to move it, not to retry.
             return new InstallLocation(directory, false,
-                "Das Installationsverzeichnis ist schreibgeschützt — typisch für einen Ordner unter " +
-                "„Programme“. Die Anwendung müsste an einen Ort verschoben werden, an dem der " +
-                "angemeldete Benutzer schreiben darf, oder das Paket manuell entpackt werden.");
+                "Das Installationsverzeichnis ist schreibgeschützt — typisch für einen Ordner " +
+                "unter „Programme“. Dorthin kann sich die laufende Anwendung nicht selbst " +
+                "ersetzen. Zwei Wege: das MSI-Paket von der Freigabeseite verwenden, das " +
+                "bewusst in das Benutzerprofil installiert und die Aktualisierung damit " +
+                "möglich macht — oder diesen Ordner an einen Ort verschieben, an dem der " +
+                "angemeldete Benutzer schreiben darf. Einstellungen und Protokolle liegen " +
+                "getrennt davon und bleiben in beiden Fällen erhalten.");
         }
         catch (Exception ex) when (ex is IOException)
         {

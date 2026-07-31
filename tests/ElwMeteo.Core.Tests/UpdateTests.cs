@@ -89,9 +89,36 @@ public class UpdatePackageSelectorTests
     private static ReleaseInfo RealisticRelease() => Release(
         "ELW-Meteo-1.1.0-win-x64.zip",
         "ELW-Meteo-1.1.0-win-x64-standalone.zip",
+        "ELW-Meteo-1.1.0-win-x64.msi",
         "ELW-Meteo-1.1.0-linux-x64.zip",
         "ELW-Meteo-1.1.0-macos-x64.zip",
         "ELW-Meteo-1.1.0-macos-arm64.zip");
+
+    /// <summary>
+    /// The release now also carries an MSI, whose name matches the Windows
+    /// pattern exactly as well as the archives do. Handing it to the downloader
+    /// would mean trying to unzip an installer — and the swap would then be
+    /// refused for a missing executable, which reads like a broken release
+    /// rather than the wrong file. Updating a machine that was installed by MSI
+    /// is a job for a new MSI, not for the in-place swap.
+    /// </summary>
+    [Fact]
+    public void Select_NeverPicksTheInstallerPackage()
+    {
+        ReleaseAsset? chosen = UpdatePackageSelector.Select(RealisticRelease(), UpdatePlatform.WindowsX64);
+
+        Assert.NotNull(chosen);
+        Assert.EndsWith(".zip", chosen.Name, StringComparison.Ordinal);
+        Assert.DoesNotContain(".msi", chosen.Name, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Select_ReturnsNothingWhenOnlyTheInstallerIsPublished()
+    {
+        ReleaseInfo release = Release("ELW-Meteo-1.1.0-win-x64.msi");
+
+        Assert.Null(UpdatePackageSelector.Select(release, UpdatePlatform.WindowsX64));
+    }
 
     [Theory]
     [InlineData(UpdatePlatform.LinuxX64, "ELW-Meteo-1.1.0-linux-x64.zip")]
