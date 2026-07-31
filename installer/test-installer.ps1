@@ -165,7 +165,7 @@ Assert-That "Einstellungen bleiben erhalten" (Test-Path $marker)
 # This is the switch the release notes hand to anybody rolling out a fleet, so
 # it is the one that has to land somewhere predictable.
 Write-Host "`n=== Installation pro Rechner (ALLUSERS=1) ==="
-Invoke-Msi -Arguments @("/i", $msi, "ALLUSERS=1", 'MSIINSTALLPERUSER=""') -LogName "permachine-install.log"
+Invoke-Msi -Arguments @("/i", $msi, "ALLUSERS=1") -LogName "permachine-install.log"
 
 $machineExe = Join-Path $machineRoot "ELW-Meteo.exe"
 

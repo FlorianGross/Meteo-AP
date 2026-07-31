@@ -492,17 +492,22 @@ Installiert **ohne Administratorrechte** für den angemeldeten Benutzer nach
 `%LocalAppData%\Programs\ELW-Meteo`, legt Start- und Desktop-Verknüpfung an und
 erscheint in „Programme und Features“. Die Runtime ist enthalten.
 
-Wird dasselbe Paket dagegen aus einer bereits erhöhten Eingabeaufforderung
-gestartet, entscheidet der Windows-Installer auf „pro Rechner“ und legt alles
-nach `C:\Programme\ELW-Meteo`. Beides ist richtig; entscheidend ist, dass
-Ablageort und Eintrag in „Programme und Features“ immer zusammenpassen — das
-prüft der Installationstest bei jedem Lauf.
+Startet dasselbe Paket dagegen jemand mit Administratorrechten — durch die
+UAC-Abfrage oder aus einer bereits erhöhten Eingabeaufforderung —, entscheidet
+der Windows-Installer auf „pro Rechner“ und legt alles nach
+`C:\Programme\ELW-Meteo`. Beides ist richtig; entscheidend ist, dass Ablageort
+und Eintrag in „Programme und Features“ immer zusammenpassen — das prüft der
+Installationstest bei jedem Lauf.
+
+Wer die Installation pro Benutzer erzwingen will, um die
+[Selbst-Aktualisierung](#programm-aktualisierung) arbeitsfähig zu halten,
+setzt `ALLUSERS=""`.
 
 Für die Verteilung auf mehrere Fahrzeugrechner — über Gruppenrichtlinie, Intune
 oder von Hand:
 
 ```powershell
-msiexec /i ELW-Meteo-1.4.0-win-x64.msi ALLUSERS=1 MSIINSTALLPERUSER="" /qn
+msiexec /i ELW-Meteo-1.4.0-win-x64.msi ALLUSERS=1 /qn
 ```
 
 Das installiert nach `C:\Programme\ELW-Meteo` für alle Benutzer und braucht
@@ -510,7 +515,8 @@ Administratorrechte.
 
 | Schalter | Wirkung |
 |---|---|
-| `ALLUSERS=1 MSIINSTALLPERUSER=""` | pro Rechner statt pro Benutzer |
+| `ALLUSERS=1` | pro Rechner erzwingen |
+| `ALLUSERS=""` | pro Benutzer erzwingen, auch als Administrator |
 | `INSTALLDESKTOPSHORTCUT=0` | keine Desktop-Verknüpfung |
 | `/qn` | ohne Oberfläche |
 | `/l*v protokoll.log` | ausführliches Protokoll |

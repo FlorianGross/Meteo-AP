@@ -25,7 +25,7 @@
            Manufacturer="ELW-Meteo"
            Version="$(var.Version)"
            UpgradeCode="8C4E1E9A-4A1D-4C2E-9E4B-5F2A6D3B7C10"
-           Scope="perUserOrMachine"
+           Scope="perMachineOrUser"
            Language="1031"
            Codepage="1252"
            InstallerVersion="500"
@@ -35,23 +35,37 @@
                         Manufacturer="ELW-Meteo" />
 
     <!--
-      Scope above carries more meaning than it looks like, and its two
-      dual-purpose values differ by word order alone:
+      Scope carries more meaning than it looks like, and its two dual-purpose
+      values differ by word order alone:
 
-        perUserOrMachine  → ALLUSERS=2 and MSIINSTALLPERUSER=1  → per user by default
-        perMachineOrUser  → ALLUSERS=2 only                     → per machine by default
+        perUserOrMachine  → ALLUSERS=2 and MSIINSTALLPERUSER=1
+        perMachineOrUser  → ALLUSERS=2 only
 
-      This package wants the first one, so that a plain double-click needs no
-      administrator and leaves the self-update able to do its job.
+      The first one was the obvious choice — per user by default, no
+      administrator needed, self-update left working — and it is the reason
+      three rounds of this installer shipped a package whose files landed under
+      one account's profile while the uninstall entry was registered for the
+      whole machine.
 
-      Because the scope already declares both properties, they must not be
-      declared again here — that is a duplicate-symbol error, not a harmless
-      override. Which side actually wins is not taken on trust either:
-      test-installer.ps1 installs with a bare /i and asserts the files landed
-      under LocalAppData.
+      MSIINSTALLPERUSER=1 sitting in the property table pulls the directory
+      resolution towards the user profile. The install context, meanwhile, is
+      decided from ALLUSERS together with the privileges of whoever launched the
+      package. Two inputs, two decisions, and on an elevated silent install they
+      disagree.
 
-      A per-machine install is one switch away:
-        msiexec /i ELW-Meteo.msi ALLUSERS=1 MSIINSTALLPERUSER="" /qn
+      perMachineOrUser does not set that property, which leaves ALLUSERS as the
+      only input — the same one the directories below are pinned to, and the
+      same one the installer uses to decide where to register. One input cannot
+      contradict itself.
+
+      What this costs: a plain double-click by a standard user still installs
+      without administrator rights, because ALLUSERS=2 falls back to per user
+      when it cannot elevate. An administrator gets a UAC prompt and a
+      per-machine install — and there the self-update reports the installation
+      directory as read-only, which is correct and explained in the panel.
+
+      Explicitly, for a fleet rollout:
+        msiexec /i ELW-Meteo.msi ALLUSERS=1 /qn
     -->
 
     <!-- Newer version already there: stop rather than downgrade silently. -->

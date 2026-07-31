@@ -127,7 +127,7 @@ jobs:
             Für die Verteilung auf mehrere Fahrzeugrechner:
 
             ```
-            msiexec /i ELW-Meteo-${{ steps.version.outputs.version }}-win-x64.msi ALLUSERS=1 MSIINSTALLPERUSER="" /qn
+            msiexec /i ELW-Meteo-${{ steps.version.outputs.version }}-win-x64.msi ALLUSERS=1 /qn
             ```
 
             Das installiert nach `C:\Programme\ELW-Meteo` für alle Benutzer und
