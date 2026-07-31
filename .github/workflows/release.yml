@@ -120,26 +120,25 @@ jobs:
             ## Installation
 
             **`ELW-Meteo-${{ steps.version.outputs.version }}-win-x64.msi`** — der übliche Weg
-            Doppelklick genügt. Installiert ohne Administratorrechte für den
-            angemeldeten Benutzer, legt Start- und Desktop-Verknüpfung an und
-            erscheint in „Programme und Features". Bringt die Runtime mit.
+            Doppelklick genügt. Installiert **ohne Administratorrechte** für den
+            angemeldeten Benutzer nach `%LocalAppData%\Programs\ELW-Meteo`, legt
+            Start- und Desktop-Verknüpfung an und erscheint in „Programme und
+            Features". Bringt die Runtime mit.
 
-            Für die Verteilung auf mehrere Fahrzeugrechner:
+            Still, etwa beim Einrichten mehrerer Fahrzeugrechner:
 
             ```
-            msiexec /i ELW-Meteo-${{ steps.version.outputs.version }}-win-x64.msi ALLUSERS=1 /qn
+            msiexec /i ELW-Meteo-${{ steps.version.outputs.version }}-win-x64.msi /qn
             ```
-
-            Das installiert nach `C:\Programme\ELW-Meteo` für alle Benutzer und
-            braucht Administratorrechte. **Achtung:** dort kann die
-            Selbst-Aktualisierung nicht schreiben — sie meldet das und verweigert
-            den Austausch. Aktualisiert wird eine solche Installation über ein
-            neues MSI. Bei der Installation pro Benutzer funktioniert die
-            Selbst-Aktualisierung wie gewohnt.
 
             `INSTALLDESKTOPSHORTCUT=0` lässt die Desktop-Verknüpfung weg.
             Einstellungen, Protokolle und Berichte unter
             `%APPDATA%\ELW-Meteo` bleiben beim Deinstallieren erhalten.
+
+            Das Paket installiert ausschließlich pro Benutzer — dadurch bleibt
+            die Selbst-Aktualisierung arbeitsfähig, die unter `C:\Programme`
+            nicht schreiben dürfte. Wer eine geräteweite Installation braucht,
+            nimmt das ZIP-Archiv.
 
             **`ELW-Meteo-${{ steps.version.outputs.version }}-win-x64.zip`**
             Benötigt die .NET-8-Desktop-Runtime auf dem Rechner. Entpacken und

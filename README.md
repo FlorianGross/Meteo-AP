@@ -492,31 +492,14 @@ Installiert **ohne Administratorrechte** für den angemeldeten Benutzer nach
 `%LocalAppData%\Programs\ELW-Meteo`, legt Start- und Desktop-Verknüpfung an und
 erscheint in „Programme und Features“. Die Runtime ist enthalten.
 
-Startet dasselbe Paket dagegen jemand mit Administratorrechten — durch die
-UAC-Abfrage oder aus einer bereits erhöhten Eingabeaufforderung —, entscheidet
-der Windows-Installer auf „pro Rechner“ und legt alles nach
-`C:\Programme\ELW-Meteo`. Beides ist richtig; entscheidend ist, dass Ablageort
-und Eintrag in „Programme und Features“ immer zusammenpassen — das prüft der
-Installationstest bei jedem Lauf.
-
-Wer die Installation pro Benutzer erzwingen will, um die
-[Selbst-Aktualisierung](#programm-aktualisierung) arbeitsfähig zu halten,
-setzt `ALLUSERS=""`.
-
-Für die Verteilung auf mehrere Fahrzeugrechner — über Gruppenrichtlinie, Intune
-oder von Hand:
+Für eine stille Installation, etwa beim Einrichten mehrerer Fahrzeugrechner:
 
 ```powershell
-msiexec /i ELW-Meteo-1.4.0-win-x64.msi ALLUSERS=1 /qn
+msiexec /i ELW-Meteo-1.4.0-win-x64.msi /qn
 ```
-
-Das installiert nach `C:\Programme\ELW-Meteo` für alle Benutzer und braucht
-Administratorrechte.
 
 | Schalter | Wirkung |
 |---|---|
-| `ALLUSERS=1` | pro Rechner erzwingen |
-| `ALLUSERS=""` | pro Benutzer erzwingen, auch als Administrator |
 | `INSTALLDESKTOPSHORTCUT=0` | keine Desktop-Verknüpfung |
 | `/qn` | ohne Oberfläche |
 | `/l*v protokoll.log` | ausführliches Protokoll |
@@ -527,12 +510,23 @@ Fahrzeugkonfiguration ist der Teil, der jemanden einen Nachmittag gekostet hat;
 ein Update-Zyklus, der sie stillschweigend wegwirft, ist einer, den niemand ein
 zweites Mal fährt.
 
-**Ein Zielkonflikt, offen gesagt:** eine Installation unter `C:\Programme` nimmt
-die [Selbst-Aktualisierung](#programm-aktualisierung) außer Betrieb — die
-laufende Anwendung darf dort nicht schreiben. Sie meldet das mit Begründung und
-verweist auf das MSI, statt es zu versuchen. Bei der Installation pro Benutzer
-funktioniert die Selbst-Aktualisierung wie gewohnt. Wer beides will, installiert
-pro Benutzer; wer zentral ausrollt, aktualisiert auch zentral.
+**Warum ausschließlich pro Benutzer.** Ein Paket, das beides kann, sieht besser
+aus, bis man es baut. Der einzige Doppelmodus, den ausgeliefertes WiX anbietet,
+schreibt zwingend `MSIINSTALLPERUSER=1` ins Paket. Diese Eigenschaft zieht die
+Verzeichnisauflösung ins Benutzerprofil, während der Installationsbereich
+getrennt davon aus `ALLUSERS` und den Rechten des Aufrufers entschieden wird —
+und bei einer erhöhten stillen Installation gehen die beiden auseinander:
+Dateien im Profil eines Benutzers, Deinstallationseintrag für die ganze
+Maschine. Damit bietet die Maschine jedem Konto die Deinstallation fremder
+Dateien an.
+
+Fest auf pro Benutzer gibt es diese Zweideutigkeit nicht. Nebenbei bleibt so
+die [Selbst-Aktualisierung](#programm-aktualisierung) arbeitsfähig — unter
+`C:\Programme` dürfte die laufende Anwendung nicht schreiben und müsste den
+Austausch verweigern.
+
+Wer eine geräteweite Installation braucht, nimmt das ZIP-Archiv: das ist
+ehrlicher als ein Installer, der etwas anderes tut, als sein Name sagt.
 
 **WebView2** wird bei der Installation geprüft, aber nicht mitinstalliert. Fehlt
 die Runtime, sagt das der letzte Bildschirm der Installation, und im

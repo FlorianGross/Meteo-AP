@@ -3,7 +3,7 @@
     Installiert und deinstalliert das MSI-Paket und prüft das Ergebnis.
 
 .DESCRIPTION
-    Runs the package for real, in both scopes, and checks what it left behind.
+    Runs the package for real and checks what it left behind.
 
     This exists because an installer is the one artefact whose defects only
     appear on somebody else's machine. It builds without complaint, and then a
@@ -100,50 +100,31 @@ New-Item -ItemType Directory -Force -Path $settingsDirectory | Out-Null
 $marker = Join-Path $settingsDirectory "settings.json"
 Set-Content -Path $marker -Value '{"HomeName":"Testwache"}' -Encoding UTF8
 
-$userRoot = Join-Path $env:LOCALAPPDATA "Programs\ELW-Meteo"
+$root = Join-Path $env:LOCALAPPDATA "Programs\ELW-Meteo"
+$exe = Join-Path $root "ELW-Meteo.exe"
 $machineRoot = Join-Path $env:ProgramFiles "ELW-Meteo"
-$userStartMenu = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\ELW-Meteo.lnk"
-$machineStartMenu = Join-Path $env:ProgramData "Microsoft\Windows\Start Menu\Programs\ELW-Meteo.lnk"
+$startMenu = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\ELW-Meteo.lnk"
 $desktop = Join-Path ([Environment]::GetFolderPath("Desktop")) "ELW-Meteo.lnk"
 
-function Get-InstalledScope {
-    <#
-        Where the files actually ended up: "user", "machine" or $null.
-    #>
-    if (Test-Path (Join-Path $userRoot "ELW-Meteo.exe")) { return "user" }
-    if (Test-Path (Join-Path $machineRoot "ELW-Meteo.exe")) { return "machine" }
-    return $null
-}
+# =============================================================== install
 
-# =============================================================== default
+Write-Host "`n=== Installation ==="
+Invoke-Msi -Arguments @("/i", $msi) -LogName "install.log"
 
-Write-Host "`n=== Installation mit blossem /i ==="
-Invoke-Msi -Arguments @("/i", $msi) -LogName "peruser-install.log"
-
-# Which side a bare install lands on depends on the privileges of whoever runs
-# it — elevated goes per machine, a plain double-click goes per user. Both are
-# correct. What must never happen is the two halves disagreeing: files in one
-# person's profile with the uninstall entry registered for the whole machine,
-# which is exactly the defect this replaced.
-$scope = Get-InstalledScope
-$entry = Find-UninstallEntry
-
-Write-Host "  Installationsbereich laut Dateien: $scope"
-
-Assert-That "Anwendung installiert" ($null -ne $scope)
-Assert-That "Eintrag in Programme und Features" ($null -ne $entry)
-
-$expectedHive = if ($scope -eq "user") { "HKCU" } else { "HKLM" }
-Assert-That "Ablageort ($scope) und Registrierung ($entry) passen zusammen" ($entry -like "$expectedHive*")
-
-$root = if ($scope -eq "user") { $userRoot } else { $machineRoot }
-$exe = Join-Path $root "ELW-Meteo.exe"
-$startMenu = if ($scope -eq "user") { $userStartMenu } else { $machineStartMenu }
-
+Assert-That "Anwendung unter $root" (Test-Path $exe)
 Assert-That "Assets mitinstalliert" (Test-Path (Join-Path $root "Assets\map.html"))
 Assert-That "Fachlogik mitinstalliert" (Test-Path (Join-Path $root "ElwMeteo.Core.dll"))
 Assert-That "Startmenü-Verknüpfung" (Test-Path $startMenu)
 Assert-That "Desktop-Verknüpfung" (Test-Path $desktop)
+
+# The package is per user, fixed. It must land in the user's profile even when
+# it is run elevated — an installer that quietly does something other than what
+# its name says is the defect three earlier attempts shipped.
+Assert-That "Nichts unter Programme abgelegt" (-not (Test-Path (Join-Path $machineRoot "ELW-Meteo.exe")))
+
+$entry = Find-UninstallEntry
+Assert-That "Eintrag in Programme und Features" ($null -ne $entry)
+Assert-That "Eintrag im Benutzerzweig (ist: $entry)" ($entry -like "HKCU*")
 
 # The shortcut has to point at the executable that was actually installed —
 # a shortcut to a path that does not exist is the classic silent installer bug.
@@ -154,33 +135,16 @@ if (Test-Path $startMenu) {
 }
 
 Write-Host "`n=== Deinstallation ==="
-Invoke-Msi -Arguments @("/x", $msi) -LogName "peruser-uninstall.log"
+Invoke-Msi -Arguments @("/x", $msi) -LogName "uninstall.log"
 
-Assert-That "Programmdateien entfernt" ($null -eq (Get-InstalledScope))
+Assert-That "Programmdateien entfernt" (-not (Test-Path $exe))
 Assert-That "Startmenü-Verknüpfung entfernt" (-not (Test-Path $startMenu))
-Assert-That "Einstellungen bleiben erhalten" (Test-Path $marker)
+Assert-That "Desktop-Verknüpfung entfernt" (-not (Test-Path $desktop))
+Assert-That "Eintrag aus Programme und Features entfernt" ($null -eq (Find-UninstallEntry))
 
-# ============================================================ per machine
-
-# This is the switch the release notes hand to anybody rolling out a fleet, so
-# it is the one that has to land somewhere predictable.
-Write-Host "`n=== Installation pro Rechner (ALLUSERS=1) ==="
-Invoke-Msi -Arguments @("/i", $msi, "ALLUSERS=1") -LogName "permachine-install.log"
-
-$machineExe = Join-Path $machineRoot "ELW-Meteo.exe"
-
-Assert-That "Anwendung unter $machineRoot" (Test-Path $machineExe)
-Assert-That "Assets mitinstalliert" (Test-Path (Join-Path $machineRoot "Assets\map.html"))
-Assert-That "Startmenü-Verknüpfung für alle Benutzer" (Test-Path $machineStartMenu)
-
-$machineEntry = Find-UninstallEntry
-Assert-That "Eintrag in Programme und Features" ($null -ne $machineEntry)
-Assert-That "Eintrag liegt im Rechnerzweig (ist: $machineEntry)" ($machineEntry -like "HKLM*")
-
-Write-Host "`n=== Deinstallation pro Rechner ==="
-Invoke-Msi -Arguments @("/x", $msi) -LogName "permachine-uninstall.log"
-
-Assert-That "Programmdateien entfernt" (-not (Test-Path $machineExe))
+# The one thing that must survive: the vehicle configuration is the part that
+# took somebody an afternoon, and an update cycle that discards it is one
+# nobody runs twice.
 Assert-That "Einstellungen bleiben erhalten" (Test-Path $marker)
 
 # ================================================== desktop shortcut off
@@ -188,11 +152,28 @@ Assert-That "Einstellungen bleiben erhalten" (Test-Path $marker)
 Write-Host "`n=== Installation ohne Desktop-Verknüpfung ==="
 Invoke-Msi -Arguments @("/i", $msi, "INSTALLDESKTOPSHORTCUT=0") -LogName "nodesktop-install.log"
 
-Assert-That "Anwendung installiert" ($null -ne (Get-InstalledScope))
+Assert-That "Anwendung installiert" (Test-Path $exe)
 Assert-That "Keine Desktop-Verknüpfung" (-not (Test-Path $desktop))
 
 Invoke-Msi -Arguments @("/x", $msi) -LogName "nodesktop-uninstall.log"
-Assert-That "Restlos entfernt" ($null -eq (Get-InstalledScope))
+Assert-That "Restlos entfernt" (-not (Test-Path $root))
+
+# ==================================================== repeated installation
+#
+# Installing over an existing copy is the normal case once an update exists,
+# and MajorUpgrade is the part of the package that has never been exercised.
+
+Write-Host "`n=== Erneute Installation über eine vorhandene ==="
+Invoke-Msi -Arguments @("/i", $msi) -LogName "reinstall-first.log"
+Invoke-Msi -Arguments @("/i", $msi) -LogName "reinstall-second.log"
+
+Assert-That "Anwendung weiterhin vorhanden" (Test-Path $exe)
+Assert-That "Nur ein Eintrag in Programme und Features" (
+    @(Get-ChildItem "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall" -ErrorAction SilentlyContinue |
+        Where-Object { $_.GetValue("DisplayName") -eq "ELW-Meteo" }).Count -eq 1)
+
+Invoke-Msi -Arguments @("/x", $msi) -LogName "reinstall-uninstall.log"
+Assert-That "Restlos entfernt" (-not (Test-Path $root))
 
 # ------------------------------------------------------------------ result
 

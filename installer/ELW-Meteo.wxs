@@ -25,7 +25,7 @@
            Manufacturer="ELW-Meteo"
            Version="$(var.Version)"
            UpgradeCode="8C4E1E9A-4A1D-4C2E-9E4B-5F2A6D3B7C10"
-           Scope="perMachineOrUser"
+           Scope="perUser"
            Language="1031"
            Codepage="1252"
            InstallerVersion="500"
@@ -35,37 +35,30 @@
                         Manufacturer="ELW-Meteo" />
 
     <!--
-      Scope carries more meaning than it looks like, and its two dual-purpose
-      values differ by word order alone:
+      Per user, fixed — and that decision is the interesting part of this file.
 
-        perUserOrMachine  → ALLUSERS=2 and MSIINSTALLPERUSER=1
-        perMachineOrUser  → ALLUSERS=2 only
+      A package that can install either way looks strictly better until you
+      build one. The only dual-purpose scope shipping WiX offers is
+      perUserOrMachine, and it always writes MSIINSTALLPERUSER=1 into the
+      property table. That property pulls directory resolution towards the user
+      profile, while the install context is settled separately from ALLUSERS and
+      the privileges of whoever launched the package. Two inputs deciding two
+      halves of one thing — and on an elevated silent install they disagreed:
+      files under one account's profile, uninstall entry registered for the
+      whole machine, so every user on the box was offered an uninstall for
+      somebody else's files. Pinning the directories to ALLUSERS did not help,
+      because the installer rewrites that property after the directories are
+      already costed.
 
-      The first one was the obvious choice — per user by default, no
-      administrator needed, self-update left working — and it is the reason
-      three rounds of this installer shipped a package whose files landed under
-      one account's profile while the uninstall entry was registered for the
-      whole machine.
+      So: one context, no ambiguity, nothing to resolve at install time. The
+      package needs no administrator, which on a vehicle laptop is usually the
+      practical reality anyway, and it leaves the self-update able to do its
+      job — under Program Files it could not write, and would have to refuse.
 
-      MSIINSTALLPERUSER=1 sitting in the property table pulls the directory
-      resolution towards the user profile. The install context, meanwhile, is
-      decided from ALLUSERS together with the privileges of whoever launched the
-      package. Two inputs, two decisions, and on an elevated silent install they
-      disagree.
-
-      perMachineOrUser does not set that property, which leaves ALLUSERS as the
-      only input — the same one the directories below are pinned to, and the
-      same one the installer uses to decide where to register. One input cannot
-      contradict itself.
-
-      What this costs: a plain double-click by a standard user still installs
-      without administrator rights, because ALLUSERS=2 falls back to per user
-      when it cannot elevate. An administrator gets a UAC prompt and a
-      per-machine install — and there the self-update reports the installation
-      directory as read-only, which is correct and explained in the panel.
-
-      Explicitly, for a fleet rollout:
-        msiexec /i ELW-Meteo.msi ALLUSERS=1 /qn
+      Silent installation and deployment still work; they just run in the user
+      context. Anyone who genuinely needs a machine-wide installation is better
+      served by the ZIP than by an installer quietly doing something other than
+      what its name says.
     -->
 
     <!-- Newer version already there: stop rather than downgrade silently. -->
@@ -75,42 +68,17 @@
     <MediaTemplate EmbedCab="yes" />
 
     <!--
-      Where the files go, pinned in both directions to the context the installer
-      actually resolved.
-
-      This took three attempts and both of the obvious answers were wrong, so
-      the reasoning is worth keeping. In a dual-purpose package two different
-      inputs decide two different things:
-
-        · the folder follows MSIINSTALLPERUSER, which sits in the property table
-        · the install context follows ALLUSERS together with the privileges of
-          whoever launched the package
-
-      Those can disagree — and on an elevated silent install they do. The result
-      was files under one user's profile with the uninstall entry registered for
-      the whole machine, so every account on the box was offered an uninstall
-      for somebody else's files. Leaving the folder to the installer did not fix
-      it either; the redirection to LocalAppData happens regardless of which
-      context won.
-
-      So the folder is set explicitly for both outcomes, from ALLUSERS alone.
-      The installer rewrites that property once the context is settled — "1" for
-      per machine, empty for per user — which makes it the one input that cannot
-      contradict the registration, because it *is* the registration's input.
+      %LocalAppData%\Programs is where a per-user installation belongs — the
+      same place the browsers and the editors put themselves. Stated once, with
+      nothing conditional about it.
     -->
-    <StandardDirectory Id="ProgramFiles64Folder">
-      <Directory Id="INSTALLFOLDER" Name="ELW-Meteo" />
+    <StandardDirectory Id="LocalAppDataFolder">
+      <Directory Id="ProgramsFolder" Name="Programs">
+        <Directory Id="INSTALLFOLDER" Name="ELW-Meteo" />
+      </Directory>
     </StandardDirectory>
 
-    <SetDirectory Id="INSTALLFOLDER" Action="SetInstallFolderPerMachine"
-                  Value="[ProgramFiles64Folder]ELW-Meteo"
-                  Condition="ALLUSERS" Sequence="both" />
-
-    <SetDirectory Id="INSTALLFOLDER" Action="SetInstallFolderPerUser"
-                  Value="[LocalAppDataFolder]Programs\ELW-Meteo"
-                  Condition="NOT ALLUSERS" Sequence="both" />
-
-    <!-- So "Programme und Features" shows where it actually went. -->
+    <!-- So "Programme und Features" shows where it went. -->
     <SetProperty Id="ARPINSTALLLOCATION" Value="[INSTALLFOLDER]" After="CostFinalize" />
 
     <StandardDirectory Id="ProgramMenuFolder" />
