@@ -208,6 +208,9 @@ $arguments = @(
     $generated
     "-arch", "x64"
     "-ext", "WixToolset.UI.wixext"
+    # Without this the package would be declared German (Language 1031) and then
+    # show English dialogs — WiX falls back to en-us when no culture is named.
+    "-culture", "de-de"
     "-d", "Version=$msiVersion"
     "-d", "HintFile=$(Join-Path $installerDirectory 'HINWEIS-WebView2.txt')"
     "-d", "LicenseFile=$(Join-Path $installerDirectory 'Lizenz.rtf')"
