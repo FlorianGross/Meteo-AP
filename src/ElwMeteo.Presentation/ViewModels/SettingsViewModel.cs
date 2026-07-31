@@ -19,13 +19,18 @@ public sealed partial class SettingsViewModel : ObservableObject
     private readonly GeocodingService _geocoding;
     private readonly IShellLauncher _shell;
 
+    private readonly NinaWarningProvider? _nina;
+    private IReadOnlyList<NinaRegion> _ninaRegions = [];
+
     public SettingsViewModel(
         SettingsStore store,
         GpsSerialService gps,
         GeocodingService geocoding,
-        IShellLauncher shell)
+        IShellLauncher shell,
+        NinaWarningProvider? nina = null)
     {
         _shell = shell;
+        _nina = nina;
         _store = store;
         AppSettings settings = store.Settings;
         _settings = settings;
@@ -46,8 +51,106 @@ public sealed partial class SettingsViewModel : ObservableObject
         _hazardInnerRadiusMetres = settings.HazardInnerRadiusMetres;
         _radarFrameDelayMs = settings.RadarFrameDelayMs;
         _openWeatherMapApiKey = settings.OpenWeatherMapApiKey;
+        _warningAlertEnabled = settings.WarningAlertEnabled;
+        _alertMinimumLevel = settings.AlertMinimumLevel;
+        _ninaEnabled = settings.NinaEnabled;
+        _ninaRegionName = settings.NinaRegionName;
+        _ninaArs = settings.NinaArs;
 
         RefreshPorts();
+    }
+
+    // -------------------------------------------------- warnings and alerts
+
+    public IReadOnlyList<Core.Models.WarningLevel> AlertLevels { get; } =
+    [
+        Core.Models.WarningLevel.Minor,
+        Core.Models.WarningLevel.Moderate,
+        Core.Models.WarningLevel.Severe,
+        Core.Models.WarningLevel.Extreme
+    ];
+
+    [ObservableProperty]
+    private bool _warningAlertEnabled;
+
+    [ObservableProperty]
+    private Core.Models.WarningLevel _alertMinimumLevel;
+
+    [ObservableProperty]
+    private bool _ninaEnabled;
+
+    [ObservableProperty]
+    private string _ninaRegionName = string.Empty;
+
+    [ObservableProperty]
+    private string _ninaArs = string.Empty;
+
+    [ObservableProperty]
+    private string _ninaQuery = string.Empty;
+
+    /// <summary>Districts matching the search, for the picker.</summary>
+    public ObservableCollection<NinaRegion> NinaResults { get; } = [];
+
+    /// <summary>
+    /// Looks the district up by name. The federal warning system is indexed by
+    /// regional key, and nobody knows theirs by heart — so the list is fetched
+    /// once and searched here.
+    /// </summary>
+    [RelayCommand]
+    private async Task SearchNinaRegionAsync(CancellationToken cancellationToken)
+    {
+        if (_nina is null)
+        {
+            StatusMessage = "NINA ist in dieser Ausgabe nicht eingerichtet.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(NinaQuery))
+        {
+            return;
+        }
+
+        try
+        {
+            StatusMessage = "Regionsliste wird geladen …";
+
+            if (_ninaRegions.Count == 0)
+            {
+                _ninaRegions = await _nina.GetRegionsAsync(cancellationToken).ConfigureAwait(true);
+            }
+
+            NinaResults.Clear();
+            foreach (NinaRegion region in NinaWarningProvider.Search(_ninaRegions, NinaQuery))
+            {
+                NinaResults.Add(region);
+            }
+
+            StatusMessage = NinaResults.Count == 0
+                ? $"Keine Region zu „{NinaQuery}“ gefunden."
+                : $"{NinaResults.Count} Treffer — Kreis oder kreisfreie Stadt wählen.";
+        }
+        catch (WarningProviderException ex)
+        {
+            StatusMessage = ex.Message;
+        }
+        catch (OperationCanceledException)
+        {
+            StatusMessage = "Suche abgebrochen.";
+        }
+    }
+
+    [RelayCommand]
+    private void UseNinaRegion(NinaRegion? region)
+    {
+        if (region is null)
+        {
+            return;
+        }
+
+        NinaArs = region.Ars;
+        NinaRegionName = region.Name;
+        NinaResults.Clear();
+        Apply();
     }
 
     /// <summary>Raised when a setting changed that the shell has to act on.</summary>
@@ -247,6 +350,18 @@ public sealed partial class SettingsViewModel : ObservableObject
         _settings.HazardInnerRadiusMetres = Math.Clamp(HazardInnerRadiusMetres, 10, 1000);
         _settings.RadarFrameDelayMs = Math.Clamp(RadarFrameDelayMs, 100, 3000);
         _settings.OpenWeatherMapApiKey = OpenWeatherMapApiKey.Trim();
+        _settings.WarningAlertEnabled = WarningAlertEnabled;
+        _settings.AlertMinimumLevel = AlertMinimumLevel;
+        _settings.NinaEnabled = NinaEnabled;
+        _settings.NinaArs = NinaArs.Trim();
+        _settings.NinaRegionName = NinaRegionName.Trim();
+
+        if (_nina is not null)
+        {
+            _nina.Enabled = _settings.NinaEnabled;
+            _nina.Ars = _settings.NinaArs;
+            _nina.RegionName = _settings.NinaRegionName;
+        }
 
         Save();
         SettingsApplied?.Invoke();

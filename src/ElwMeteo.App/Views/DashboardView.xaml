@@ -16,6 +16,25 @@
     </UserControl.Resources>
 
     <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="18,16">
+        <StackPanel>
+
+        <!-- ================================================= stored state -->
+        <!-- Amber, not red: nothing is broken, the numbers are just old. -->
+        <Border Background="#33F59E0B" BorderBrush="#F59E0B" BorderThickness="1"
+                CornerRadius="6" Padding="12,9" Margin="0,0,0,12"
+                Visibility="{Binding IsOffline, Converter={StaticResource BoolToVisibility}}">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="⏱" FontSize="17" Margin="0,0,10,0" VerticalAlignment="Center" />
+                <TextBlock Text="{Binding OfflineNotice}" Style="{StaticResource BodyText}"
+                           FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center" />
+            </StackPanel>
+        </Border>
+
+        <Border Background="#22F59E0B" CornerRadius="6" Padding="12,7" Margin="0,0,0,12"
+                Visibility="{Binding RetryNotice, Converter={StaticResource StringToVisibility}}">
+            <TextBlock Text="{Binding RetryNotice}" Style="{StaticResource BodyText}" TextWrapping="Wrap" />
+        </Border>
+
         <Grid>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="2*" MinWidth="380" />
@@ -676,7 +695,33 @@
                                 HorizontalContentAlignment="Left" />
                     </StackPanel>
                 </Border>
+
+                <!-- printed report -->
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="WETTERBERICHT DRUCKEN" Style="{StaticResource SectionHeader}" />
+                        <TextBlock Style="{StaticResource BodyText}" FontSize="12"
+                                   Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap"
+                                   Text="Druckfertige Seite mit Lage, Ausbreitung, Warnungen, 48-Stunden-Verlauf und Tagesübersicht. Öffnet sich im Browser — dort mit Strg+P drucken oder als PDF sichern."
+                                   Margin="0,0,0,11" />
+
+                        <TextBlock Text="EINSATZBEZEICHNUNG (OPTIONAL)"
+                                   Style="{StaticResource LabelText}" Margin="0,0,0,3" />
+                        <TextBox Text="{Binding IncidentLabel, UpdateSourceTrigger=PropertyChanged}"
+                                 Margin="0,0,0,9" />
+
+                        <Button Content="Bericht erstellen und öffnen"
+                                Command="{Binding PrintReportCommand}"
+                                HorizontalContentAlignment="Left"
+                                FontWeight="SemiBold" Padding="12,9"
+                                Margin="0,0,0,7" />
+                        <Button Content="Berichtsordner öffnen"
+                                Command="{Binding OpenReportDirectoryCommand}"
+                                HorizontalContentAlignment="Left" />
+                    </StackPanel>
+                </Border>
             </StackPanel>
         </Grid>
+        </StackPanel>
     </ScrollViewer>
 </UserControl>

@@ -11,6 +11,7 @@ using ElwMeteo.Presentation.Services;
 using ElwMeteo.Presentation.ViewModels;
 using ElwMeteo.Core.Configuration;
 using ElwMeteo.Core.Diagnostics;
+using ElwMeteo.Core.Persistence;
 using ElwMeteo.Core.Reporting;
 using ElwMeteo.Core.Services;
 using ElwMeteo.Core.Updates;
@@ -60,7 +61,18 @@ public partial class App : Application
         var weather = new OpenMeteoWeatherProvider(_httpClient);
         var brightSky = new BrightSkyProvider(_httpClient);
         // Bright Sky first (the WarnWetter CAP feed), GeoServer as the fallback.
-        var warnings = new CompositeWarningProvider(brightSky, new DwdWarningProvider(_httpClient));
+        var dwdWarnings = new CompositeWarningProvider(brightSky, new DwdWarningProvider(_httpClient));
+
+        // Civil protection alongside the weather, not instead of it: hazardous
+        // materials, ordnance and flooding come from NINA and from nowhere else.
+        var nina = new NinaWarningProvider(_httpClient)
+        {
+            Enabled = settings.NinaEnabled,
+            Ars = settings.NinaArs,
+            RegionName = settings.NinaRegionName
+        };
+
+        var warnings = new AggregateWarningProvider(dwdWarnings, nina);
         var radar = new RainViewerProvider(_httpClient);
         var windField = new WindFieldProvider(_httpClient);
         var capabilities = new WmsCapabilitiesService(_httpClient);
@@ -80,20 +92,25 @@ public partial class App : Application
         var timers = new WpfTimerFactory();
         var clipboard = new WpfClipboard();
         var shell = new SystemShellLauncher();
+        var alert = new WpfAlertSignal();
+
+        var cache = new SnapshotCache();
+        var reports = new ReportPrinter(shell);
 
         _mainViewModel = new MainViewModel(
             new ClockViewModel(timers),
-            new DashboardViewModel(weather, warnings, geocoding, locationResolver, csvLogger, brightSky, settings, clipboard),
+            new DashboardViewModel(weather, warnings, geocoding, locationResolver, csvLogger, brightSky, settings, clipboard, cache, reports),
             new MapViewModel(radar, capabilities, windField, weather, _settingsStore, timers),
             new WebRadarViewModel(_settingsStore, shell),
             new TrendViewModel(),
             new DiagnosticsViewModel(_requestLog, connectivity, capabilities, dispatcher, clipboard),
-            new SettingsViewModel(_settingsStore, _gps, geocoding, shell),
+            new SettingsViewModel(_settingsStore, _gps, geocoding, shell, nina),
             new UpdateViewModel(updates, _settingsStore, shell, updateDownloader),
             settings,
             _gps,
             timers,
-            dispatcher);
+            dispatcher,
+            alert);
 
         // Map tile failures happen inside the page; route them into the same log.
         Views.MapView.SharedLog = _requestLog;

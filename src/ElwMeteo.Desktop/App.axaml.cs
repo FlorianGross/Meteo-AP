@@ -6,6 +6,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using ElwMeteo.Core.Configuration;
 using ElwMeteo.Core.Diagnostics;
+using ElwMeteo.Core.Persistence;
 using ElwMeteo.Core.Reporting;
 using ElwMeteo.Core.Services;
 using ElwMeteo.Core.Updates;
@@ -53,7 +54,16 @@ public partial class App : global::Avalonia.Application
 
         var weather = new OpenMeteoWeatherProvider(_httpClient);
         var brightSky = new BrightSkyProvider(_httpClient);
-        var warnings = new CompositeWarningProvider(brightSky, new DwdWarningProvider(_httpClient));
+        var dwdWarnings = new CompositeWarningProvider(brightSky, new DwdWarningProvider(_httpClient));
+
+        var nina = new NinaWarningProvider(_httpClient)
+        {
+            Enabled = settings.NinaEnabled,
+            Ars = settings.NinaArs,
+            RegionName = settings.NinaRegionName
+        };
+
+        var warnings = new AggregateWarningProvider(dwdWarnings, nina);
         var radar = new RainViewerProvider(_httpClient);
         var windField = new WindFieldProvider(_httpClient);
         var capabilities = new WmsCapabilitiesService(_httpClient);
@@ -71,20 +81,25 @@ public partial class App : global::Avalonia.Application
         var timers = new AvaloniaTimerFactory();
         var clipboard = new AvaloniaClipboard();
         var shell = new SystemShellLauncher();
+        var alert = new SystemAlertSignal();
+
+        var cache = new SnapshotCache();
+        var reports = new ReportPrinter(shell);
 
         _mainViewModel = new MainViewModel(
             new ClockViewModel(timers),
-            new DashboardViewModel(weather, warnings, geocoding, locationResolver, csvLogger, brightSky, settings, clipboard),
+            new DashboardViewModel(weather, warnings, geocoding, locationResolver, csvLogger, brightSky, settings, clipboard, cache, reports),
             new MapViewModel(radar, capabilities, windField, weather, _settingsStore, timers),
             new WebRadarViewModel(_settingsStore, shell),
             new TrendViewModel(),
             new DiagnosticsViewModel(_requestLog, connectivity, capabilities, dispatcher, clipboard),
-            new SettingsViewModel(_settingsStore, _gps, geocoding, shell),
+            new SettingsViewModel(_settingsStore, _gps, geocoding, shell, nina),
             new UpdateViewModel(updates, _settingsStore, shell, updateDownloader),
             settings,
             _gps,
             timers,
-            dispatcher);
+            dispatcher,
+            alert);
 
         // The swap script waits for this process; shutting down is what
         // releases it.

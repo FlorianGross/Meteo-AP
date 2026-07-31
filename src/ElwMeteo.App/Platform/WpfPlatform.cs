@@ -73,6 +73,31 @@ public sealed class WpfClipboard : IClipboardService
     }
 }
 
+/// <summary>
+/// The warning tone under Windows.
+///
+/// The system's own exclamation sound rather than a bundled file: it is
+/// whatever the operator has already set, it respects the machine's mute state,
+/// and it is the sound this computer uses for „look at this" — which is exactly
+/// the message. Played twice, because once is what every dialogue box does.
+/// </summary>
+public sealed class WpfAlertSignal : IAlertSignal
+{
+    public bool Sound()
+    {
+        try
+        {
+            System.Media.SystemSounds.Exclamation.Play();
+            return true;
+        }
+        catch (Exception)
+        {
+            // No sound device, or audio disabled on the machine.
+            return false;
+        }
+    }
+}
+
 /// <summary>Turns the view models' plain colours into frozen WPF brushes.</summary>
 public static class UiColourExtensions
 {

@@ -10,7 +10,7 @@
         Background="{StaticResource BackgroundBrush}"
         Topmost="{Binding AlwaysOnTop}">
 
-    <Grid RowDefinitions="Auto,Auto,*,Auto">
+    <Grid RowDefinitions="Auto,Auto,Auto,*,Auto">
 
         <!-- ============================================ clock header ====== -->
         <Border Grid.Row="0"
@@ -74,8 +74,32 @@
             </Grid>
         </Border>
 
-        <!-- ============================================== warning bar ===== -->
+        <!-- ================================================== alert ======= -->
+        <!-- Across every tab, and it stays until somebody acknowledges it: an
+             alert that fades is one that is missed by whoever stepped out. -->
         <Border Grid.Row="1"
+                Background="{StaticResource WarningBrush}"
+                Padding="18,10"
+                IsVisible="{Binding HasAlert}">
+            <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+                <TextBlock Grid.Column="0" Text="⚠" FontSize="21" Margin="0,0,11,0"
+                           VerticalAlignment="Center" Foreground="White" />
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding AlertBanner}" FontSize="15" FontWeight="Bold"
+                               Foreground="White" TextWrapping="Wrap" />
+                    <TextBlock Text="Signalton auf diesem Rechner nicht möglich — bitte Anzeige beachten."
+                               FontSize="11" Foreground="#EEFFFFFF"
+                               IsVisible="{Binding AlertWasSilent}" />
+                </StackPanel>
+                <Button Grid.Column="2" Content="Warnungen ansehen" Margin="0,0,7,0"
+                        Command="{Binding ShowWarningsCommand}" />
+                <Button Grid.Column="3" Content="Quittieren"
+                        Command="{Binding AcknowledgeAlertCommand}" />
+            </Grid>
+        </Border>
+
+        <!-- ============================================== warning bar ===== -->
+        <Border Grid.Row="2"
                 Background="#33E63946"
                 BorderBrush="{StaticResource WarningBrush}"
                 BorderThickness="0,0,0,1"
@@ -87,7 +111,7 @@
 
         <!-- ==================================================== tabs ====== -->
         <!-- Clock first and selected on start: the view the vehicle sits on. -->
-        <TabControl Grid.Row="2" SelectedIndex="{Binding SelectedTabIndex}" Padding="0">
+        <TabControl Grid.Row="3" SelectedIndex="{Binding SelectedTabIndex}" Padding="0">
             <TabItem Header="Uhr">
                 <views:ClockView />
             </TabItem>
@@ -112,7 +136,7 @@
         </TabControl>
 
         <!-- ============================================== status bar ====== -->
-        <Border Grid.Row="3"
+        <Border Grid.Row="4"
                 Background="{StaticResource PanelBrush}"
                 BorderBrush="{StaticResource BorderBrush}"
                 BorderThickness="0,1,0,0"

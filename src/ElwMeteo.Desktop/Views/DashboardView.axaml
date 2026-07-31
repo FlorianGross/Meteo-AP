@@ -17,6 +17,25 @@
     </UserControl.Styles>
 
     <ScrollViewer Padding="16">
+        <StackPanel>
+
+            <!-- ============================================= stored state -->
+            <!-- Amber, not red: nothing is broken, the numbers are just old. -->
+            <Border Background="#33F59E0B" BorderBrush="#F59E0B" BorderThickness="1"
+                    CornerRadius="6" Padding="12,9" Margin="0,0,0,12"
+                    IsVisible="{Binding IsOffline}">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="⏱" FontSize="17" Margin="0,0,10,0" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding OfflineNotice}" Classes="body" FontWeight="SemiBold"
+                               TextWrapping="Wrap" VerticalAlignment="Center" />
+                </StackPanel>
+            </Border>
+
+            <Border Background="#22F59E0B" CornerRadius="6" Padding="12,7" Margin="0,0,0,12"
+                    IsVisible="{Binding RetryNotice, Converter={x:Static local:Converters.StringNotEmpty}}">
+                <TextBlock Text="{Binding RetryNotice}" Classes="body" TextWrapping="Wrap" />
+            </Border>
+
         <Grid ColumnDefinitions="*,*,*">
 
             <!-- ============================================ measurements -->
@@ -176,7 +195,24 @@
                         <TextBlock Text="{Binding LastUpdateLabel}" Classes="label" FontWeight="Normal" Margin="0,10,0,0" />
                     </StackPanel>
                 </Border>
+
+                <!-- ======================================= printed report -->
+                <Border Classes="card">
+                    <StackPanel>
+                        <TextBlock Text="WETTERBERICHT DRUCKEN" Classes="section" />
+                        <TextBlock Text="EINSATZBEZEICHNUNG (OPTIONAL)" Classes="label" Margin="0,0,0,3" />
+                        <TextBox Text="{Binding IncidentLabel}" Watermark="z. B. Brand 3, Musterstraße 7" />
+                        <Button Content="Bericht erstellen und öffnen" Command="{Binding PrintReportCommand}"
+                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                Margin="0,8,0,0" Padding="12,8" FontWeight="SemiBold" />
+                        <Button Content="Berichtsordner öffnen" Command="{Binding OpenReportDirectoryCommand}"
+                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Margin="0,6,0,0" />
+                        <TextBlock Classes="label" FontWeight="Normal" TextWrapping="Wrap" Margin="0,8,0,0"
+                                   Text="Öffnet eine druckfertige Seite im Browser — dort mit Strg+P drucken oder als PDF sichern. Enthält Lage, Ausbreitung, Warnungen, 48-Stunden-Verlauf und Tagesübersicht." />
+                    </StackPanel>
+                </Border>
             </StackPanel>
         </Grid>
+        </StackPanel>
     </ScrollViewer>
 </UserControl>
