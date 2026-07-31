@@ -13,6 +13,7 @@ using ElwMeteo.Core.Configuration;
 using ElwMeteo.Core.Diagnostics;
 using ElwMeteo.Core.Reporting;
 using ElwMeteo.Core.Services;
+using ElwMeteo.Core.Updates;
 
 namespace ElwMeteo.App;
 
@@ -69,6 +70,10 @@ public partial class App : Application
         var csvLogger = new SnapshotCsvLogger(settings.ResolveCsvDirectory());
         var locationResolver = new LocationResolver(settings, _gps, ipLocation);
 
+        var updateDownloader = new UpdateDownloader(_httpClient);
+        var updates = new UpdateService(
+            new GitHubReleaseProvider(_httpClient), updateDownloader, new UpdateInstaller());
+
         // The view models live in a platform-neutral project; these are the WPF
         // answers to the few things they cannot decide for themselves.
         var dispatcher = new WpfDispatcher();
@@ -84,6 +89,7 @@ public partial class App : Application
             new TrendViewModel(),
             new DiagnosticsViewModel(_requestLog, connectivity, capabilities, dispatcher, clipboard),
             new SettingsViewModel(_settingsStore, _gps, geocoding, shell),
+            new UpdateViewModel(updates, _settingsStore, shell, updateDownloader),
             settings,
             _gps,
             timers,
@@ -91,6 +97,10 @@ public partial class App : Application
 
         // Map tile failures happen inside the page; route them into the same log.
         Views.MapView.SharedLog = _requestLog;
+
+        // The swap script waits for this process; closing the window is what
+        // releases it.
+        _mainViewModel.Update.RestartRequested += () => Shutdown();
 
         var window = new MainWindow { DataContext = _mainViewModel };
         MainWindow = window;

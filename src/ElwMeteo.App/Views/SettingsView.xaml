@@ -143,7 +143,7 @@
             <StackPanel Grid.Column="2">
                 <Border Style="{StaticResource Card}">
                     <StackPanel>
-                        <TextBlock Text="AKTUALISIERUNG" Style="{StaticResource SectionHeader}" />
+                        <TextBlock Text="ABRUFINTERVALL" Style="{StaticResource SectionHeader}" />
 
                         <TextBlock Text="INTERVALL IN SEKUNDEN (60 – 3600)"
                                    Style="{StaticResource LabelText}" Margin="0,0,0,4" />
@@ -220,6 +220,91 @@
                                    Foreground="{StaticResource AccentBrush}"
                                    Margin="0,10,0,0"
                                    Visibility="{Binding StatusMessage, Converter={StaticResource StringToVisibility}}" />
+                    </StackPanel>
+                </Border>
+
+                <!-- aktualisierung -->
+                <Border Style="{StaticResource Card}">
+                    <StackPanel DataContext="{Binding DataContext.Update, RelativeSource={RelativeSource AncestorType=UserControl}}">
+                        <TextBlock Text="PROGRAMM-AKTUALISIERUNG" Style="{StaticResource SectionHeader}" />
+
+                        <TextBlock Text="{Binding CurrentVersionLabel}" Style="{StaticResource BodyText}" FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding PlatformLabel}" Style="{StaticResource LabelText}" FontWeight="Normal" />
+
+                        <CheckBox Content="Täglich nach einer neuen Freigabe sehen"
+                                  IsChecked="{Binding UpdateCheckEnabled}"
+                                  Margin="0,10,0,0" />
+                        <CheckBox Content="Auch Vorabversionen anbieten"
+                                  IsChecked="{Binding IncludePreReleases}" />
+
+                        <TextBlock Style="{StaticResource LabelText}" FontWeight="Normal" TextWrapping="Wrap"
+                                   Margin="0,6,0,0"
+                                   Text="Geprüft wird nur — heruntergeladen und eingespielt wird nichts ohne Klick. Eine Anwendung, die sich im Einsatz selbst neu startet, ist schlimmer als eine veraltete." />
+
+                        <TextBlock Text="REPOSITORY" Style="{StaticResource LabelText}" Margin="0,12,0,3" />
+                        <TextBox Text="{Binding Repository, UpdateSourceTrigger=PropertyChanged}"
+                                 FontFamily="{StaticResource MonoFont}" FontSize="11" />
+
+                        <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                            <Button Content="Jetzt prüfen"
+                                    Command="{Binding CheckCommand}"
+                                    IsEnabled="{Binding IsBusy, Converter={StaticResource Not}}"
+                                    Padding="11,6" />
+                            <Button Content="Freigabeseite öffnen"
+                                    Command="{Binding OpenReleasePageCommand}"
+                                    Margin="6,0,0,0" Padding="11,6"
+                                    Visibility="{Binding ReleaseUrl, Converter={StaticResource StringToVisibility}}" />
+                        </StackPanel>
+
+                        <TextBlock Text="{Binding Status}" Style="{StaticResource BodyText}"
+                                   TextWrapping="Wrap" Margin="0,10,0,0" />
+
+                        <!-- Schritt 2 und 3 erscheinen erst, wenn es etwas zu holen gibt. -->
+                        <StackPanel Visibility="{Binding IsUpdateAvailable, Converter={StaticResource BoolToVisibility}}">
+                            <Border Height="1" Background="{StaticResource BorderBrush}" Margin="0,12,0,10" />
+
+                            <TextBlock Text="{Binding ReleaseTitle}" Style="{StaticResource BodyText}"
+                                       FontWeight="SemiBold" TextWrapping="Wrap" />
+                            <TextBlock Text="{Binding PackageLabel}" Style="{StaticResource LabelText}"
+                                       FontWeight="Normal" />
+                            <TextBlock Text="{Binding IntegrityNote}" Style="{StaticResource LabelText}"
+                                       FontWeight="Normal" TextWrapping="Wrap" Margin="0,4,0,0" />
+
+                            <ScrollViewer MaxHeight="180" VerticalScrollBarVisibility="Auto" Margin="0,8,0,0">
+                                <TextBlock Text="{Binding ReleaseNotes}" Style="{StaticResource BodyText}"
+                                           FontSize="11.5" TextWrapping="Wrap"
+                                           Foreground="{StaticResource MutedBrush}" />
+                            </ScrollViewer>
+
+                            <ProgressBar Height="4" Margin="0,10,0,0"
+                                         Minimum="0" Maximum="1"
+                                         Value="{Binding DownloadProgress}"
+                                         Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}" />
+
+                            <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                <Button Content="Herunterladen und prüfen"
+                                        Command="{Binding DownloadCommand}"
+                                        IsEnabled="{Binding IsBusy, Converter={StaticResource Not}}"
+                                        Padding="11,6" />
+                                <Button Content="Diese Version überspringen"
+                                        Command="{Binding SkipVersionCommand}"
+                                        Margin="6,0,0,0" Padding="11,6" />
+                            </StackPanel>
+
+                            <!-- Der einzige Schritt, der die Installation anfasst. -->
+                            <StackPanel Visibility="{Binding IsReadyToInstall, Converter={StaticResource BoolToVisibility}}">
+                                <Border Background="#332ECC71" CornerRadius="4" Padding="11" Margin="0,12,0,0">
+                                    <StackPanel>
+                                        <TextBlock Style="{StaticResource BodyText}" TextWrapping="Wrap"
+                                                   Text="Das Paket ist geladen, seine Prüfsumme stimmt und es ist vollständig entpackt. Beim Einspielen wird die Anwendung beendet, die alte Version daneben aufbewahrt und die neue gestartet." />
+                                        <Button Content="Einspielen und neu starten"
+                                                Command="{Binding InstallAndRestartCommand}"
+                                                HorizontalAlignment="Left"
+                                                Margin="0,10,0,0" Padding="14,8" FontWeight="SemiBold" />
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </StackPanel>
                     </StackPanel>
                 </Border>
 

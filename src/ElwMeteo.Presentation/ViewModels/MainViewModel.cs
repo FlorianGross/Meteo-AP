@@ -25,6 +25,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         TrendViewModel trend,
         DiagnosticsViewModel diagnostics,
         SettingsViewModel settings,
+        UpdateViewModel update,
         AppSettings appSettings,
         GpsSerialService gps,
         IUiTimerFactory timers,
@@ -38,6 +39,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         Trend = trend;
         Diagnostics = diagnostics;
         Settings = settings;
+        Update = update;
         _settings = appSettings;
         _gps = gps;
 
@@ -75,6 +77,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     public SettingsViewModel Settings { get; }
 
+    public UpdateViewModel Update { get; }
+
     [ObservableProperty]
     private int _selectedTabIndex;
 
@@ -97,6 +101,17 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
         await RefreshAllAsync().ConfigureAwait(true);
         _refreshTimer.Start();
+
+        // Last, and only ever a look: the weather matters more than the version,
+        // and a failed check must not delay the first reading.
+        try
+        {
+            await Update.CheckSilentlyAsync().ConfigureAwait(true);
+        }
+        catch (Exception)
+        {
+            // Reported inside the update panel; never worth a dialog at startup.
+        }
     }
 
     [RelayCommand]
