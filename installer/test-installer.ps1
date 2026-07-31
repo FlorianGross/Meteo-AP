@@ -57,6 +57,38 @@ function Assert-That {
     }
 }
 
+function Find-UninstallEntry {
+    <#
+        Where „Programme und Features" lists the application, or $null.
+
+        All four locations are searched and the hit is printed, because which
+        one it lands in is the interesting part rather than an implementation
+        detail: a per-user file layout registered under HKLM would mean every
+        user on the machine is offered an uninstall for files that live in one
+        person's profile. Asserting only against the hive I expected would have
+        told me it was missing, not where it went.
+    #>
+    $roots = @(
+        @{ Name = "HKCU";        Path = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall" }
+        @{ Name = "HKCU (Wow64)"; Path = "HKCU:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall" }
+        @{ Name = "HKLM";        Path = "HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall" }
+        @{ Name = "HKLM (Wow64)"; Path = "HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall" }
+    )
+
+    foreach ($root in $roots) {
+        $hit = Get-ChildItem $root.Path -ErrorAction SilentlyContinue |
+            Where-Object { $_.GetValue("DisplayName") -eq "ELW-Meteo" } |
+            Select-Object -First 1
+
+        if ($hit) {
+            Write-Host "        Eintrag gefunden in $($root.Name), InstallLocation=$($hit.GetValue('InstallLocation'))"
+            return $root.Name
+        }
+    }
+
+    return $null
+}
+
 # ------------------------------------------------------- settings survive
 #
 # Put something in the settings folder first. Losing it on uninstall is the
@@ -94,9 +126,12 @@ if (Test-Path $startMenu) {
     Assert-That "Verknüpfung zeigt auf $userExe (ist: $target)" ($target -eq $userExe)
 }
 
-Assert-That "Eintrag in Programme und Features" (
-    @(Get-ChildItem "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall" -ErrorAction SilentlyContinue |
-        Where-Object { $_.GetValue("DisplayName") -eq "ELW-Meteo" }).Count -gt 0)
+$userEntry = Find-UninstallEntry
+Assert-That "Eintrag in Programme und Features" ($null -ne $userEntry)
+
+# A per-user layout registered per-machine would offer every user on the box an
+# uninstall for files in somebody else's profile.
+Assert-That "Eintrag liegt im Benutzerzweig (ist: $userEntry)" ($userEntry -like "HKCU*")
 
 Write-Host "`n=== Deinstallation pro Benutzer ==="
 Invoke-Msi -Arguments @("/x", $msi) -LogName "peruser-uninstall.log"
@@ -119,9 +154,9 @@ Assert-That "Assets mitinstalliert" (Test-Path (Join-Path $machineRoot "Assets\m
 $allUsersStart = Join-Path $env:ProgramData "Microsoft\Windows\Start Menu\Programs\ELW-Meteo.lnk"
 Assert-That "Startmenü-Verknüpfung für alle Benutzer" (Test-Path $allUsersStart)
 
-Assert-That "Eintrag in Programme und Features" (
-    @(Get-ChildItem "HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall" -ErrorAction SilentlyContinue |
-        Where-Object { $_.GetValue("DisplayName") -eq "ELW-Meteo" }).Count -gt 0)
+$machineEntry = Find-UninstallEntry
+Assert-That "Eintrag in Programme und Features" ($null -ne $machineEntry)
+Assert-That "Eintrag liegt im Rechnerzweig (ist: $machineEntry)" ($machineEntry -like "HKLM*")
 
 Write-Host "`n=== Deinstallation pro Rechner ==="
 Invoke-Msi -Arguments @("/x", $msi) -LogName "permachine-uninstall.log"

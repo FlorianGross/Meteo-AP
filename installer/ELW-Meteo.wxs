@@ -154,9 +154,16 @@
       <!--
         On a vehicle screen the desktop icon is usually the only thing anybody
         looks for, so it is on by default. INSTALLDESKTOPSHORTCUT=0 leaves it out.
+
+        The comparison against "0" is the whole point and not redundant. A bare
+        property name in an MSI condition is true whenever the property is set
+        to anything non-empty — so INSTALLDESKTOPSHORTCUT=0 sets it to the
+        string "0", which is non-empty, which is true, and the shortcut appeared
+        anyway. Somebody who explicitly asked for no desktop icon and got one
+        would reasonably conclude the switch is decoration.
       -->
       <Component Id="DesktopShortcut" Directory="DesktopFolder" Guid="C2F3D4E5-6B7C-4D8E-9F0A-1B2C3D4E5F60"
-                 Condition="INSTALLDESKTOPSHORTCUT">
+                 Condition="INSTALLDESKTOPSHORTCUT AND INSTALLDESKTOPSHORTCUT &lt;&gt; &quot;0&quot;">
         <Shortcut Id="DesktopEntry"
                   Name="ELW-Meteo"
                   Description="Wetter- und Lageübersicht für den Einsatzleitwagen"
