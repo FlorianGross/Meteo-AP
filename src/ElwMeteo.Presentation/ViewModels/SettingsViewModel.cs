@@ -20,6 +20,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     private readonly IShellLauncher _shell;
 
     private readonly NinaWarningProvider? _nina;
+    private readonly ISystemLocationProvider? _systemLocation;
     private IReadOnlyList<NinaRegion> _ninaRegions = [];
 
     public SettingsViewModel(
@@ -27,10 +28,12 @@ public sealed partial class SettingsViewModel : ObservableObject
         GpsSerialService gps,
         GeocodingService geocoding,
         IShellLauncher shell,
-        NinaWarningProvider? nina = null)
+        NinaWarningProvider? nina = null,
+        ISystemLocationProvider? systemLocation = null)
     {
         _shell = shell;
         _nina = nina;
+        _systemLocation = systemLocation;
         _store = store;
         AppSettings settings = store.Settings;
         _settings = settings;
@@ -56,8 +59,91 @@ public sealed partial class SettingsViewModel : ObservableObject
         _ninaEnabled = settings.NinaEnabled;
         _ninaRegionName = settings.NinaRegionName;
         _ninaArs = settings.NinaArs;
+        _useSystemLocation = settings.UseSystemLocation;
+        _systemLocationStatus = systemLocation?.StatusText ?? "Nicht verfügbar.";
 
         RefreshPorts();
+    }
+
+    // ------------------------------------------------------ system location
+
+    [ObservableProperty]
+    private bool _useSystemLocation;
+
+    [ObservableProperty]
+    private string _systemLocationStatus = string.Empty;
+
+    /// <summary>Name of the underlying service, or a placeholder where there is none.</summary>
+    public string SystemLocationName => _systemLocation?.Name ?? "Systemortung";
+
+    /// <summary>False on heads without an implementation, so the section can grey out.</summary>
+    public bool HasSystemLocation =>
+        _systemLocation is not null && _systemLocation.State != SystemLocationState.Unsupported;
+
+    /// <summary>
+    /// Asks the system where it thinks it is and reports the answer verbatim.
+    ///
+    /// This is the only way to find out what a given machine will actually
+    /// deliver — the same call returns five metres from a GNSS chip and tens of
+    /// kilometres from an IP guess. Better to learn that while setting the
+    /// vehicle up than from a position that is quietly wrong on a callout.
+    /// </summary>
+    [RelayCommand]
+    private async Task TestSystemLocationAsync(CancellationToken cancellationToken)
+    {
+        if (_systemLocation is null)
+        {
+            SystemLocationStatus = "Auf dieser Ausgabe nicht verfügbar.";
+            return;
+        }
+
+        SystemLocationStatus = "Standort wird abgefragt …";
+
+        SystemLocationState state = await _systemLocation.RequestAccessAsync().ConfigureAwait(true);
+
+        if (state != SystemLocationState.Allowed)
+        {
+            SystemLocationStatus = _systemLocation.StatusText;
+            return;
+        }
+
+        try
+        {
+            Core.Models.GeoPosition? position =
+                await _systemLocation.GetAsync(cancellationToken).ConfigureAwait(true);
+
+            SystemLocationStatus = position is null
+                ? _systemLocation.StatusText
+                : $"{position.Latitude:F5} / {position.Longitude:F5} — {position.SourceLabel}" +
+                  (position.Description is { Length: > 0 } how ? $" ({how})" : string.Empty);
+        }
+        catch (OperationCanceledException)
+        {
+            SystemLocationStatus = "Abfrage abgebrochen.";
+        }
+    }
+
+    /// <summary>Takes the system position into the manual coordinates.</summary>
+    [RelayCommand]
+    private async Task UseSystemLocationAsManualAsync(CancellationToken cancellationToken)
+    {
+        if (_systemLocation is null)
+        {
+            return;
+        }
+
+        Core.Models.GeoPosition? position =
+            await _systemLocation.GetAsync(cancellationToken).ConfigureAwait(true);
+
+        if (position is null || !position.IsPlausible)
+        {
+            SystemLocationStatus = _systemLocation.StatusText;
+            return;
+        }
+
+        ManualLatitude = position.Latitude;
+        ManualLongitude = position.Longitude;
+        StatusMessage = $"Position der {SystemLocationName} übernommen ({position.SourceLabel}).";
     }
 
     // -------------------------------------------------- warnings and alerts
@@ -355,6 +441,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         _settings.NinaEnabled = NinaEnabled;
         _settings.NinaArs = NinaArs.Trim();
         _settings.NinaRegionName = NinaRegionName.Trim();
+        _settings.UseSystemLocation = UseSystemLocation;
 
         if (_nina is not null)
         {

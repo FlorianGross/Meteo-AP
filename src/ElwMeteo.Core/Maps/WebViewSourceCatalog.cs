@@ -154,6 +154,23 @@ public static class WebViewSourceCatalog
         },
         new WebViewSource
         {
+            Id = "metradar",
+            Title = "metradar — Donnerradar",
+            Group = "Gewitter",
+            // Fixed loop view; the page takes no coordinates, so it does not
+            // follow the incident. Filed under thunderstorms rather than radar
+            // because the combination is the point: everyone shows precipitation,
+            // this one puts the strikes on the same picture.
+            UrlTemplate = "https://metradar.ch/de/loop_aktuell.php",
+            Description = "Radar und Blitzeinschläge in einem Bild, mit Unterscheidung nach Erdblitz (CG) " +
+                          "und Wolkenblitz (CC). Abdeckung ist die Schweiz mit den Nachbarräumen — " +
+                          "Süddeutschland und Vorarlberg ja, norddeutsche Einsatzstellen nicht. " +
+                          "Der Anbieter ist kostenpflichtig; die Loop-Seite ist frei einsehbar, " +
+                          "der volle Funktionsumfang braucht ein Konto beim Anbieter.",
+            IsBuiltIn = true
+        },
+        new WebViewSource
+        {
             Id = "meteoblue",
             Title = "meteoblue — Niederschlagskarte",
             Group = "Modelle",

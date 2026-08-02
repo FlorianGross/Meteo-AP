@@ -265,6 +265,7 @@ Mitgeliefert sind:
 | DWD — Niederschlagsradar | amtliches Radarbild und Radarfilm |
 | NINA | Warnungen des Bundes: Gefahrstoff, Ausfälle, Bevölkerungsschutz |
 | Blitzortung | Blitzeinschläge in Echtzeit — zeigt die Zugbahn einer Gewitterzelle oft früher als das Radar |
+| metradar — Donnerradar | Radar und Blitze in **einem** Bild, getrennt nach Erdblitz (CG) und Wolkenblitz (CC). Abdeckung Schweiz mit Nachbarräumen — Süddeutschland ja, Norddeutschland nicht. Kostenpflichtiger Anbieter; die Loop-Seite ist frei einsehbar |
 | meteoblue | Modellkarten für Niederschlag, Wind und Temperatur |
 | Windy — Wind und Böen | Windfeld und Böenprognose als Strömungsbild |
 
@@ -462,7 +463,8 @@ dass beides über TLS von `api.github.com` geholt wird.
 
 Drei Betriebsarten:
 
-1. **Automatisch** — GPS, sonst IP-Ortung, sonst der hinterlegte Standort
+1. **Automatisch** — GPS, sonst Windows-Standortdienst, sonst IP-Ortung, sonst
+   der hinterlegte Standort
 2. **Nur GPS-Empfänger**
 3. **Manuelle Koordinaten**
 
@@ -471,6 +473,27 @@ NMEA-0183-Empfänger an einer (virtuellen) COM-Schnittstelle. Die Anwendung
 liest `GGA`, `RMC` und `GLL` von beliebigen Talker-IDs (GP/GN/GL/GA), prüft die
 Prüfsumme, verwirft Sätze ohne gültigen Fix und schätzt die Genauigkeit aus dem
 HDOP. Das ist metergenau und funktioniert ohne Mobilfunk.
+
+**Windows-Standortdienst.** Für den Rechner ohne GPS-Empfänger: ein Tablet oder
+Notebook mit eingebautem GNSS-Chip weiß bereits, wo es steht. Abgefragt wird nur,
+wenn kein frischer GPS-Fix vorliegt — und dann noch vor der IP-Ortung.
+
+Die Genauigkeit schwankt um Größenordnungen, und das ist der Punkt: ein
+GNSS-Chip liefert Meter, WLAN-Umfeld einige Zehnermeter, und ohne beides fällt
+Windows selbst auf die IP-Adresse zurück. Der letzte Fall ist nicht besser als
+das, was die Anwendung ohnehin könnte, kommt aber unter einem Namen, der nach
+Sensor klingt. Deshalb steht der Radius immer dabei (`Windows-Ortung ±35 m`),
+und ein Wert jenseits von 50 km wird verworfen statt weitergereicht.
+
+Die Berechtigung wird **einmal beim Programmstart** abgefragt — dort steht
+jemand beim Einrichten davor, nicht mitten im Einsatz. Verweigert Windows den
+Zugriff, sagen die Einstellungen, wo er freizugeben ist. Über *Jetzt abfragen*
+lässt sich vorher prüfen, was der jeweilige Rechner tatsächlich liefert.
+
+Nur in der **Windows-Ausgabe**. Für Linux hieße das GeoClue über D-Bus, für
+macOS CoreLocation — zwei weitere Plattformbindungen für eine Sprosse, die nur
+zählt, wenn kein GPS-Empfänger da ist. Die plattformneutrale Ausgabe sagt das in
+den Einstellungen, statt einen Schalter anzubieten, der nichts tut.
 
 **IP-Ortung** ist der Notnagel: hinter einem Mobilfunkrouter kann sie zig
 Kilometer danebenliegen. Die Oberfläche kennzeichnet sie deshalb ausdrücklich
@@ -652,7 +675,9 @@ src/ElwMeteo.Desktop/  net8.0      — Avalonia-Oberfläche (Linux, macOS, Windo
   Controls/TrendChart.cs            Diagramm, für Avalonia gezeichnet
   Platform/                         Avalonia-Antworten auf die Schnittstellen
 
-src/ElwMeteo.App/      net8.0-windows — WPF-Oberfläche (Windows)
+src/ElwMeteo.App/      net8.0-windows10.0.19041 — WPF-Oberfläche (Windows)
+                                    Zielversion wegen des Standortdienstes;
+                                    lauffähig ab Windows 10 1809
   Views/                            Uhr, Dashboard, Karte, Web-Radar, Verlauf,
                                     Diagnose, Einstellungen
   Controls/                         Diagramm für den Wetterverlauf
@@ -667,7 +692,7 @@ installer/test-installer.ps1        installiert und deinstalliert es wirklich
 
 tools/make-icon.py                  erzeugt das Anwendungssymbol reproduzierbar
 
-tests/ElwMeteo.Core.Tests/          xUnit — 542 Tests
+tests/ElwMeteo.Core.Tests/          xUnit — 560 Tests (Fachlogik und Ansichtsmodelle)
 tests/ElwMeteo.Desktop.Tests/       Avalonia-Rauchtests, kopflos — 10 Tests
 ```
 
@@ -702,7 +727,8 @@ veröffentlichte Almanachwerte für Frankfurt am Main geprüft.
 | Radarkacheln (optional) | OpenWeatherMap | benötigt einen eigenen kostenlosen Schlüssel |
 | Kartengrundlage | OpenStreetMap, OpenTopoMap | ODbL bzw. CC BY-SA |
 | Adressauflösung | Nominatim | Nutzungsrichtlinie, identifizierender User-Agent gesetzt |
-| Eingebettete Radarseiten | RainViewer, Windy, Ventusky, Kachelmannwetter, DWD, NINA, Blitzortung, meteoblue | öffentliche Seiten, als gewöhnlicher Seitenaufruf geöffnet — Marke, Quellenangabe und Nutzungsbedingungen des Anbieters bleiben sichtbar |
+| Eingebettete Radarseiten | RainViewer, Windy, Ventusky, Kachelmannwetter, DWD, NINA, Blitzortung, metradar, meteoblue | öffentliche Seiten, als gewöhnlicher Seitenaufruf geöffnet — Marke, Quellenangabe und Nutzungsbedingungen des Anbieters bleiben sichtbar |
+| Position vom Betriebssystem | Windows-Standortdienst (`Windows.Devices.Geolocation`) | nur die Windows-Ausgabe, Freigabe wird beim Start erfragt, abschaltbar |
 
 Keine Registrierung, keine API-Schlüssel.
 

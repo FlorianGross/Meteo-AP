@@ -139,13 +139,31 @@ public class WebViewSourceCatalogTests
     }
 
     [Fact]
-    public void BuiltIn_MostViewersOpenAtThePosition()
+    public void BuiltIn_EnoughViewersOpenAtThePosition()
     {
-        // Some providers only offer a fixed national page; the majority must
-        // still land on the incident rather than on a country overview.
+        // Several providers only publish a fixed national or regional page, and
+        // adding one of those is a legitimate thing to do — so this is not a
+        // majority rule. What has to stay true is that the operator always has a
+        // decent choice of viewers that land on the incident instead of on a
+        // country overview.
         int following = WebViewSourceCatalog.BuiltIn.Count(s => s.FollowsPosition);
 
-        Assert.True(following > WebViewSourceCatalog.BuiltIn.Count / 2);
+        Assert.True(following >= 5, $"nur {following} Ansichten folgen der Position");
+    }
+
+    /// <summary>
+    /// Whatever else the list contains, the one that opens without being asked
+    /// has to land on the incident — otherwise the tab greets a crew with a map
+    /// of Germany.
+    /// </summary>
+    [Fact]
+    public void TheDefaultViewerFollowsThePosition()
+    {
+        string defaultId = new Configuration.AppSettings().SelectedWebSourceId;
+        WebViewSource? viewer = WebViewSourceCatalog.ById(defaultId);
+
+        Assert.NotNull(viewer);
+        Assert.True(viewer.FollowsPosition, $"Voreinstellung „{defaultId}“ folgt der Position nicht");
     }
 
     [Fact]

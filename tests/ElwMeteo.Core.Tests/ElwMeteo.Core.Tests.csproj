@@ -14,6 +14,14 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\ElwMeteo.Core\ElwMeteo.Core.csproj" />
+
+    <!--
+      The view-model project is platform-neutral too, and a few things worth
+      testing live there rather than in Core — the position fallback ladder
+      above all. Kept in this project rather than a second one so the CI runs
+      them without a further wiring step.
+    -->
+    <ProjectReference Include="..\..\src\ElwMeteo.Presentation\ElwMeteo.Presentation.csproj" />
   </ItemGroup>
 
 </Project>
