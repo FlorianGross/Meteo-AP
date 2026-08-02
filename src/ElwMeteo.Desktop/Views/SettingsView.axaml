@@ -31,6 +31,22 @@
                     <Button Content="Als Standort merken" Command="{Binding UseManualAsHomeCommand}" />
                 </StackPanel>
 
+                <!-- ======================================= system location -->
+                <TextBlock Text="SYSTEM-STANDORTDIENST" Classes="section" Margin="0,16,0,6" />
+                <CheckBox Content="Betriebssystem nach der Position fragen"
+                          IsChecked="{Binding UseSystemLocation}"
+                          IsEnabled="{Binding HasSystemLocation}" />
+                <TextBlock Classes="label" FontWeight="Normal" TextWrapping="Wrap" Margin="0,5,0,0"
+                           Text="Wird nur genutzt, wenn kein frischer GPS-Fix vorliegt — und dann noch vor der IP-Ortung. Die Genauigkeit schwankt stark: ein eingebauter GNSS-Chip liefert Meter, WLAN-Umfeld einige Zehnermeter, ohne beides fällt das System auf die IP-Adresse zurück. Der angezeigte Radius sagt, welcher Fall vorliegt." />
+                <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,8,0,0">
+                    <Button Content="Jetzt abfragen" Command="{Binding TestSystemLocationCommand}"
+                            IsEnabled="{Binding HasSystemLocation}" />
+                    <Button Content="Als manuelle Position übernehmen"
+                            Command="{Binding UseSystemLocationAsManualCommand}"
+                            IsEnabled="{Binding HasSystemLocation}" />
+                </StackPanel>
+                <TextBlock Text="{Binding SystemLocationStatus}" Classes="body" TextWrapping="Wrap" Margin="0,8,0,0" />
+
                 <TextBlock Text="ORTSSUCHE" Classes="section" Margin="0,16,0,6" />
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
                     <TextBox Grid.Column="0" Text="{Binding SearchQuery}" Watermark="Ort, Straße, PLZ …" />

@@ -11,7 +11,15 @@ public enum PositionSource
     /// <summary>NMEA sentence from a GPS receiver on a serial port.</summary>
     Gps,
     /// <summary>Stored standing location, e.g. the fire station.</summary>
-    Preset
+    Preset,
+    /// <summary>
+    /// The operating system's own location service. Accuracy varies by an order
+    /// of magnitude depending on what the machine actually has — a built-in GNSS
+    /// receiver gives metres, WiFi triangulation gives tens of metres, and with
+    /// neither it falls back to the IP address and is no better than a guess.
+    /// Which is why the accuracy is always carried alongside.
+    /// </summary>
+    SystemService
 }
 
 public sealed record GeoPosition(
@@ -31,6 +39,11 @@ public sealed record GeoPosition(
         PositionSource.Gps => AccuracyM is not null ? $"GPS ±{AccuracyM.Value:F0} m" : "GPS",
         PositionSource.IpLookup => "IP-Ortung (ungenau)",
         PositionSource.Preset => "Voreinstellung",
+        // The radius is not decoration here: the same label can mean five metres
+        // or five kilometres, and only the number says which.
+        PositionSource.SystemService => AccuracyM is not null
+            ? $"Windows-Ortung ±{AccuracyM.Value:F0} m"
+            : "Windows-Ortung (Genauigkeit unbekannt)",
         _ => "manuell"
     };
 

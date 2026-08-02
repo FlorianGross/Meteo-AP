@@ -71,7 +71,17 @@ public partial class App : global::Avalonia.Application
         var geocoding = new GeocodingService(_httpClient);
         var ipLocation = new IpLocationProvider(_httpClient);
         var csvLogger = new SnapshotCsvLogger(settings.ResolveCsvDirectory());
-        var locationResolver = new LocationResolver(settings, _gps, ipLocation);
+
+        // No system location on this head. Linux would mean GeoClue over D-Bus
+        // and macOS CoreLocation — two more platform bindings for a rung of the
+        // ladder that only matters on a machine with no GPS receiver. Saying so
+        // in the settings beats a switch that silently does nothing.
+        var systemLocation = new UnsupportedSystemLocationProvider(
+            "Die plattformneutrale Ausgabe fragt das Betriebssystem nicht nach der Position. " +
+            "Unter Windows tut das die WPF-Ausgabe; hier bleiben GPS-Empfänger, " +
+            "IP-Ortung und der hinterlegte Standort.");
+
+        var locationResolver = new LocationResolver(settings, _gps, ipLocation, systemLocation);
 
         var updateDownloader = new UpdateDownloader(_httpClient);
         var updates = new UpdateService(
@@ -93,7 +103,7 @@ public partial class App : global::Avalonia.Application
             new WebRadarViewModel(_settingsStore, shell),
             new TrendViewModel(),
             new DiagnosticsViewModel(_requestLog, connectivity, capabilities, dispatcher, clipboard),
-            new SettingsViewModel(_settingsStore, _gps, geocoding, shell, nina),
+            new SettingsViewModel(_settingsStore, _gps, geocoding, shell, nina, systemLocation),
             new UpdateViewModel(updates, _settingsStore, shell, updateDownloader),
             settings,
             _gps,

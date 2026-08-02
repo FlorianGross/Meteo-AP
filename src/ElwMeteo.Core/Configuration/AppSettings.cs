@@ -42,6 +42,13 @@ public sealed class AppSettings
 
     public string HomeName { get; set; } = "Feuerwache";
 
+    /// <summary>
+    /// Ask the operating system for the position when no GPS fix is available.
+    /// On by default: a machine with a built-in GNSS chip already knows where it
+    /// is, and the alternative rung on that ladder is the IP lookup.
+    /// </summary>
+    public bool UseSystemLocation { get; set; } = true;
+
     /// <summary>Serial port of the NMEA receiver, e.g. "COM3". Empty disables GPS.</summary>
     public string GpsPortName { get; set; } = string.Empty;
 

@@ -80,7 +80,11 @@ public partial class App : Application
         var geocoding = new GeocodingService(_httpClient);
         var ipLocation = new IpLocationProvider(_httpClient);
         var csvLogger = new SnapshotCsvLogger(settings.ResolveCsvDirectory());
-        var locationResolver = new LocationResolver(settings, _gps, ipLocation);
+
+        // Windows knows where a machine with a GNSS chip is; without this the
+        // chain would drop straight from "no GPS receiver" to the IP lookup.
+        var systemLocation = new WindowsLocationProvider();
+        var locationResolver = new LocationResolver(settings, _gps, ipLocation, systemLocation);
 
         var updateDownloader = new UpdateDownloader(_httpClient);
         var updates = new UpdateService(
@@ -104,7 +108,7 @@ public partial class App : Application
             new WebRadarViewModel(_settingsStore, shell),
             new TrendViewModel(),
             new DiagnosticsViewModel(_requestLog, connectivity, capabilities, dispatcher, clipboard),
-            new SettingsViewModel(_settingsStore, _gps, geocoding, shell, nina),
+            new SettingsViewModel(_settingsStore, _gps, geocoding, shell, nina, systemLocation),
             new UpdateViewModel(updates, _settingsStore, shell, updateDownloader),
             settings,
             _gps,
@@ -131,7 +135,21 @@ public partial class App : Application
         _settingsFlushTimer.Start();
 
         // Kick off the first fetch after the window is up, so the UI paints first.
-        _ = Dispatcher.InvokeAsync(async () => await _mainViewModel.InitialiseAsync());
+        //
+        // The location permission is asked for here and nowhere else: Windows
+        // shows its consent dialogue on the first call, and that only works from
+        // the interface thread. Asking once at startup also means the prompt
+        // appears while somebody is setting the vehicle up, rather than in the
+        // middle of a callout.
+        _ = Dispatcher.InvokeAsync(async () =>
+        {
+            if (settings.UseSystemLocation)
+            {
+                await systemLocation.RequestAccessAsync();
+            }
+
+            await _mainViewModel.InitialiseAsync();
+        });
     }
 
     private static HttpClient CreateHttpClient(RequestLog log)
