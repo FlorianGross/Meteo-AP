@@ -194,13 +194,34 @@ diskreten Windpfeile ein- und ausschalten.
 
 | Gruppe | Karten |
 |---|---|
-| Amtlich (BKG) | basemap.de (Farbe und Grau), TopPlusOpen |
-| Karte | OpenStreetMap, OpenStreetMap.de, OSM Humanitarian, OpenTopoMap (Höhenlinien), CyclOSM (Wirtschaftswege), Dunkel (nachttauglich), Luftbild |
+| Amtlich (BKG) | **basemap.de (Farbe)** — Voreinstellung —, basemap.de (Grau), TopPlusOpen |
+| Karte | OpenStreetMap.de, OSM Humanitarian, OpenTopoMap (Höhenlinien), CyclOSM (Wirtschaftswege), Dunkel (nachttauglich), Luftbild |
 
 basemap.de und TopPlusOpen sind die amtlichen Karten der deutschen
 Vermessungsverwaltungen bzw. des BKG — dieselbe Grundlage, die in vielen
 Leitstellen liegt. „Dunkel" blendet nachts im Fahrzeug nicht und lässt farbige
 Overlays klar hervortreten.
+
+**Warum nicht die Standardkarte von openstreetmap.org.** Weil es nicht erlaubt
+ist. Die Nutzungsrichtlinie der OpenStreetMap Foundation für ihren Kachelserver
+nennt diesen Fall ausdrücklich:
+
+> „Heavy use, such as distributing an app that uses tiles from openstreetmap.org,
+> is forbidden without prior permission."
+
+Die Server werden ehrenamtlich betrieben und aus Spenden finanziert; eine an
+Feuerwehren verteilte Anwendung ist genau die Art von Nutzung, die sie nicht
+tragen können. Wer die Richtlinie ignoriert, bekommt keine Warnung, sondern eine
+Kachelfläche voller `403 Access blocked` — auf einem Fahrzeugbildschirm, im
+Einsatz, ohne dass irgendwo steht warum. Die Kartendaten *sind* in mehreren der
+Karten oben weiterhin die von OpenStreetMap; was nicht genutzt werden darf, ist
+deren Darstellungsdienst.
+
+Die Karten der Gruppe „Karte" sind zum Teil ebenfalls ehrenamtlich betriebene
+Dienste (OpenStreetMap.de, OSM-FR, OpenTopoMap). Sie sind in der Kartenauswahl
+als **ehrenamtlich** gekennzeichnet, mit derselben Begründung: ein solcher
+Dienst wird unter Last nicht langsamer, er sperrt. Deshalb steht die
+Voreinstellung auf der amtlichen Karte.
 
 **Overlays**, nach Thema gruppiert:
 
@@ -787,7 +808,7 @@ installer/test-installer.ps1        installiert und deinstalliert es wirklich
 
 tools/make-icon.py                  erzeugt das Anwendungssymbol reproduzierbar
 
-tests/ElwMeteo.Core.Tests/          xUnit — 602 Tests (Fachlogik und Ansichtsmodelle)
+tests/ElwMeteo.Core.Tests/          xUnit — 665 Tests (Fachlogik und Ansichtsmodelle)
 tests/ElwMeteo.Desktop.Tests/       Avalonia-Rauchtests, kopflos — 12 Tests
 ```
 
@@ -820,7 +841,8 @@ veröffentlichte Almanachwerte für Frankfurt am Main geprüft.
 | Stationsmesswerte, DWD-Warnungen (CAP), RADOLAN am Punkt | [Bright Sky](https://brightsky.dev) | freier JSON-Zugang zu DWD Open Data, ohne Schlüssel |
 | Luftbild und Reliefschummerung | Esri / ArcGIS Online | kostenfrei mit Quellenangabe |
 | Radarkacheln (optional) | OpenWeatherMap | benötigt einen eigenen kostenlosen Schlüssel |
-| Kartengrundlage | OpenStreetMap, OpenTopoMap | ODbL bzw. CC BY-SA |
+| Kartengrundlage (Voreinstellung) | [basemap.de / BKG](https://basemap.de) | amtliche Daten, Datenlizenz Deutschland — für die Nutzung in Anwendungen vorgesehen |
+| Weitere Kartenstile | OpenStreetMap.de, OSM-FR, OpenTopoMap | Kartendaten ODbL bzw. Darstellung CC BY-SA; **ehrenamtlich betriebene Dienste**, in der Auswahl entsprechend gekennzeichnet |
 | Adressauflösung | Nominatim | Nutzungsrichtlinie, identifizierender User-Agent gesetzt |
 | Eingebettete Radarseiten | RainViewer, Windy, Ventusky, Kachelmannwetter, DWD, NINA, Blitzortung, metradar, meteoblue | öffentliche Seiten, als gewöhnlicher Seitenaufruf geöffnet — Marke, Quellenangabe und Nutzungsbedingungen des Anbieters bleiben sichtbar |
 | Position vom Betriebssystem | Windows-Standortdienst (`Windows.Devices.Geolocation`) | nur die Windows-Ausgabe, Freigabe wird beim Start erfragt, abschaltbar |

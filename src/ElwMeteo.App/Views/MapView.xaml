@@ -239,9 +239,21 @@
                         <ListBox.ItemTemplate>
                             <DataTemplate>
                                 <StackPanel>
-                                    <TextBlock Text="{Binding Title}"
-                                               Style="{StaticResource BodyText}"
-                                               FontWeight="SemiBold" FontSize="12.5" />
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{Binding Title}"
+                                                   Style="{StaticResource BodyText}"
+                                                   FontWeight="SemiBold" FontSize="12.5" />
+                                        <!-- Ehrenamtlich betriebener Dienst: wird nicht
+                                             langsamer, sondern sperrt. Wer das wählt,
+                                             soll sehen, was er wählt. -->
+                                        <TextBlock Text="ehrenamtlich"
+                                                   Style="{StaticResource LabelText}"
+                                                   FontWeight="Normal" FontSize="10"
+                                                   VerticalAlignment="Center"
+                                                   Margin="6,0,0,0"
+                                                   Visibility="{Binding IsCommunityService,
+                                                                Converter={StaticResource BoolToVisibility}}" />
+                                    </StackPanel>
                                     <TextBlock Text="{Binding Description}"
                                                Style="{StaticResource LabelText}"
                                                FontWeight="Normal"

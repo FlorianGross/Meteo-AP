@@ -39,8 +39,9 @@ public sealed class ConnectivityCheck(HttpClient httpClient)
             "https://maps.dwd.de/geoserver/dwd/wms?service=WMS&version=1.3.0&request=GetCapabilities"),
         ("RainViewer (Radarbilder)",
             "https://api.rainviewer.com/public/weather-maps.json"),
-        ("OpenStreetMap (Kartenkacheln)",
-            "https://tile.openstreetmap.org/8/134/86.png"),
+        // No probe against tile.openstreetmap.org: the application does not use
+        // that service any more, and a diagnostics page is no reason to send a
+        // request to a server whose policy we are honouring by staying away.
         ("basemap.de (amtliche Karte)",
             "https://sgx.geodatenzentrum.de/wmts_basemapde/tile/1.0.0/de_basemapde_web_raster_farbe/default/GLOBAL_WEBMERCATOR/8/86/134.png"),
         ("Nominatim (Adressauflösung)",

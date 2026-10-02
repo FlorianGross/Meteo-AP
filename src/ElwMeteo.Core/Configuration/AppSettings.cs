@@ -75,7 +75,12 @@ public sealed class AppSettings
 
     public bool ShowHazardCone { get; set; } = true;
 
-    public string SelectedBaseLayerId { get; set; } = "osm";
+    /// <summary>
+    /// Id from <see cref="Maps.MapLayerCatalog"/>. Read through
+    /// <c>MapLayerCatalog.ResolveBaseLayerId</c> rather than directly: a settings
+    /// file written by an older version can name a layer that no longer exists.
+    /// </summary>
+    public string SelectedBaseLayerId { get; set; } = Maps.MapLayerCatalog.DefaultBaseLayerId;
 
     public List<string> EnabledOverlayIds { get; set; } = ["dwd-warnungen"];
 
