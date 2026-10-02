@@ -96,6 +96,9 @@ public partial class App : global::Avalonia.Application
         var cache = new SnapshotCache();
         var reports = new ReportPrinter(shell);
 
+        var screenService = new AvaloniaScreenService();
+        var autostart = new SystemAutostartService();
+
         _mainViewModel = new MainViewModel(
             new ClockViewModel(timers),
             new DashboardViewModel(weather, warnings, geocoding, locationResolver, csvLogger, brightSky, settings, clipboard, cache, reports),
@@ -103,19 +106,26 @@ public partial class App : global::Avalonia.Application
             new WebRadarViewModel(_settingsStore, shell),
             new TrendViewModel(),
             new DiagnosticsViewModel(_requestLog, connectivity, capabilities, dispatcher, clipboard),
-            new SettingsViewModel(_settingsStore, _gps, geocoding, shell, nina, systemLocation),
+            new SettingsViewModel(_settingsStore, _gps, geocoding, shell, nina, systemLocation, autostart, screenService),
             new UpdateViewModel(updates, _settingsStore, shell, updateDownloader),
             settings,
             _gps,
             timers,
             dispatcher,
-            alert);
+            alert,
+            screenService);
 
         // The swap script waits for this process; shutting down is what
         // releases it.
         _mainViewModel.Update.RestartRequested += () => desktop.Shutdown();
 
-        desktop.MainWindow = new MainWindow { DataContext = _mainViewModel };
+        var window = new MainWindow { DataContext = _mainViewModel };
+        screenService.Attach(window);
+        desktop.MainWindow = window;
+
+        // Placement once the window actually has a handle: before Opened there
+        // is no screen list to choose from and no position to set.
+        window.Opened += (_, _) => _mainViewModel.ApplyWindowPlacement();
         desktop.ShutdownRequested += (_, _) => Shutdown();
 
         _settingsFlushTimer = timers.Create(TimeSpan.FromSeconds(2), () => _settingsStore.Flush());

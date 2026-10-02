@@ -147,6 +147,66 @@
 
                 <CheckBox Content="Immer im Vordergrund" IsChecked="{Binding AlwaysOnTop}" Margin="0,16,0,0" />
 
+                <!-- ============================================ fahrzeugbetrieb -->
+                <TextBlock Text="FAHRZEUGBETRIEB" Classes="section" Margin="0,18,0,0" />
+
+                <TextBlock Classes="label" FontWeight="Normal" TextWrapping="Wrap"
+                           Text="Für einen Bildschirm, der im Fahrzeug mitläuft und nicht bedient wird: selbst starten, Vollbild, fester Bildschirm und ein Rundlauf durch die Ansichten. Vollbild lässt sich jederzeit mit F11 oder Esc verlassen, der Rundlauf mit F9." />
+
+                <CheckBox Content="Mit der Anmeldung starten"
+                          IsChecked="{Binding AutostartEnabled}"
+                          IsEnabled="{Binding AutostartSupported}" Margin="0,10,0,0" />
+                <TextBlock Text="{Binding AutostartLocation}" Classes="label mono" FontWeight="Normal"
+                           FontSize="10" TextWrapping="Wrap" Margin="24,0,0,0" />
+
+                <CheckBox Content="Im Vollbild starten" IsChecked="{Binding StartFullScreen}" Margin="0,8,0,0" />
+
+                <TextBlock Text="BILDSCHIRM" Classes="label" Margin="0,12,0,3" />
+                <Grid ColumnDefinitions="*,Auto">
+                    <ComboBox Grid.Column="0" HorizontalAlignment="Stretch"
+                              ItemsSource="{Binding AvailableScreens}"
+                              SelectedValue="{Binding PreferredScreenId}"
+                              SelectedValueBinding="{Binding Id}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Display}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <Button Grid.Column="1" Content="Neu einlesen" Margin="6,0,0,0"
+                            Command="{Binding RefreshScreensCommand}" />
+                </Grid>
+                <TextBlock Text="{Binding ScreenNotice}" Classes="label" FontWeight="Normal"
+                           TextWrapping="Wrap" Margin="0,4,0,0"
+                           IsVisible="{Binding ScreenNotice, Converter={x:Static local:Converters.StringNotEmpty}}" />
+
+                <CheckBox Content="Rundlauf durch die Ansichten"
+                          IsChecked="{Binding CarouselEnabled}" Margin="0,12,0,0" />
+
+                <Grid ColumnDefinitions="*,*" Margin="24,6,0,0">
+                    <StackPanel Grid.Column="0" Margin="0,0,6,0">
+                        <TextBlock Text="WECHSEL ALLE (S)" Classes="label" />
+                        <NumericUpDown Value="{Binding CarouselIntervalSeconds}"
+                                       Minimum="5" Maximum="3600" Increment="5" FormatString="0" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="1">
+                        <TextBlock Text="RUHE NACH BEDIENUNG (S)" Classes="label" />
+                        <NumericUpDown Value="{Binding CarouselIdleGraceSeconds}"
+                                       Minimum="5" Maximum="3600" Increment="10" FormatString="0" />
+                    </StackPanel>
+                </Grid>
+
+                <TextBlock Text="ANSICHTEN IM RUNDLAUF" Classes="label" Margin="24,10,0,3" />
+                <ItemsControl ItemsSource="{Binding CarouselStations}" Margin="24,0,0,0">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <CheckBox Content="{Binding Title}" IsChecked="{Binding IsIncluded}" FontSize="12" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <TextBlock Classes="label" FontWeight="Normal" TextWrapping="Wrap" Margin="24,4,0,0"
+                           Text="Diagnose und Einstellungen stehen bewusst nicht zur Wahl — ein Bildschirm, der sich unbeaufsichtigt auf der Einstellungsseite abstellt, zeigt jedem Vorbeigehenden die Schlüssel und Schnittstellen." />
+
                 <Button Content="Übernehmen" Command="{Binding ApplyCommand}"
                         HorizontalAlignment="Stretch" Margin="0,16,0,0" Padding="14,9" />
                 <TextBlock Text="{Binding StatusMessage}" Classes="body accent" TextWrapping="Wrap" Margin="0,8,0,0"
