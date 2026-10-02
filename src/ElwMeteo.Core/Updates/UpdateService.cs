@@ -20,9 +20,13 @@ public sealed record UpdateCheckResult(
     AppVersion Current,
     ReleaseInfo? Release,
     ReleaseAsset? Asset,
-    string Message)
+    string Message,
+    UpdateRoute Route = UpdateRoute.FolderSwap)
 {
-    public bool CanInstall => Availability == UpdateAvailability.Available && Asset is not null;
+    public bool CanInstall =>
+        Availability == UpdateAvailability.Available &&
+        Asset is not null &&
+        Route != UpdateRoute.ReleasePageOnly;
 }
 
 /// <summary>
@@ -36,8 +40,26 @@ public sealed record UpdateCheckResult(
 public sealed class UpdateService(
     GitHubReleaseProvider releases,
     UpdateDownloader downloader,
-    UpdateInstaller installer)
+    UpdateInstaller installer,
+    Func<IReadOnlyList<InstalledProduct>>? installedProducts = null)
 {
+    /// <summary>
+    /// The folder the running copy lives in. One place, because the update and
+    /// the origin detection have to be talking about the same directory — asking
+    /// twice is how they end up disagreeing.
+    /// </summary>
+    public static string InstallDirectory =>
+        AppContext.BaseDirectory.TrimEnd(
+            Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+    /// <summary>
+    /// Whether Windows Installer owns the installation folder. Read on each call
+    /// rather than cached: the answer changes the moment somebody installs the
+    /// MSI over a copy that was unpacked from a ZIP.
+    /// </summary>
+    public InstallOrigin Origin =>
+        InstallOriginDetector.Detect(installedProducts?.Invoke(), InstallDirectory);
+
     /// <summary>
     /// The running version, read from the assembly. Release builds get it from
     /// the workflow's -p:Version; a local build reports 1.0.0, which is why a
@@ -86,17 +108,35 @@ public sealed class UpdateService(
             }
 
             UpdatePlatform platform = UpdatePackageSelector.CurrentPlatform;
-            ReleaseAsset? asset = UpdatePackageSelector.Select(release, platform);
+            UpdateRoute route = UpdateRouting.Choose(Origin, release);
+
+            if (route == UpdateRoute.ReleasePageOnly)
+            {
+                // An MSI installation and a release without an MSI. The folder
+                // swap would work mechanically and leave Windows Installer
+                // describing something that is no longer there, so it is not
+                // offered — see InstallOriginDetector for what that costs.
+                return new UpdateCheckResult(UpdateAvailability.NoPackageForPlatform, current, release, null,
+                    $"Version {release.Version} ist verfügbar, diese Freigabe enthält aber kein " +
+                    "MSI-Paket. Die Freigabeseite führt auf, was es gibt.",
+                    route);
+            }
+
+            ReleaseAsset? asset = route == UpdateRoute.WindowsInstallerPackage
+                ? UpdatePackageSelector.SelectInstaller(release)
+                : UpdatePackageSelector.Select(release, platform);
 
             if (asset is null)
             {
                 return new UpdateCheckResult(UpdateAvailability.NoPackageForPlatform, current, release, null,
                     $"Version {release.Version} ist verfügbar, enthält aber kein Paket für " +
-                    $"{UpdatePackageSelector.Describe(platform)}. Die Freigabeseite führt auf, was es gibt.");
+                    $"{UpdatePackageSelector.Describe(platform)}. Die Freigabeseite führt auf, was es gibt.",
+                    route);
             }
 
             return new UpdateCheckResult(UpdateAvailability.Available, current, release, asset,
-                $"Version {release.Version} ist verfügbar — installiert ist {current}.");
+                $"Version {release.Version} ist verfügbar — installiert ist {current}.",
+                route);
         }
         catch (UpdateCheckException ex)
         {
@@ -128,8 +168,7 @@ public sealed class UpdateService(
     /// <summary>Unpacks and checks the package, still without touching the installation.</summary>
     public StagedUpdate Stage(string archivePath, AppVersion version)
     {
-        string installDirectory = AppContext.BaseDirectory
-            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        string installDirectory = InstallDirectory;
 
         InstallLocation location = InstallLocation.Inspect(installDirectory);
 
@@ -148,6 +187,32 @@ public sealed class UpdateService(
     /// </summary>
     public void Apply(StagedUpdate staged) =>
         installer.Apply(staged, WorkingDirectory, Environment.ProcessId);
+
+    /// <summary>
+    /// Hands a downloaded MSI to Windows Installer once this process is gone.
+    /// Nothing in the installation folder is touched here — that is the whole
+    /// difference from <see cref="Apply"/>.
+    /// </summary>
+    public void ApplyInstallerPackage(string packagePath, AppVersion version)
+    {
+        if (!File.Exists(packagePath))
+        {
+            throw new UpdateInstallException(
+                "Das heruntergeladene MSI-Paket ist nicht mehr da.");
+        }
+
+        if (!packagePath.EndsWith(".msi", StringComparison.OrdinalIgnoreCase))
+        {
+            // The route and the downloaded file have to agree. If they do not,
+            // something handed msiexec a ZIP, and refusing beats finding out
+            // what it does with it.
+            throw new UpdateInstallException(
+                "Die heruntergeladene Datei ist kein MSI-Paket — es wird nichts eingespielt.");
+        }
+
+        installer.ApplyInstallerPackage(
+            packagePath, InstallDirectory, version, WorkingDirectory, Environment.ProcessId);
+    }
 
     /// <summary>Whether a check should run by itself right now.</summary>
     public static bool ShouldCheckAutomatically(AppSettings settings, DateTimeOffset now)

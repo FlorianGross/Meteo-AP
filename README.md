@@ -530,7 +530,46 @@ herunterlädt und neu startet, tut das irgendwann in dem Moment, in dem jemand
 eine Windrichtung von ihr abliest. Das ist schlimmer als eine veraltete
 Version.
 
-**Wie der Austausch abläuft.** Ein laufendes Programm kann seine eigenen
+**Zwei Wege, und die Anwendung weiß, welcher ihrer ist.** Das ist der Punkt, an
+dem sich MSI-Paket und Selbstaktualisierung in die Quere kommen können, und
+zwar lautlos. Das MSI-Paket installiert in einen Ordner und trägt ihn in die
+Deinstallationsliste von Windows ein; ein Ordnertausch würde genau diesen Ordner
+hinter dem Rücken von Windows Installer ersetzen. Es funktioniert — und dann:
+
+* „Programme und Features" zeigt weiter die Version von vor der Aktualisierung
+* eine Reparatur (`msiexec /f`) kopiert die alten Dateien über die neuen
+* beim Deinstallieren bleibt stehen, was das Paket nicht kennt, einschließlich
+  des `…​.vor-<Version>`-Ordners, den der Tausch als Sicherheitsnetz anlegt
+* das nächste MSI-Update installiert über einen Ordner, dessen Inhalt es nicht
+  erklären kann
+
+Nichts davon fällt in dem Moment auf, in dem es verursacht wird. Deshalb sieht
+die Anwendung vor jeder Aktualisierung nach, ob der Ordner, aus dem sie läuft, in
+der Deinstallationsliste steht:
+
+| Installation | Weg | Was passiert |
+|---|---|---|
+| entpacktes ZIP | Ordnertausch | wie unten beschrieben |
+| MSI-Paket | neues MSI | die Anwendung beendet sich, `msiexec` führt die Aktualisierung durch und startet sie neu — Verzeichnis und Deinstallationseintrag bleiben einig |
+| MSI-Paket, Freigabe ohne MSI | keiner | es wird **nichts** eingespielt, nur die Freigabeseite angeboten |
+
+Der letzte Fall ist bewusst so. Ein Ordnertausch wäre dort mechanisch möglich,
+und das ist genau das Problem: eine Aktualisierung, die nicht stattfindet, ist
+ein Ärgernis — eine Installation, die Windows Installer nicht mehr erklären
+kann, ist ein Rechner, den jemand von Hand auseinandernehmen muss.
+
+Erkannt wird über den **Ordner**, nicht über den Produktnamen: der Name ist eine
+Anzeigezeichenkette, die eine Umbenennung oder eine Übersetzung ändern kann, der
+Ordner ist das, was ein Tausch tatsächlich beschädigen würde. Gesucht wird in
+allen vier Zweigen der Deinstallationsliste (`HKCU`, `HKLM`, jeweils auch
+`WOW6432Node`) — in welchem ein Eintrag landet, hängt davon ab, wie installiert
+wurde, und an einer Stelle zu suchen wäre eine Annahme, keine Prüfung.
+
+Welcher Weg genommen wird, steht **vor** dem Herunterladen in der
+Aktualisierungsansicht. Wer einen Ordnertausch erwartet, soll das dort erfahren
+und nicht hinterher in „Programme und Features".
+
+**Wie der Austausch abläuft** (Weg 1, entpacktes ZIP). Ein laufendes Programm kann seine eigenen
 Dateien nicht ersetzen — unter Windows ist die `.exe` gesperrt. Deshalb
 schreibt die Anwendung ein kleines Skript und beendet sich. Das Skript
 wartet auf das Ende des Prozesses (höchstens 60 Sekunden, danach bricht es
@@ -544,6 +583,26 @@ Gelöscht wird nichts: die vorige Version bleibt als Nachbarordner
 der eine Ausgang, der wirklich weh tut — vermischte Programmteile aus zwei
 Versionen scheitern beim Laden und sehen aus wie ein kaputter Rechner, nicht
 wie eine fehlgeschlagene Aktualisierung.
+
+**Wie das MSI-Update abläuft** (Weg 2). Dasselbe Warten auf das Ende des
+Prozesses, aus demselben Grund — die `.exe` ist gesperrt, und `msiexec` würde
+sonst auf eine Datei-in-Benutzung-Abfrage laufen, vor der niemand steht.
+Danach übernimmt Windows Installer die Aktualisierung selbst; das Skript
+benennt, verschiebt und löscht **nichts**, denn sonst wäre genau die
+Unstimmigkeit zurück, derer wegen dieser Weg existiert.
+
+`msiexec` läuft mit `/passive`, nicht mit `/qn`: eine Fortschrittsanzeige, aber
+keine Klicks. Etwas, das die Anwendung auf einem Fahrzeugbildschirm ohne jedes
+Anzeichen ersetzt, ist der Weg, auf dem jemand einen Absturz meldet — und eine
+stille Installation, die auf ein Problem läuft, hinterlässt überhaupt nichts auf
+dem Bildschirm. Das ausführliche Installationsprotokoll liegt in
+`%APPDATA%/ELW-Meteo/Update/apply-update.msi.log`.
+
+Rückmeldung 3010 von `msiexec` heißt „erfolgreich, Neustart des Rechners
+empfohlen" und wird nicht als Fehler behandelt. Scheitert die Aktualisierung
+wirklich, ist die alte Installation unangetastet und wird wieder gestartet —
+jemanden ganz ohne Anwendung zurückzulassen wäre ein selbstverschuldeter
+Ausfall.
 
 **Grenzen, offen gesagt.** Liegt die Anwendung in einem schreibgeschützten
 Ordner — typisch unter `C:\Programme` — verweigert sie den Austausch und sagt
@@ -804,7 +863,7 @@ installer/test-installer.ps1        installiert und deinstalliert es wirklich
 
 tools/make-icon.py                  erzeugt das Anwendungssymbol reproduzierbar
 
-tests/ElwMeteo.Core.Tests/          xUnit — 654 Tests (Fachlogik und Ansichtsmodelle)
+tests/ElwMeteo.Core.Tests/          xUnit — 680 Tests (Fachlogik und Ansichtsmodelle)
 tests/ElwMeteo.Desktop.Tests/       Avalonia-Rauchtests, kopflos — 12 Tests
 ```
 

@@ -233,6 +233,13 @@
                     <TextBlock Text="{Binding CurrentVersionLabel}" Classes="body" FontWeight="SemiBold" />
                     <TextBlock Text="{Binding PlatformLabel}" Classes="label" FontWeight="Normal" />
 
+                    <!-- Vor dem Herunterladen, nicht danach: wer einen Ordnertausch
+                         erwartet, soll das hier erfahren und nicht hinterher in
+                         „Programme und Features“. -->
+                    <TextBlock Text="{Binding RouteNote}" Classes="label" FontWeight="Normal"
+                               TextWrapping="Wrap" Margin="0,8,0,0"
+                               IsVisible="{Binding RouteNote, Converter={x:Static local:Converters.StringNotEmpty}}" />
+
                     <CheckBox Content="Täglich nach einer neuen Freigabe sehen"
                               IsChecked="{Binding UpdateCheckEnabled}" Margin="0,10,0,0" />
                     <CheckBox Content="Auch Vorabversionen anbieten"
@@ -280,6 +287,13 @@
                             <Button Content="Diese Version überspringen"
                                     Command="{Binding SkipVersionCommand}" />
                         </StackPanel>
+
+                        <!-- MSI-Installation, Freigabe ohne MSI: hier gibt es
+                             nichts einzuspielen, nur etwas zu holen. -->
+                        <Button Content="Freigabeseite öffnen"
+                                Command="{Binding OpenReleasePageCommand}"
+                                HorizontalAlignment="Left" Margin="0,8,0,0"
+                                IsVisible="{Binding NeedsManualDownload}" />
 
                         <!-- Der einzige Schritt, der die Installation anfasst. -->
                         <Border Background="#332ECC71" CornerRadius="4" Padding="11" Margin="0,12,0,0"

@@ -87,8 +87,16 @@ public partial class App : Application
         var locationResolver = new LocationResolver(settings, _gps, ipLocation, systemLocation);
 
         var updateDownloader = new UpdateDownloader(_httpClient);
+        // Reads the uninstall registry on Windows and answers "nothing" elsewhere.
+        // It decides whether an update may swap the folder or has to go through a
+        // new MSI — see InstallOriginDetector for why that distinction matters.
+        IInstalledProductRegistry installedProducts = OperatingSystem.IsWindows()
+            ? new WindowsInstalledProductRegistry()
+            : new NoInstalledProductRegistry();
+
         var updates = new UpdateService(
-            new GitHubReleaseProvider(_httpClient), updateDownloader, new UpdateInstaller());
+            new GitHubReleaseProvider(_httpClient), updateDownloader, new UpdateInstaller(),
+            installedProducts.List);
 
         // The view models live in a platform-neutral project; these are the WPF
         // answers to the few things they cannot decide for themselves.

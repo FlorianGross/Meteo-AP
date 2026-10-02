@@ -127,6 +127,18 @@ public static class UpdatePackageSelector
         return null;
     }
 
+    /// <summary>
+    /// The MSI package of a release, or null when it carries none.
+    ///
+    /// Not routed through <see cref="Patterns"/>: there is exactly one installer
+    /// and it is Windows-only by construction, so the extension is the whole
+    /// test. The name pattern of the ZIPs is a workflow convention; <c>.msi</c>
+    /// is a fact about the file.
+    /// </summary>
+    public static ReleaseAsset? SelectInstaller(ReleaseInfo release) =>
+        release.Assets.FirstOrDefault(a =>
+            a.Name.EndsWith(".msi", StringComparison.OrdinalIgnoreCase));
+
     public static string Describe(UpdatePlatform platform) => platform switch
     {
         UpdatePlatform.WindowsX64 => "Windows (x64)",
