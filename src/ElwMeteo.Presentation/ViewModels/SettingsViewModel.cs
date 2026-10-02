@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ElwMeteo.Presentation.Services;
 using ElwMeteo.Core.Configuration;
+using ElwMeteo.Core.Kiosk;
 using ElwMeteo.Presentation.Platform;
 using ElwMeteo.Core.Services;
 
@@ -21,6 +22,8 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     private readonly NinaWarningProvider? _nina;
     private readonly ISystemLocationProvider? _systemLocation;
+    private readonly IAutostartService _autostart;
+    private readonly IScreenService _screenService;
     private IReadOnlyList<NinaRegion> _ninaRegions = [];
 
     public SettingsViewModel(
@@ -29,8 +32,13 @@ public sealed partial class SettingsViewModel : ObservableObject
         GeocodingService geocoding,
         IShellLauncher shell,
         NinaWarningProvider? nina = null,
-        ISystemLocationProvider? systemLocation = null)
+        ISystemLocationProvider? systemLocation = null,
+        IAutostartService? autostart = null,
+        IScreenService? screens = null)
     {
+        _autostart = autostart ?? new UnsupportedAutostartService(
+            "Automatischer Start ist in dieser Umgebung nicht verfügbar.");
+        _screenService = screens ?? new NoScreenService();
         _shell = shell;
         _nina = nina;
         _systemLocation = systemLocation;
@@ -63,13 +71,100 @@ public sealed partial class SettingsViewModel : ObservableObject
         _blockWebTrackers = settings.BlockWebTrackers;
         _systemLocationStatus = systemLocation?.StatusText ?? "Nicht verfügbar.";
 
+        _startFullScreen = settings.StartFullScreen;
+        _carouselEnabled = settings.CarouselEnabled;
+        _carouselIntervalSeconds = settings.CarouselIntervalSeconds;
+        _carouselIdleGraceSeconds = settings.CarouselIdleGraceSeconds;
+        _preferredScreenId = settings.PreferredScreenId;
+
+        // Read back rather than trusting the settings file: somebody may have
+        // removed the entry with msconfig or a cleanup tool, and the checkbox has
+        // to say what is actually registered.
+        _autostartEnabled = _autostart.IsEnabled();
+        _autostartLocation = _autostart.Describe();
+
+        IReadOnlyList<KioskStation> rotation = settings.ResolveCarouselStations();
+
+        foreach (KioskStation station in KioskStationCatalog.All)
+        {
+            CarouselStations.Add(new KioskStationOption(station)
+            {
+                IsIncluded = rotation.Any(s => s.Id == station.Id)
+            });
+        }
+
         RefreshPorts();
+        RefreshScreens();
     }
 
-    // ---------------------------------------------------------- web filter
+    // ------------------------------------------------- vehicle / kiosk mode
+
+    /// <summary>Whether this build can register an autostart entry at all.</summary>
+    public bool AutostartSupported => _autostart.IsSupported;
 
     [ObservableProperty]
-    private bool _blockWebTrackers;
+    private bool _autostartEnabled;
+
+    /// <summary>Registry path or file the entry goes to, shown so it can be checked.</summary>
+    [ObservableProperty]
+    private string _autostartLocation = string.Empty;
+
+    [ObservableProperty]
+    private bool _startFullScreen;
+
+    [ObservableProperty]
+    private bool _carouselEnabled;
+
+    [ObservableProperty]
+    private int _carouselIntervalSeconds;
+
+    [ObservableProperty]
+    private int _carouselIdleGraceSeconds;
+
+    /// <summary>Output name of the chosen display; empty means the primary one.</summary>
+    [ObservableProperty]
+    private string _preferredScreenId = string.Empty;
+
+    /// <summary>The displays to pick from. The first entry is "primary", id empty.</summary>
+    public ObservableCollection<ScreenInfo> AvailableScreens { get; } = [];
+
+    /// <summary>Every station the rotation can include, with its checkbox state.</summary>
+    public ObservableCollection<KioskStationOption> CarouselStations { get; } = [];
+
+    /// <summary>
+    /// Re-reads the attached displays. Bound to a button rather than done
+    /// continuously: a vehicle gets a monitor plugged in while the application is
+    /// already running, and the settings page should pick that up without a
+    /// restart.
+    /// </summary>
+    [RelayCommand]
+    private void RefreshScreens()
+    {
+        string previous = PreferredScreenId;
+
+        AvailableScreens.Clear();
+
+        // Sentinel for "whatever the system calls primary", so the common case
+        // needs no knowledge of connector names.
+        AvailableScreens.Add(new ScreenInfo(
+            string.Empty, "Hauptbildschirm (automatisch)", 0, 0, 0, 0, true));
+
+        foreach (ScreenInfo screen in _screenService.List())
+        {
+            AvailableScreens.Add(screen);
+        }
+
+        // Keep a configured display selected even when it is not connected right
+        // now, so opening the settings page does not quietly reset the choice.
+        PreferredScreenId = previous;
+
+        ScreenNotice = ScreenChoice.IsPreferenceMissing(_screenService.List(), previous)
+            ? $"Bildschirm „{previous}“ ist derzeit nicht angeschlossen."
+            : string.Empty;
+    }
+
+    [ObservableProperty]
+    private string _screenNotice = string.Empty;
 
     // ------------------------------------------------------ system location
 
@@ -448,7 +543,17 @@ public sealed partial class SettingsViewModel : ObservableObject
         _settings.NinaArs = NinaArs.Trim();
         _settings.NinaRegionName = NinaRegionName.Trim();
         _settings.UseSystemLocation = UseSystemLocation;
-        _settings.BlockWebTrackers = BlockWebTrackers;
+        _settings.StartFullScreen = StartFullScreen;
+        _settings.PreferredScreenId = PreferredScreenId?.Trim() ?? string.Empty;
+        _settings.CarouselEnabled = CarouselEnabled;
+        _settings.CarouselIntervalSeconds =
+            (int)TabCarousel.ClampInterval(CarouselIntervalSeconds).TotalSeconds;
+        _settings.CarouselIdleGraceSeconds =
+            (int)TabCarousel.ClampIdleGrace(CarouselIdleGraceSeconds).TotalSeconds;
+        _settings.CarouselStationIds =
+            [.. CarouselStations.Where(o => o.IsIncluded).Select(o => o.Station.Id)];
+
+        ApplyAutostart();
 
         if (_nina is not null)
         {
@@ -481,6 +586,35 @@ public sealed partial class SettingsViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Writes or removes the autostart entry to match the checkbox, and reports
+    /// a refusal in the status line instead of throwing. The checkbox is then set
+    /// back to what is actually registered — a tick that stayed on after the
+    /// write failed would be a lie the operator only finds out about after the
+    /// next reboot, which is to say at the next incident.
+    /// </summary>
+    private void ApplyAutostart()
+    {
+        if (!_autostart.IsSupported)
+        {
+            return;
+        }
+
+        if (AutostartEnabled == _autostart.IsEnabled())
+        {
+            return;
+        }
+
+        if (!_autostart.TrySet(AutostartEnabled, out string? error))
+        {
+            StatusMessage = $"Automatischer Start konnte nicht gesetzt werden: {error}";
+            AutostartEnabled = _autostart.IsEnabled();
+            return;
+        }
+
+        _settings.AutostartEnabled = AutostartEnabled;
+    }
+
     private void Save()
     {
         // Writes everything pending from the other tabs along with it — one
@@ -495,4 +629,19 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     /// <summary>Wired to <see cref="GpsSerialService.StatusChanged"/> by the shell.</summary>
     public void ReportGpsStatus(string status) => GpsStatus = status;
+}
+
+/// <summary>
+/// A rotation station with its checkbox state, so the settings page can bind to
+/// something that notifies. The station itself is an immutable record from the
+/// domain library; this is only the selection on top of it.
+/// </summary>
+public sealed partial class KioskStationOption(ElwMeteo.Core.Kiosk.KioskStation station) : ObservableObject
+{
+    public ElwMeteo.Core.Kiosk.KioskStation Station { get; } = station;
+
+    public string Title => Station.Title;
+
+    [ObservableProperty]
+    private bool _isIncluded;
 }

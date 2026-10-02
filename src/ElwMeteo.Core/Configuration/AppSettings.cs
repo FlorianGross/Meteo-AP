@@ -209,6 +209,43 @@ public sealed class AppSettings
     /// <summary>Extra scaling for the whole UI, for readability at arm's length.</summary>
     public double UiScale { get; set; } = 1.0;
 
+    // ------------------------------------------------- vehicle / kiosk mode
+
+    /// <summary>
+    /// Register the application to start with the session. Off by default:
+    /// something that puts itself in the autostart without being asked is a
+    /// thing people uninstall.
+    /// </summary>
+    public bool AutostartEnabled { get; set; }
+
+    /// <summary>Open maximised and without window decoration.</summary>
+    public bool StartFullScreen { get; set; }
+
+    /// <summary>
+    /// Display the window is moved to at startup, by output name — not by index,
+    /// which changes between reboots. Empty uses whichever the system calls the
+    /// primary one.
+    /// </summary>
+    public string PreferredScreenId { get; set; } = string.Empty;
+
+    /// <summary>Rotate through the configured views while nobody is operating the app.</summary>
+    public bool CarouselEnabled { get; set; }
+
+    /// <summary>Seconds each view is shown.</summary>
+    public int CarouselIntervalSeconds { get; set; } = 30;
+
+    /// <summary>
+    /// Seconds of quiet after an interaction before the rotation resumes. Long
+    /// enough to click through a few tabs by hand without being interrupted.
+    /// </summary>
+    public int CarouselIdleGraceSeconds { get; set; } = 60;
+
+    /// <summary>
+    /// Ids from <see cref="Kiosk.KioskStationCatalog"/>, in rotation order.
+    /// Empty falls back to the default rotation.
+    /// </summary>
+    public List<string> CarouselStationIds { get; set; } = [];
+
     // ------------------------------------------------------------------ I/O
 
     private static readonly JsonSerializerOptions SerializerOptions = new()
@@ -259,6 +296,20 @@ public sealed class AppSettings
         }
 
         File.WriteAllText(path, JsonSerializer.Serialize(this, SerializerOptions));
+    }
+
+    /// <summary>
+    /// The rotation as stations, resolving the empty default and dropping ids
+    /// that no longer exist.
+    /// </summary>
+    public IReadOnlyList<Kiosk.KioskStation> ResolveCarouselStations()
+    {
+        IReadOnlyList<Kiosk.KioskStation> configured =
+            Kiosk.KioskStationCatalog.Resolve(CarouselStationIds);
+
+        return configured.Count > 0
+            ? configured
+            : Kiosk.KioskStationCatalog.Resolve(Kiosk.KioskStationCatalog.DefaultRotation);
     }
 
     /// <summary>Directory the CSV log is written to, resolving the empty default.</summary>

@@ -84,3 +84,44 @@ public class ViewSmokeTests
         Assert.All(tabs.Items, item => Assert.NotNull(((TabItem)item!).Content));
     }
 }
+
+/// <summary>
+/// The rotation addresses tabs by index, and the indices live in the domain
+/// library while the tabs live in the XAML. Nothing in the compiler connects the
+/// two: inserting a tab one day would silently point "Karten &amp; Radar" at the
+/// diagnostics page, and the only symptom would be a vehicle screen rotating to
+/// the wrong view. So the agreement is asserted against the real window.
+/// </summary>
+public class KioskStationMappingTests
+{
+    [AvaloniaFact]
+    public void EveryStationPointsAtTheTabItSays()
+    {
+        var window = new MainWindow();
+        var tabs = ((Grid)window.Content!).Children.OfType<TabControl>().Single();
+        List<TabItem> items = [.. tabs.Items.OfType<TabItem>()];
+
+        foreach (ElwMeteo.Core.Kiosk.KioskStation station in ElwMeteo.Core.Kiosk.KioskStationCatalog.All)
+        {
+            Assert.InRange(station.TabIndex, 0, items.Count - 1);
+            Assert.Equal(station.Title, items[station.TabIndex].Header?.ToString());
+        }
+    }
+
+    [AvaloniaFact]
+    public void TheTabsTheRotationMustNotReachAreStillThere()
+    {
+        var window = new MainWindow();
+        var tabs = ((Grid)window.Content!).Children.OfType<TabControl>().Single();
+        string?[] headers = [.. tabs.Items.OfType<TabItem>().Select(i => i.Header?.ToString())];
+
+        // Both remain reachable by hand; they are only kept out of the rotation.
+        Assert.Contains("Diagnose", headers);
+        Assert.Contains("Einstellungen", headers);
+
+        int[] rotatable = [.. ElwMeteo.Core.Kiosk.KioskStationCatalog.All.Select(s => s.TabIndex)];
+
+        Assert.DoesNotContain(Array.IndexOf(headers, "Diagnose"), rotatable);
+        Assert.DoesNotContain(Array.IndexOf(headers, "Einstellungen"), rotatable);
+    }
+}

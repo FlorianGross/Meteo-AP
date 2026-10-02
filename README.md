@@ -411,6 +411,72 @@ gekennzeichnet und auf Stufe 1 gesetzt — sie lösen also keinen Alarm aus. Sie
 zu verstecken wäre am Warntag verwirrend, sie Alarm schlagen zu lassen wäre
 schlimmer.
 
+#### Fahrzeugbetrieb — Autostart, Vollbild, Bildschirm, Rundlauf
+
+Für den Fall, für den die Anwendung eigentlich gedacht ist: ein Bildschirm, der
+im Fahrzeug mitläuft und den die meiste Zeit niemand bedient.
+
+**Mit der Anmeldung starten.** Pro Benutzer, nie maschinenweit — das MSI-Paket
+installiert in das Benutzerprofil, eine maschinenweite Verknüpfung zeigte also
+auf einen Pfad, den ein zweites Konto nicht einmal lesen darf. Es braucht
+dadurch auch keine Administratorrechte: niemand muss vor dem ersten Einsatz
+erst jemanden mit dem lokalen Kennwort suchen. Technisch ist das unter Windows
+der Schlüssel `HKCU\…\CurrentVersion\Run`, unter Linux eine
+`autostart`-Datei nach freedesktop.org, unter macOS ein LaunchAgent. Der Pfad
+steht unter dem Kontrollkästchen, damit man ihn nachsehen kann.
+
+Beim Einschalten wird der Eintrag **zurückgelesen**, nicht aus der
+Einstellungsdatei geglaubt. Wer ihn mit einem Aufräumwerkzeug entfernt hat,
+soll das Häkchen nicht trotzdem gesetzt sehen — und schlägt das Schreiben fehl,
+springt es zurück, statt bis zum nächsten Hochfahren etwas Falsches zu
+behaupten.
+
+**Vollbild und Bildschirm.** Die Anwendung kann im Vollbild starten und auf
+einem festen Bildschirm. Gemerkt wird der **Name des Ausgangs** (`HDMI-1`,
+`DISPLAY2`), nicht „Bildschirm 2“ — die Nummerierung ändert sich zwischen zwei
+Neustarts, die Buchse, in der der Fahrzeugmonitor steckt, nicht. Ist der
+gemerkte Bildschirm nicht angeschlossen, wird der Hauptbildschirm genommen und
+das **gesagt**: ein Fenster an den Koordinaten eines abgezogenen Monitors ist
+eines, das niemand sieht, auf einem Rechner, den niemand ohne Texteditor
+zurückholt.
+
+Unter Windows ist das weniger offensichtlich, als es aussieht. Das Manifest
+erklärt die Anwendung als `PerMonitorV2`, Windows nennt Bildschirmgrenzen
+daraufhin in echten Pixeln, WPF setzt Fensterpositionen aber in
+geräteunabhängigen Einheiten — und der Faktor dazwischen ist pro Monitor ein
+anderer. Statt eine Umrechnung zu raten, die auf dem Entwicklerrechner stimmt,
+wird das Fenster gesetzt und danach **Windows gefragt**, auf welchem Monitor es
+gelandet ist; stimmt es nicht, wird der zweite Kandidat probiert.
+
+Die Bildschirmliste kommt aus `EnumDisplayMonitors` und `GetMonitorInfoW`
+direkt, also denselben Aufrufen, die `System.Windows.Forms.Screen` macht.
+WinForms hätte das Schreiben erspart, aber `UseWindowsForms` zieht
+`System.Drawing` und `System.Windows.Forms` als globale `using`-Direktiven
+herein, und in einem WPF-Projekt werden damit `Point`, `Brush`, `Color`, `Pen`,
+`UserControl` und `Application` in Dateien mehrdeutig, die mit Bildschirmen
+nichts zu tun haben. Vier Deklarationen sind die kleinere Änderung als ein
+zweites Oberflächen-Framework über das ganze Projekt.
+
+**Rundlauf.** Ein Modus, der die Ansichten der Reihe nach durchschaltet —
+Voreinstellung ist Lage, Karte, Uhr im 30-Sekunden-Takt. Welche Ansichten
+mitlaufen und wie lange jede steht, ist einstellbar.
+
+Zwei Dinge daran sind wichtiger als die Rotation selbst. Erstens: wer die
+Anwendung **bedient**, hält sie an. Niemand soll die Windrichtung von der Karte
+ablesen und dabei die Ansicht unter der Hand weggezogen bekommen. Zweitens:
+diese Pause **endet von selbst**, nach einer einstellbaren Ruhezeit
+(Voreinstellung 60 s). Ein Rundlauf, der stehen bleibt, weil ein Ärmel den
+Touchscreen gestreift hat, zeigt den Rest der Schicht eine veraltete Uhr.
+
+**Diagnose und Einstellungen stehen nicht zur Wahl.** Ein Bildschirm, der sich
+unbeaufsichtigt auf der Einstellungsseite abstellt, zeigt jedem Vorbeigehenden
+die Schlüssel und Schnittstellen. Beide Registerkarten bleiben von Hand
+erreichbar.
+
+**Der Notausgang.** `F11` schaltet das Vollbild um, `Esc` verlässt es, `F9`
+schaltet den Rundlauf ein und aus — dazu zwei Knöpfe in der Kopfzeile. Ein
+Kiosk, den niemand anhalten kann, ist einer, den jemand vom Strom nimmt.
+
 ### Wetterbericht drucken
 
 Auf der Registerkarte „Lage & Wetter“ erzeugt **Bericht erstellen und öffnen**
@@ -685,6 +751,8 @@ src/ElwMeteo.Core/     net8.0      — Fachlogik, plattformneutral und testbar
   Persistence/                      letzter Stand für den Start ohne Netz
   Configuration/                    Einstellungen
   Maps/                             Layer-Katalog, Radar- und Webquellen
+  Kiosk/                            Fahrzeugbetrieb: Autostart-Dateiinhalte,
+                                    Bildschirmauswahl, Rundlauflogik
   Updates/                          Versionsvergleich, GitHub-Freigaben,
                                     Paketauswahl, Prüfsumme, Austauschskript
 
@@ -694,7 +762,8 @@ src/ElwMeteo.Presentation/ net8.0  — Ansichtsmodelle, von beiden Oberflächen
                                     Berichtsausgabe
   Charting/                         Diagrammmodell ohne Zeichentypen
   Platform/                         IUiDispatcher, IUiTimer, IClipboardService,
-                                    IShellLauncher, IAlertSignal, UiColour
+                                    IShellLauncher, IAlertSignal, UiColour,
+                                    IAutostartService, IScreenService
 
 src/ElwMeteo.Desktop/  net8.0      — Avalonia-Oberfläche (Linux, macOS, Windows)
   Views/                            dieselben sieben Registerkarten
@@ -718,8 +787,8 @@ installer/test-installer.ps1        installiert und deinstalliert es wirklich
 
 tools/make-icon.py                  erzeugt das Anwendungssymbol reproduzierbar
 
-tests/ElwMeteo.Core.Tests/          xUnit — 601 Tests (Fachlogik und Ansichtsmodelle)
-tests/ElwMeteo.Desktop.Tests/       Avalonia-Rauchtests, kopflos — 10 Tests
+tests/ElwMeteo.Core.Tests/          xUnit — 602 Tests (Fachlogik und Ansichtsmodelle)
+tests/ElwMeteo.Desktop.Tests/       Avalonia-Rauchtests, kopflos — 12 Tests
 ```
 
 Die gesamte Fachlogik liegt in `ElwMeteo.Core`, alle Ansichtsmodelle in

@@ -11,6 +11,15 @@
         Topmost="{Binding AlwaysOnTop}"
         TextOptions.TextFormattingMode="Display">
 
+    <!-- The escape hatch for the whole kiosk idea. A screen that came up full
+         screen without window decoration has to be recoverable by somebody who
+         does not know where the settings file lives. -->
+    <Window.InputBindings>
+        <KeyBinding Key="F11" Command="{Binding ToggleFullScreenCommand}" />
+        <KeyBinding Key="Escape" Command="{Binding LeaveFullScreenCommand}" />
+        <KeyBinding Key="F9" Command="{Binding ToggleCarouselCommand}" />
+    </Window.InputBindings>
+
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -99,6 +108,12 @@
                               IsChecked="{Binding AlwaysOnTop}"
                               FontSize="11" Margin="0,7,0,0"
                               HorizontalAlignment="Right" />
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,5,0,0">
+                        <Button Content="Vollbild (F11)" Command="{Binding ToggleFullScreenCommand}"
+                                FontSize="11" Padding="9,4" Margin="0,0,5,0" />
+                        <Button Content="Rundlauf (F9)" Command="{Binding ToggleCarouselCommand}"
+                                FontSize="11" Padding="9,4" />
+                    </StackPanel>
                 </StackPanel>
             </Grid>
         </Border>
@@ -186,6 +201,7 @@
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
                 <TextBlock Grid.Column="0"
@@ -200,7 +216,15 @@
                            FontWeight="Normal"
                            Margin="16,0" />
 
+                <!-- Empty while the rotation is off, so it takes no room and
+                     needs no converter. -->
                 <TextBlock Grid.Column="2"
+                           Text="{Binding CarouselStatus}"
+                           Style="{StaticResource LabelText}"
+                           FontWeight="Normal"
+                           Margin="0,0,16,0" />
+
+                <TextBlock Grid.Column="3"
                            Style="{StaticResource LabelText}"
                            FontWeight="Normal"
                            Text="Quellen: Open-Meteo · Deutscher Wetterdienst · RainViewer · OpenStreetMap" />

@@ -10,6 +10,15 @@
         Background="{StaticResource BackgroundBrush}"
         Topmost="{Binding AlwaysOnTop}">
 
+    <!-- The escape hatch for the whole kiosk idea. A screen that came up full
+         screen without window decoration has to be recoverable by somebody who
+         does not know where the settings file lives. -->
+    <Window.KeyBindings>
+        <KeyBinding Gesture="F11" Command="{Binding ToggleFullScreenCommand}" />
+        <KeyBinding Gesture="Escape" Command="{Binding LeaveFullScreenCommand}" />
+        <KeyBinding Gesture="F9" Command="{Binding ToggleCarouselCommand}" />
+    </Window.KeyBindings>
+
     <Grid RowDefinitions="Auto,Auto,Auto,*,Auto">
 
         <!-- ============================================ clock header ====== -->
@@ -70,6 +79,12 @@
                               IsChecked="{Binding AlwaysOnTop}"
                               FontSize="11" Margin="0,7,0,0"
                               HorizontalAlignment="Right" />
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,5,0,0">
+                        <Button Content="Vollbild (F11)" Command="{Binding ToggleFullScreenCommand}"
+                                FontSize="11" Padding="9,4" Margin="0,0,5,0" />
+                        <Button Content="Rundlauf (F9)" Command="{Binding ToggleCarouselCommand}"
+                                FontSize="11" Padding="9,4" />
+                    </StackPanel>
                 </StackPanel>
             </Grid>
         </Border>
@@ -141,12 +156,15 @@
                 BorderBrush="{StaticResource BorderBrush}"
                 BorderThickness="0,1,0,0"
                 Padding="18,7">
-            <Grid ColumnDefinitions="Auto,*,Auto">
+            <Grid ColumnDefinitions="Auto,Auto,*,Auto">
                 <TextBlock Grid.Column="0" Text="{Binding GpsIndicator}" Classes="label mono" />
-                <TextBlock Grid.Column="1" Text="{Binding Dashboard.StatusMessage}"
+                <TextBlock Grid.Column="1" Text="{Binding CarouselStatus}"
+                           Classes="label" Margin="18,0,0,0"
+                           IsVisible="{Binding CarouselEnabled}" />
+                <TextBlock Grid.Column="2" Text="{Binding Dashboard.StatusMessage}"
                            Classes="label" FontWeight="Normal"
                            TextTrimming="CharacterEllipsis" Margin="18,0" />
-                <TextBlock Grid.Column="2" Text="{Binding Dashboard.DataAgeLabel}" Classes="label" />
+                <TextBlock Grid.Column="3" Text="{Binding Dashboard.DataAgeLabel}" Classes="label" />
             </Grid>
         </Border>
     </Grid>

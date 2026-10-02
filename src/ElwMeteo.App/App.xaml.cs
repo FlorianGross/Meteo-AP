@@ -101,6 +101,9 @@ public partial class App : Application
         var cache = new SnapshotCache();
         var reports = new ReportPrinter(shell);
 
+        var screenService = new WpfScreenService();
+        var autostart = new SystemAutostartService();
+
         _mainViewModel = new MainViewModel(
             new ClockViewModel(timers),
             new DashboardViewModel(weather, warnings, geocoding, locationResolver, csvLogger, brightSky, settings, clipboard, cache, reports),
@@ -108,13 +111,14 @@ public partial class App : Application
             new WebRadarViewModel(_settingsStore, shell),
             new TrendViewModel(),
             new DiagnosticsViewModel(_requestLog, connectivity, capabilities, dispatcher, clipboard),
-            new SettingsViewModel(_settingsStore, _gps, geocoding, shell, nina, systemLocation),
+            new SettingsViewModel(_settingsStore, _gps, geocoding, shell, nina, systemLocation, autostart, screenService),
             new UpdateViewModel(updates, _settingsStore, shell, updateDownloader),
             settings,
             _gps,
             timers,
             dispatcher,
-            alert);
+            alert,
+            screenService);
 
         // Map tile failures happen inside the page; route them into the same log.
         Views.MapView.SharedLog = _requestLog;
@@ -124,8 +128,13 @@ public partial class App : Application
         _mainViewModel.Update.RestartRequested += () => Shutdown();
 
         var window = new MainWindow { DataContext = _mainViewModel };
+        screenService.Attach(window);
         MainWindow = window;
         window.Show();
+
+        // After Show, because none of this works without a window handle: there
+        // is no monitor to ask about and no position to convert before then.
+        _mainViewModel.ApplyWindowPlacement();
 
         // Pending settings are written a couple of seconds after the last
         // change — long enough that a slider drag is a single write, short
