@@ -302,6 +302,14 @@
                                Style="{StaticResource BodyText}"
                                TextWrapping="Wrap" />
                 </Border>
+
+                <!-- Quiet, bottom right: proof the filter is doing something,
+                     which is the first thing to look at if a page renders oddly. -->
+                <TextBlock Text="{Binding BlockedRequestsLabel}"
+                           HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                           Margin="0,0,16,10" FontSize="11"
+                           Foreground="{StaticResource MutedBrush}"
+                           Visibility="{Binding BlockedRequestsLabel, Converter={StaticResource StringToVisibility}}" />
             </Grid>
         </Grid>
     </Grid>

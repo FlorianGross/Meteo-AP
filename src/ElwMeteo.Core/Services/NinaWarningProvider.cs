@@ -379,7 +379,10 @@ public sealed class NinaWarningProvider(HttpClient httpClient) : IWarningProvide
     public static IReadOnlyList<NinaRegion> Search(IEnumerable<NinaRegion> regions, string query, int limit = 25)
     {
         string[] words = (query ?? string.Empty)
-            .Split([' ', ',', '-'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            // Explicit char[] rather than a collection expression: the latter is
+            // ambiguous between the char[] and the string overload on older 8.0
+            // compilers, and global.json admits those.
+            .Split(new[] { ' ', ',', '-' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
         if (words.Length == 0)
         {

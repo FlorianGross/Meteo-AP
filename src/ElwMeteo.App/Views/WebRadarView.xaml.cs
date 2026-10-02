@@ -19,6 +19,7 @@ public partial class WebRadarView : UserControl
     private WebRadarViewModel? _viewModel;
     private bool _isWebViewReady;
 
+
     /// <summary>URL requested before the browser was ready, replayed once it is.</summary>
     private string? _pendingUrl;
 
@@ -109,6 +110,14 @@ public partial class WebRadarView : UserControl
             core.Settings.AreDefaultContextMenusEnabled = true;
             core.Settings.IsZoomControlEnabled = true;
 
+            // The content filter is always wired up; whether it refuses anything
+            // is decided per request from the live setting. Registering it
+            // conditionally would have meant a restart after switching it on,
+            // and a setting that needs a restart to do anything is one people
+            // conclude is broken.
+            core.AddWebResourceRequestedFilter("*", CoreWebView2WebResourceContext.All);
+            core.WebResourceRequested += OnWebResourceRequested;
+
             core.NavigationStarting += OnNavigationStarting;
             core.NavigationCompleted += OnNavigationCompleted;
             core.NewWindowRequested += OnNewWindowRequested;
@@ -163,6 +172,40 @@ public partial class WebRadarView : UserControl
         catch (Exception ex)
         {
             _viewModel?.ReportNavigationCompleted(false, ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Refuses requests to advertising and tracking networks.
+    ///
+    /// Answered with an empty 204 rather than simply dropped: a page whose
+    /// script is waiting on a response would otherwise hang on it, and the
+    /// symptom — a radar that sometimes takes twenty seconds — would be blamed
+    /// on the connection rather than on this.
+    /// </summary>
+    private void OnWebResourceRequested(object? sender, CoreWebView2WebResourceRequestedEventArgs e)
+    {
+        if (_viewModel is not { IsContentFilterEnabled: true })
+        {
+            return;
+        }
+
+        if (!Core.Maps.WebContentFilter.ShouldBlock(e.Request.Uri))
+        {
+            return;
+        }
+
+        try
+        {
+            e.Response = RadarWebView.CoreWebView2.Environment
+                .CreateWebResourceResponse(null, 204, "No Content", string.Empty);
+
+            _viewModel?.ReportBlockedRequest();
+        }
+        catch (Exception)
+        {
+            // Failing to build the stand-in response must not fail the request;
+            // letting it through is the harmless outcome.
         }
     }
 

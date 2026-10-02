@@ -60,10 +60,16 @@ public sealed partial class SettingsViewModel : ObservableObject
         _ninaRegionName = settings.NinaRegionName;
         _ninaArs = settings.NinaArs;
         _useSystemLocation = settings.UseSystemLocation;
+        _blockWebTrackers = settings.BlockWebTrackers;
         _systemLocationStatus = systemLocation?.StatusText ?? "Nicht verfügbar.";
 
         RefreshPorts();
     }
+
+    // ---------------------------------------------------------- web filter
+
+    [ObservableProperty]
+    private bool _blockWebTrackers;
 
     // ------------------------------------------------------ system location
 
@@ -442,6 +448,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         _settings.NinaArs = NinaArs.Trim();
         _settings.NinaRegionName = NinaRegionName.Trim();
         _settings.UseSystemLocation = UseSystemLocation;
+        _settings.BlockWebTrackers = BlockWebTrackers;
 
         if (_nina is not null)
         {
