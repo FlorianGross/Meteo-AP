@@ -1,26 +1,31 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
 using ElwMeteo.Core.Kiosk;
 using ElwMeteo.Presentation.Platform;
-using Forms = System.Windows.Forms;
 
 namespace ElwMeteo.App.Platform;
 
 /// <summary>
 /// Display enumeration and window placement on Windows.
 ///
-/// <see cref="Forms.Screen"/> rather than a hand-rolled <c>EnumDisplayMonitors</c>
-/// binding: it is the same Win32 call with the marshalling already got right by
-/// somebody else, which on a feature whose failure mode is "the window opens
-/// where nobody can see it" is worth the reference to WinForms.
+/// The monitors come from Win32 directly — <c>EnumDisplayMonitors</c> and
+/// <c>GetMonitorInfoW</c>, the same calls <c>System.Windows.Forms.Screen</c>
+/// makes. WinForms would have saved writing them, but switching
+/// <c>UseWindowsForms</c> on brings <c>System.Drawing</c> and
+/// <c>System.Windows.Forms</c> in as global usings, and in a WPF project that
+/// makes <c>Point</c>, <c>Brush</c>, <c>Color</c>, <c>Pen</c>,
+/// <c>UserControl</c> and <c>Application</c> ambiguous across files that have
+/// nothing to do with screens. Four declarations here are a smaller change than
+/// a second UI framework over the whole project.
 ///
 /// The hard part is not enumeration but units. The manifest declares
-/// PerMonitorV2, so WinForms reports physical pixels while WPF positions windows
-/// in device-independent units, and the factor between them differs per monitor —
-/// a 100% laptop panel next to a 150% vehicle screen has no single conversion.
+/// PerMonitorV2, so Win32 reports physical pixels while WPF positions windows in
+/// device-independent units, and the factor between them differs per monitor — a
+/// 100% laptop panel next to a 150% vehicle screen has no single conversion.
 /// Rather than compute an answer that is right on the author's desk, the move is
 /// attempted and then checked against the one authority that cannot be wrong:
 /// Windows is asked which monitor the window actually ended up on.
@@ -42,20 +47,8 @@ public sealed class WpfScreenService : IScreenService
     {
         try
         {
-            return
-            [
-                .. Forms.Screen.AllScreens
-                    .Select(screen => new ScreenInfo(
-                        screen.DeviceName,
-                        Label(screen),
-                        screen.Bounds.X,
-                        screen.Bounds.Y,
-                        screen.Bounds.Width,
-                        screen.Bounds.Height,
-                        screen.Primary))
-                    // Primary first, so a caller that takes the first entry is right.
-                    .OrderByDescending(screen => screen.IsPrimary)
-            ];
+            // Primary first, so a caller that takes the first entry is right.
+            return [.. Monitors().OrderByDescending(screen => screen.IsPrimary)];
         }
         catch (Exception)
         {
@@ -216,7 +209,7 @@ public sealed class WpfScreenService : IScreenService
         }
 
         // Null until the window has a handle, which is why placement is applied
-        // from the Loaded handler and not from the constructor.
+        // after Show and not from the constructor.
         System.Windows.Media.Matrix? transform =
             PresentationSource.FromVisual(_window)?.CompositionTarget?.TransformFromDevice;
 
@@ -245,15 +238,127 @@ public sealed class WpfScreenService : IScreenService
                 return true;
             }
 
-            return string.Equals(
-                Forms.Screen.FromHandle(handle).DeviceName,
-                deviceName,
-                StringComparison.OrdinalIgnoreCase);
+            IntPtr monitor = MonitorFromWindow(handle, MonitorDefaultToNearest);
+
+            return monitor != IntPtr.Zero &&
+                   TryDescribe(monitor, out ScreenInfo? screen) &&
+                   string.Equals(screen!.Id, deviceName, StringComparison.OrdinalIgnoreCase);
         }
         catch (Exception)
         {
             return true;
         }
+    }
+
+    // ---------------------------------------------------------------- Win32
+
+    private const int MonitorInfoPrimary = 0x1;
+    private const uint MonitorDefaultToNearest = 0x2;
+
+    /// <summary>Length of <c>MONITORINFOEXW.szDevice</c>, fixed by Win32 at CCHDEVICENAME.</summary>
+    private const int DeviceNameLength = 32;
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct NativeRect
+    {
+        public int Left;
+        public int Top;
+        public int Right;
+        public int Bottom;
+    }
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    private struct MonitorInfoEx
+    {
+        public int Size;
+        public NativeRect Monitor;
+        public NativeRect Work;
+        public int Flags;
+
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = DeviceNameLength)]
+        public string DeviceName;
+    }
+
+    private delegate bool MonitorEnumProc(IntPtr monitor, IntPtr hdc, ref NativeRect rect, IntPtr data);
+
+    [DllImport("user32.dll")]
+    private static extern bool EnumDisplayMonitors(
+        IntPtr hdc, IntPtr clip, MonitorEnumProc callback, IntPtr data);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "GetMonitorInfoW")]
+    private static extern bool GetMonitorInfo(IntPtr monitor, ref MonitorInfoEx info);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr MonitorFromWindow(IntPtr window, uint flags);
+
+    /// <summary>
+    /// Every attached monitor, in the order Windows enumerates them.
+    ///
+    /// The whole monitor rectangle, not the work area: a full-screen window
+    /// covers the task bar, and the work area would place it one task bar too
+    /// far down on a screen that has one.
+    /// </summary>
+    private static List<ScreenInfo> Monitors()
+    {
+        List<ScreenInfo> found = [];
+
+        // Held in a local for the duration of the call so the delegate cannot be
+        // collected while native code holds the pointer to it.
+        MonitorEnumProc callback = (IntPtr monitor, IntPtr hdc, ref NativeRect bounds, IntPtr data) =>
+        {
+            if (TryDescribe(monitor, out ScreenInfo? screen))
+            {
+                found.Add(screen!);
+            }
+
+            // Keep going; false would stop the enumeration at the first monitor.
+            return true;
+        };
+
+        EnumDisplayMonitors(IntPtr.Zero, IntPtr.Zero, callback, IntPtr.Zero);
+        GC.KeepAlive(callback);
+
+        return found;
+    }
+
+    private static bool TryDescribe(IntPtr monitor, out ScreenInfo? screen)
+    {
+        screen = null;
+
+        MonitorInfoEx info = new()
+        {
+            // Win32 rejects the call outright when this does not match the
+            // struct it was handed, which is how it tells MONITORINFO from
+            // MONITORINFOEX.
+            Size = Marshal.SizeOf<MonitorInfoEx>(),
+            DeviceName = string.Empty
+        };
+
+        if (!GetMonitorInfo(monitor, ref info))
+        {
+            return false;
+        }
+
+        // The name comes back NUL-padded to CCHDEVICENAME.
+        string device = (info.DeviceName ?? string.Empty).TrimEnd('\0');
+
+        if (string.IsNullOrEmpty(device))
+        {
+            // An id that matches nothing is worse than no entry: it would match
+            // every screen whose name is also empty.
+            return false;
+        }
+
+        screen = new ScreenInfo(
+            device,
+            Label(device),
+            info.Monitor.Left,
+            info.Monitor.Top,
+            info.Monitor.Right - info.Monitor.Left,
+            info.Monitor.Bottom - info.Monitor.Top,
+            (info.Flags & MonitorInfoPrimary) != 0);
+
+        return true;
     }
 
     /// <summary>
@@ -262,6 +367,6 @@ public sealed class WpfScreenService : IScreenService
     /// <see cref="ScreenInfo.Describe"/>, which is what the settings list shows:
     /// those are what somebody looking at two monitors can actually tell apart.
     /// </summary>
-    private static string Label(Forms.Screen screen) =>
-        screen.DeviceName.Replace(@"\\.\", string.Empty, StringComparison.Ordinal);
+    private static string Label(string deviceName) =>
+        deviceName.Replace(@"\\.\", string.Empty, StringComparison.Ordinal);
 }

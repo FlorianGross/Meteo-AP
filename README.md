@@ -422,6 +422,15 @@ anderer. Statt eine Umrechnung zu raten, die auf dem Entwicklerrechner stimmt,
 wird das Fenster gesetzt und danach **Windows gefragt**, auf welchem Monitor es
 gelandet ist; stimmt es nicht, wird der zweite Kandidat probiert.
 
+Die Bildschirmliste kommt aus `EnumDisplayMonitors` und `GetMonitorInfoW`
+direkt, also denselben Aufrufen, die `System.Windows.Forms.Screen` macht.
+WinForms hätte das Schreiben erspart, aber `UseWindowsForms` zieht
+`System.Drawing` und `System.Windows.Forms` als globale `using`-Direktiven
+herein, und in einem WPF-Projekt werden damit `Point`, `Brush`, `Color`, `Pen`,
+`UserControl` und `Application` in Dateien mehrdeutig, die mit Bildschirmen
+nichts zu tun haben. Vier Deklarationen sind die kleinere Änderung als ein
+zweites Oberflächen-Framework über das ganze Projekt.
+
 **Rundlauf.** Ein Modus, der die Ansichten der Reihe nach durchschaltet —
 Voreinstellung ist Lage, Karte, Uhr im 30-Sekunden-Takt. Welche Ansichten
 mitlaufen und wie lange jede steht, ist einstellbar.
