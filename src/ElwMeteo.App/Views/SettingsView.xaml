@@ -185,6 +185,76 @@
                     </StackPanel>
                 </Border>
 
+                <!-- ====================================== fahrzeugbetrieb -->
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="FAHRZEUGBETRIEB" Style="{StaticResource SectionHeader}" />
+
+                        <TextBlock Style="{StaticResource BodyText}" FontSize="12" TextWrapping="Wrap"
+                                   Foreground="{StaticResource MutedBrush}"
+                                   Text="Für einen Bildschirm, der im Fahrzeug mitläuft und nicht bedient wird: selbst starten, Vollbild, fester Bildschirm und ein Rundlauf durch die Ansichten. Vollbild lässt sich jederzeit mit F11 oder Esc verlassen, der Rundlauf mit F9." />
+
+                        <CheckBox Content="Mit der Anmeldung starten"
+                                  IsChecked="{Binding AutostartEnabled}"
+                                  IsEnabled="{Binding AutostartSupported}"
+                                  Margin="0,12,0,0" />
+                        <TextBlock Text="{Binding AutostartLocation}"
+                                   Style="{StaticResource LabelText}" FontWeight="Normal"
+                                   FontSize="10" TextWrapping="Wrap" Margin="24,2,0,0" />
+
+                        <CheckBox Content="Im Vollbild starten"
+                                  IsChecked="{Binding StartFullScreen}" Margin="0,10,0,0" />
+
+                        <TextBlock Text="BILDSCHIRM" Style="{StaticResource LabelText}" Margin="0,14,0,4" />
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <ComboBox Grid.Column="0"
+                                      ItemsSource="{Binding AvailableScreens}"
+                                      SelectedValue="{Binding PreferredScreenId}"
+                                      SelectedValuePath="Id"
+                                      DisplayMemberPath="Display" />
+                            <Button Grid.Column="1" Content="Neu einlesen" Margin="6,0,0,0"
+                                    Command="{Binding RefreshScreensCommand}" />
+                        </Grid>
+                        <TextBlock Text="{Binding ScreenNotice}"
+                                   Style="{StaticResource BodyText}" FontSize="12" TextWrapping="Wrap"
+                                   Foreground="{StaticResource MutedBrush}" Margin="0,4,0,0" />
+
+                        <CheckBox Content="Rundlauf durch die Ansichten"
+                                  IsChecked="{Binding CarouselEnabled}" Margin="0,14,0,0" />
+
+                        <Grid Margin="24,8,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,6,0">
+                                <TextBlock Text="WECHSEL ALLE (S)" Style="{StaticResource LabelText}" Margin="0,0,0,4" />
+                                <TextBox Text="{Binding CarouselIntervalSeconds}" Style="{StaticResource Field}" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Text="RUHE NACH BEDIENUNG (S)" Style="{StaticResource LabelText}" Margin="0,0,0,4" />
+                                <TextBox Text="{Binding CarouselIdleGraceSeconds}" Style="{StaticResource Field}" />
+                            </StackPanel>
+                        </Grid>
+
+                        <TextBlock Text="ANSICHTEN IM RUNDLAUF" Style="{StaticResource LabelText}" Margin="24,12,0,4" />
+                        <ItemsControl ItemsSource="{Binding CarouselStations}" Margin="24,0,0,0">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <CheckBox Content="{Binding Title}" IsChecked="{Binding IsIncluded}" FontSize="12" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBlock Style="{StaticResource BodyText}" FontSize="12" TextWrapping="Wrap"
+                                   Foreground="{StaticResource MutedBrush}" Margin="24,6,0,0"
+                                   Text="Diagnose und Einstellungen stehen bewusst nicht zur Wahl — ein Bildschirm, der sich unbeaufsichtigt auf der Einstellungsseite abstellt, zeigt jedem Vorbeigehenden die Schlüssel und Schnittstellen." />
+                    </StackPanel>
+                </Border>
+
                 <Border Style="{StaticResource Card}">
                     <StackPanel>
                         <TextBlock Text="DARSTELLUNG &amp; KARTE" Style="{StaticResource SectionHeader}" />

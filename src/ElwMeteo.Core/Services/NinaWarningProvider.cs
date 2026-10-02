@@ -379,7 +379,7 @@ public sealed class NinaWarningProvider(HttpClient httpClient) : IWarningProvide
     public static IReadOnlyList<NinaRegion> Search(IEnumerable<NinaRegion> regions, string query, int limit = 25)
     {
         string[] words = (query ?? string.Empty)
-            .Split([' ', ',', '-'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            .Split(new[] { ' ', ',', '-' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
         if (words.Length == 0)
         {

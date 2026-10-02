@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ElwMeteo.Presentation.Services;
 using ElwMeteo.Core.Configuration;
+using ElwMeteo.Core.Kiosk;
 using ElwMeteo.Core.Services;
 using ElwMeteo.Presentation.Platform;
 
@@ -19,6 +20,9 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private readonly IUiDispatcher _dispatcher;
     private readonly IAlertSignal _alert;
     private readonly IUiTimer _retryTimer;
+    private readonly IScreenService _screens;
+    private readonly TabCarousel _carousel = new();
+    private readonly IUiTimer _carouselTimer;
 
     /// <summary>
     /// Waits between retries after a failed fetch. Three attempts spread over
@@ -49,9 +53,11 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         GpsSerialService gps,
         IUiTimerFactory timers,
         IUiDispatcher dispatcher,
-        IAlertSignal alert)
+        IAlertSignal alert,
+        IScreenService? screens = null)
     {
         _dispatcher = dispatcher;
+        _screens = screens ?? new NoScreenService();
         _alert = alert;
         Clock = clock;
         Dashboard = dashboard;
@@ -87,6 +93,12 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _retryTimer = timers.Create(RetryDelays[0], OnRetryDue);
 
         AlwaysOnTop = appSettings.AlwaysOnTop;
+
+        _carouselTimer = timers.Create(
+            TabCarousel.ClampInterval(appSettings.CarouselIntervalSeconds),
+            OnCarouselDue);
+
+        ApplyCarouselSettings();
     }
 
     public ClockViewModel Clock { get; }
@@ -168,6 +180,237 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         HasAlert = true;
         AlertWasSilent = !_alert.Sound();
     });
+
+    // --------------------------------------------------- vehicle / kiosk mode
+
+    /// <summary>True while the unattended rotation is switching tabs by itself.</summary>
+    [ObservableProperty]
+    private bool _carouselEnabled;
+
+    /// <summary>What the rotation is doing, for the status line.</summary>
+    [ObservableProperty]
+    private string _carouselStatus = string.Empty;
+
+    /// <summary>Mirrors the window state, so the button can say which way it goes.</summary>
+    [ObservableProperty]
+    private bool _isFullScreen;
+
+    /// <summary>Set when a configured display was not found at startup.</summary>
+    [ObservableProperty]
+    private string _screenNotice = string.Empty;
+
+    /// <summary>
+    /// Switches the rotation on or off by hand. Bound to a toolbar button as
+    /// well as to F9: a kiosk nobody can stop is a kiosk somebody unplugs.
+    /// </summary>
+    [RelayCommand]
+    private void ToggleCarousel()
+    {
+        _settings.CarouselEnabled = !_settings.CarouselEnabled;
+        ApplyCarouselSettings();
+
+        // Deliberately persisted. Somebody who stops the rotation to work with
+        // the map wants it stopped after the next restart as well — on a vehicle
+        // that restart may be the moment they arrive at the next incident.
+        TrySaveSettings();
+    }
+
+    /// <summary>
+    /// Full screen on or off. The escape hatch for the whole kiosk idea: bound
+    /// to F11 and to Escape in both heads, so a screen that came up without
+    /// window decoration can always be got back under control without knowing
+    /// where the settings file lives.
+    /// </summary>
+    [RelayCommand]
+    private void ToggleFullScreen()
+    {
+        NoteInteraction();
+
+        if (_screens.TrySetFullScreen(!IsFullScreen, out string? error))
+        {
+            IsFullScreen = _screens.IsFullScreen;
+            return;
+        }
+
+        ScreenNotice = error ?? "Vollbild konnte nicht umgeschaltet werden.";
+    }
+
+    /// <summary>
+    /// Leaves full screen and does nothing when it is already off — what Escape
+    /// is wired to. Separate from the toggle on purpose: Escape must never be
+    /// the key that *enters* full screen.
+    /// </summary>
+    [RelayCommand]
+    private void LeaveFullScreen()
+    {
+        if (!IsFullScreen)
+        {
+            return;
+        }
+
+        ToggleFullScreen();
+    }
+
+    /// <summary>
+    /// Records that somebody is operating the application, which holds the
+    /// rotation for the configured quiet stretch. Called from both heads on key
+    /// and pointer input.
+    /// </summary>
+    public void NoteInteraction()
+    {
+        // The suppression of the rotation's own tab change lives in the carousel,
+        // where it can be tested without a window.
+        _carousel.NoteInteraction(DateTimeOffset.Now);
+
+        if (CarouselEnabled)
+        {
+            UpdateCarouselStatus();
+        }
+    }
+
+    /// <summary>
+    /// Applies the screen mapping and the full-screen preference. Called once the
+    /// window exists, which is why it is not in the constructor.
+    /// </summary>
+    public void ApplyWindowPlacement()
+    {
+        IReadOnlyList<ScreenInfo> available = _screens.List();
+
+        if (ScreenChoice.IsPreferenceMissing(available, _settings.PreferredScreenId))
+        {
+            // Said out loud rather than silently corrected: an operator who
+            // configured the second monitor should learn that it is not plugged
+            // in, not wonder why the window keeps opening on the laptop panel.
+            ScreenNotice =
+                $"Bildschirm „{_settings.PreferredScreenId}“ ist nicht angeschlossen — " +
+                "es wird der Hauptbildschirm verwendet.";
+        }
+
+        ScreenInfo? target = ScreenChoice.Select(available, _settings.PreferredScreenId);
+
+        if (target is not null &&
+            !_screens.TryApply(target, _settings.StartFullScreen, out string? error))
+        {
+            ScreenNotice = error ?? "Bildschirmzuordnung fehlgeschlagen.";
+        }
+        else if (target is null && _settings.StartFullScreen)
+        {
+            _screens.TrySetFullScreen(true, out _);
+        }
+
+        IsFullScreen = _screens.IsFullScreen;
+    }
+
+    /// <summary>Takes the rotation settings over and starts or stops the timer.</summary>
+    private void ApplyCarouselSettings()
+    {
+        _carousel.Configure(_settings.ResolveCarouselStations());
+        _carousel.SyncToTab(SelectedTabIndex);
+
+        _carouselTimer.Interval = TabCarousel.ClampInterval(_settings.CarouselIntervalSeconds);
+        CarouselEnabled = _settings.CarouselEnabled && _carousel.CanRotate;
+
+        if (CarouselEnabled)
+        {
+            _carouselTimer.Start();
+        }
+        else
+        {
+            _carouselTimer.Stop();
+        }
+
+        UpdateCarouselStatus();
+    }
+
+    /// <summary>
+    /// One rotation step is due. Whether it is actually taken is
+    /// <see cref="TabCarousel.ShouldAdvance"/>'s call — the timer keeps running
+    /// through a pause so the rotation resumes by itself once the operator stops
+    /// touching anything.
+    /// </summary>
+    private void OnCarouselDue()
+    {
+        if (!CarouselEnabled)
+        {
+            return;
+        }
+
+        KioskStation? next = _carousel.Advance(DateTimeOffset.Now, IdleGrace);
+
+        if (next is null)
+        {
+            // Held by an interaction. The timer keeps running, so the rotation
+            // resumes by itself once nobody is touching anything.
+            UpdateCarouselStatus();
+            return;
+        }
+
+        try
+        {
+            // Raises the same notification a person's click does; the carousel
+            // ignores it until the step is complete.
+            SelectedTabIndex = next.TabIndex;
+        }
+        finally
+        {
+            _carousel.CompleteAdvance();
+        }
+
+        UpdateCarouselStatus();
+    }
+
+    private TimeSpan IdleGrace =>
+        TabCarousel.ClampIdleGrace(_settings.CarouselIdleGraceSeconds);
+
+    private void UpdateCarouselStatus()
+    {
+        if (!CarouselEnabled)
+        {
+            CarouselStatus = string.Empty;
+            return;
+        }
+
+        bool holding = _carousel.IsHeld(DateTimeOffset.Now, IdleGrace);
+
+        string current = _carousel.Current?.Title ?? "—";
+
+        CarouselStatus = holding
+            ? $"Rundlauf angehalten (Bedienung) — {current}"
+            : $"Rundlauf: {current} · {(int)_carouselTimer.Interval.TotalSeconds} s";
+    }
+
+    /// <summary>
+    /// A tab change is an interaction when a person made it, and the point the
+    /// rotation continues from either way.
+    /// </summary>
+    partial void OnSelectedTabIndexChanged(int value)
+    {
+        if (!_carousel.IsAdvancing)
+        {
+            NoteInteraction();
+            _carousel.SyncToTab(value);
+        }
+
+        UpdateCarouselStatus();
+    }
+
+    /// <summary>
+    /// Writes the settings file, swallowing the failure. The rotation state is
+    /// a convenience; a read-only profile must not turn pressing a toolbar
+    /// button into a crash.
+    /// </summary>
+    private void TrySaveSettings()
+    {
+        try
+        {
+            _settings.Save();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Nothing the operator can do about it here; the rotation is on
+            // either way for this session.
+        }
+    }
 
     // ------------------------------------------------------------- schedule
 
@@ -266,12 +509,14 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _refreshTimer.Interval = TimeSpan.FromSeconds(Math.Clamp(_settings.WeatherRefreshSeconds, 60, 3600));
         AlwaysOnTop = _settings.AlwaysOnTop;
         Dashboard.ApplyAlertSettings();
+        ApplyCarouselSettings();
     }
 
     public void Dispose()
     {
         _refreshTimer.Stop();
         _retryTimer.Stop();
+        _carouselTimer.Stop();
         Clock.Tick -= OnTick;
         Dashboard.AssessmentUpdated -= Map.ApplyAssessment;
         Dashboard.AssessmentUpdated -= WebRadar.ApplyAssessment;
@@ -283,6 +528,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
         _refreshTimer.Dispose();
         _retryTimer.Dispose();
+        _carouselTimer.Dispose();
         Clock.Dispose();
         Map.Dispose();
     }
