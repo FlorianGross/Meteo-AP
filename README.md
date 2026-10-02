@@ -260,7 +260,10 @@ Mitgeliefert sind:
 | RainViewer | weltweites Radar mit Zeitleiste und Nowcast — dieselbe Quelle wie auf der Kartenregisterkarte, hier mit voller Bedienoberfläche |
 | Windy — Radar | Radaranimation zusammen mit Wind, Böen und Gewittern |
 | Ventusky — Niederschlag | Niederschlagsradar mit Zeitachse; Ventusky bietet keine API an, als Seite aber uneingeschränkt nutzbar |
-| Kachelmannwetter | hoch aufgelöstes Radar für Deutschland mit eigener Nachbearbeitung |
+| Kachelmannwetter — Regenradar | hoch aufgelöstes Radar für Deutschland mit eigener Nachbearbeitung |
+| Kachelmannwetter — Radarprognose | Extrapolation über zwei Stunden, aus einem anderen Verfahren als der eigene Nowcast |
+| Kachelmannwetter — Blitze auf Radar | Radar und Einschläge in einem Bild für Deutschland — zeigt, ob eine Zelle elektrisch aktiv ist |
+| Kachelmannwetter — Blitzortung | Einschläge mit Ort, Stärke und Art, auch rückwirkend |
 | DWD — Warnlage | amtliche Warnkarte auf Gemeindeebene |
 | DWD — Niederschlagsradar | amtliches Radarbild und Radarfilm |
 | NINA | Warnungen des Bundes: Gefahrstoff, Ausfälle, Bevölkerungsschutz |
@@ -268,6 +271,29 @@ Mitgeliefert sind:
 | metradar — Donnerradar | Radar und Blitze in **einem** Bild, getrennt nach Erdblitz (CG) und Wolkenblitz (CC). Abdeckung Schweiz mit Nachbarräumen — Süddeutschland ja, Norddeutschland nicht. Kostenpflichtiger Anbieter; die Loop-Seite ist frei einsehbar |
 | meteoblue | Modellkarten für Niederschlag, Wind und Temperatur |
 | Windy — Wind und Böen | Windfeld und Böenprognose als Strömungsbild |
+
+**Werbe- und Zählnetzwerke werden blockiert** (abschaltbar in den Einstellungen,
+standardmäßig an). Drei Gründe, in der Reihenfolge, in der sie auf einem Fahrzeug
+zählen: die Mobilfunkstrecke ist knapp und ein Werbenetzwerk zieht Skripte und
+Video von einem Dutzend Hosts; ein Banner, das das Radarbild nach unten schiebt,
+stört hier mehr als am Schreibtisch; und eine Einsatzstelle ist kein Ort, von dem
+aus eine Positionsspur an eine Werbebörse geht.
+
+Was bewusst **nicht** blockiert wird: die Seite des Anbieters selbst — das Ziel
+ist, sie funktionsfähig zu halten, nicht sie zu zerlegen — und kein
+Einwilligungsdialog, denn ein blockierter Consent-Manager hinterlässt eine graue
+Seite, die sich nicht mehr wegklicken lässt. Die Liste ist eine feste Aufzählung
+bekannter Werbe- und Messnetzwerke, kein Mustervergleich; ein Test prüft bei
+jedem Lauf, dass keine der ausgelieferten Ansichten von der eigenen Sperrliste
+getroffen wird. Unten rechts steht, wie viele Anfragen auf der aktuellen Seite
+abgewiesen wurden.
+
+Wer einen Anbieter regelmäßig nutzt, fährt mit einem Abonnement dort fairer —
+Kachelmannwetter und metradar sind werbefrei, sobald man angemeldet ist, und das
+Geld kommt bei den Leuten an, die die Daten machen.
+
+Nur die Windows-Ausgabe hat einen eingebetteten Browser; die plattformneutrale
+öffnet im Standardbrowser, der seine eigenen Erweiterungen mitbringt.
 
 Ansichten, deren Adresse die Platzhalter `{lat}`, `{lon}` und `{zoom}` trägt,
 öffnen an der Einsatzstelle statt auf einer Landesübersicht und folgen einer

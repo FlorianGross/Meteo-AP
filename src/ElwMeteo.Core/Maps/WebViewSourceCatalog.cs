@@ -118,6 +118,40 @@ public static class WebViewSourceCatalog
         },
         new WebViewSource
         {
+            Id = "kachelmann-gewitter",
+            Title = "Kachelmannwetter — Blitze auf Radar",
+            Group = "Gewitter",
+            // The German counterpart to metradar below: radar and strikes on one
+            // picture rather than two tabs to compare by eye. Fixed national
+            // view — the site addresses places by name slug, not by coordinate,
+            // so there is nothing to substitute.
+            UrlTemplate = "https://kachelmannwetter.com/de/gewitter",
+            Description = "Radar und Blitzeinschläge in einem Bild für Deutschland — zeigt, ob eine Zelle "
+                        + "elektrisch aktiv ist, nicht nur dass sie regnet.",
+            IsBuiltIn = true
+        },
+        new WebViewSource
+        {
+            Id = "kachelmann-radarprognose",
+            Title = "Kachelmannwetter — Radarprognose",
+            Group = "Regenradar",
+            UrlTemplate = "https://kachelmannwetter.com/de/radarprognose",
+            Description = "Extrapolation der Radarbilder über die nächsten zwei Stunden. Zweitmeinung zum "
+                        + "Nowcast auf der Kartenregisterkarte, aus einem anderen Verfahren.",
+            IsBuiltIn = true
+        },
+        new WebViewSource
+        {
+            Id = "kachelmann-blitze",
+            Title = "Kachelmannwetter — Blitzortung",
+            Group = "Gewitter",
+            UrlTemplate = "https://kachelmannwetter.com/de/blitze",
+            Description = "Einschläge mit Ort, Stärke und Art, auch rückwirkend — für die Frage nach dem "
+                        + "Einsatz, ob an einer bestimmten Stelle tatsächlich ein Blitz niedergegangen ist.",
+            IsBuiltIn = true
+        },
+        new WebViewSource
+        {
             Id = "dwd-warnlage",
             Title = "DWD — Warnlage Deutschland",
             Group = "Amtlich (DWD)",

@@ -68,6 +68,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         _ninaRegionName = settings.NinaRegionName;
         _ninaArs = settings.NinaArs;
         _useSystemLocation = settings.UseSystemLocation;
+        _blockWebTrackers = settings.BlockWebTrackers;
         _systemLocationStatus = systemLocation?.StatusText ?? "Nicht verfügbar.";
 
         _startFullScreen = settings.StartFullScreen;

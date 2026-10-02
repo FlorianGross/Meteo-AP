@@ -137,6 +137,17 @@ public sealed class AppSettings
     /// </summary>
     public List<CustomWebSource> CustomWebSources { get; set; } = [];
 
+    /// <summary>
+    /// Refuse requests to advertising and tracking networks in the embedded
+    /// browser. On by default: on a metered cellular link those requests are a
+    /// real share of the bytes, and a banner that pushes the radar below the
+    /// fold is worse on a vehicle screen than on a desk.
+    ///
+    /// Only third-party networks are affected — never a weather provider's own
+    /// domain, and never a consent dialogue.
+    /// </summary>
+    public bool BlockWebTrackers { get; set; } = true;
+
     /// <summary>Zoom passed to viewers whose URL carries a {zoom} placeholder.</summary>
     public int WebSourceZoom { get; set; } = 9;
 

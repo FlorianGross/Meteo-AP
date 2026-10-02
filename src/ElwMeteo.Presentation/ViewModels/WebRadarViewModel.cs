@@ -245,6 +245,34 @@ public sealed partial class WebRadarViewModel : ObservableObject
     /// <summary>Called by the view once the browser control is ready.</summary>
     public void NotifyViewReady() => Navigate();
 
+    /// <summary>How many requests the content filter refused on the current page.</summary>
+    [ObservableProperty]
+    private int _blockedRequests;
+
+    /// <summary>
+    /// Wording for the status line. Shown rather than kept quiet: a filter that
+    /// works invisibly is one nobody can tell apart from a filter that is broken,
+    /// and the number is the first thing to look at when a page renders oddly.
+    /// </summary>
+    public string BlockedRequestsLabel => BlockedRequests switch
+    {
+        0 => string.Empty,
+        1 => "1 Werbe-/Zählanfrage blockiert",
+        _ => $"{BlockedRequests} Werbe-/Zählanfragen blockiert"
+    };
+
+    partial void OnBlockedRequestsChanged(int value) => OnPropertyChanged(nameof(BlockedRequestsLabel));
+
+    /// <summary>
+    /// Whether the content filter is active, read live from the settings rather
+    /// than captured at startup — so switching it off takes effect on the next
+    /// page instead of on the next launch.
+    /// </summary>
+    public bool IsContentFilterEnabled => _settings.BlockWebTrackers;
+
+    /// <summary>Called by the view each time the filter refuses a request.</summary>
+    public void ReportBlockedRequest() => BlockedRequests++;
+
     /// <summary>Called by the view when navigation finished.</summary>
     public void ReportNavigationCompleted(bool success, string? detail)
     {
@@ -391,6 +419,7 @@ public sealed partial class WebRadarViewModel : ObservableObject
         }
 
         CurrentUrl = url;
+        BlockedRequests = 0;
         IsLoading = true;
         StatusMessage = string.Empty;
 

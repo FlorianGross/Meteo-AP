@@ -138,6 +138,20 @@
                     </StackPanel>
                 </Border>
 
+                <!-- ========================================== web filter -->
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="EINGEBETTETER BROWSER" Style="{StaticResource SectionHeader}" />
+
+                        <CheckBox Content="Werbe- und Zählnetzwerke blockieren"
+                                  IsChecked="{Binding BlockWebTrackers}" />
+
+                        <TextBlock Style="{StaticResource LabelText}" FontWeight="Normal" TextWrapping="Wrap"
+                                   Margin="0,5,0,0"
+                                   Text="Spart auf einer Mobilfunkstrecke spürbar Daten und hält die Radarbilder oben im Bild. Gesperrt werden ausschließlich fremde Werbe- und Messnetzwerke — nie die Seite des Anbieters selbst und nie ein Einwilligungsdialog, dessen Sperrung die Seite unbedienbar machen würde. Wirkt sofort, ohne Neustart." />
+                    </StackPanel>
+                </Border>
+
                 <!-- ======================================= system location -->
                 <Border Style="{StaticResource Card}">
                     <StackPanel>

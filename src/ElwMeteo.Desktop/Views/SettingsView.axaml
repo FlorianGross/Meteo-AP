@@ -31,6 +31,13 @@
                     <Button Content="Als Standort merken" Command="{Binding UseManualAsHomeCommand}" />
                 </StackPanel>
 
+                <!-- ========================================== web filter -->
+                <TextBlock Text="EINGEBETTETER BROWSER" Classes="section" Margin="0,16,0,6" />
+                <CheckBox Content="Werbe- und Zählnetzwerke blockieren"
+                          IsChecked="{Binding BlockWebTrackers}" />
+                <TextBlock Classes="label" FontWeight="Normal" TextWrapping="Wrap" Margin="0,5,0,0"
+                           Text="Betrifft nur die Windows-Ausgabe mit eingebettetem Browser — diese Ausgabe öffnet die Seiten im Standardbrowser, der seine eigenen Erweiterungen mitbringt. Gesperrt werden ausschließlich fremde Werbe- und Messnetzwerke, nie die Seite des Anbieters selbst und nie ein Einwilligungsdialog." />
+
                 <!-- ======================================= system location -->
                 <TextBlock Text="SYSTEM-STANDORTDIENST" Classes="section" Margin="0,16,0,6" />
                 <CheckBox Content="Betriebssystem nach der Position fragen"
