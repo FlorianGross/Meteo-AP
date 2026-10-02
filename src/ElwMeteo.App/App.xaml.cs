@@ -99,7 +99,7 @@ public partial class App : Application
         var alert = new WpfAlertSignal();
 
         var cache = new SnapshotCache();
-        var reports = new ReportPrinter(shell);
+        var reports = new ReportPrinter(shell, settings);
 
         var screenService = new WpfScreenService();
         var autostart = new SystemAutostartService();

@@ -69,6 +69,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         _ninaArs = settings.NinaArs;
         _useSystemLocation = settings.UseSystemLocation;
         _blockWebTrackers = settings.BlockWebTrackers;
+        _reportDirectory = settings.ResolveReportDirectory();
         _systemLocationStatus = systemLocation?.StatusText ?? "Nicht verfügbar.";
 
         _startFullScreen = settings.StartFullScreen;
@@ -411,6 +412,14 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     public string CsvDirectory => _settings.ResolveCsvDirectory();
 
+    /// <summary>
+    /// Where printable reports are written. Editable, unlike the log folder
+    /// above: a report is the thing that gets carried off the vehicle, so the
+    /// usual reason to change it is a stick or a share that is mounted now.
+    /// </summary>
+    [ObservableProperty]
+    private string _reportDirectory = string.Empty;
+
     public string SettingsFilePath => AppSettings.DefaultPath;
 
     // ------------------------------------------------------------- commands
@@ -536,7 +545,6 @@ public sealed partial class SettingsViewModel : ObservableObject
         _settings.GpsBaudRate = GpsBaudRate;
         // Below a minute the free APIs start rate-limiting; clamp rather than trust input.
         _settings.WeatherRefreshSeconds = Math.Clamp(WeatherRefreshSeconds, 60, 3600);
-        _settings.WarningRefreshSeconds = _settings.WeatherRefreshSeconds;
         _settings.CsvLoggingEnabled = CsvLoggingEnabled;
         _settings.AlwaysOnTop = AlwaysOnTop;
         _settings.HazardInnerRadiusMetres = Math.Clamp(HazardInnerRadiusMetres, 10, 1000);
@@ -549,6 +557,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         _settings.NinaRegionName = NinaRegionName.Trim();
         _settings.UseSystemLocation = UseSystemLocation;
         _settings.BlockWebTrackers = BlockWebTrackers;
+        _settings.ReportDirectory = NormaliseReportDirectory(ReportDirectory);
         _settings.StartFullScreen = StartFullScreen;
         _settings.PreferredScreenId = PreferredScreenId?.Trim() ?? string.Empty;
         _settings.CarouselEnabled = CarouselEnabled;
@@ -571,6 +580,31 @@ public sealed partial class SettingsViewModel : ObservableObject
         Save();
         SettingsApplied?.Invoke();
         StatusMessage = "Einstellungen übernommen.";
+    }
+
+    /// <summary>
+    /// Stores the empty string when the box still holds the default folder, so a
+    /// page that was merely opened and applied does not silently pin the path.
+    /// The default would then stop following the application data folder, and
+    /// nothing would say why reports kept landing in the old place.
+    /// </summary>
+    private static string NormaliseReportDirectory(string? entered)
+    {
+        string trimmed = (entered ?? string.Empty).Trim();
+
+        if (trimmed.Length == 0)
+        {
+            return string.Empty;
+        }
+
+        string fallback = new AppSettings { ReportDirectory = string.Empty }.ResolveReportDirectory();
+
+        return string.Equals(
+            trimmed.TrimEnd('/', '\\'),
+            fallback.TrimEnd('/', '\\'),
+            StringComparison.OrdinalIgnoreCase)
+            ? string.Empty
+            : trimmed;
     }
 
     [RelayCommand]

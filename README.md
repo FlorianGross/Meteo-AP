@@ -494,7 +494,10 @@ liegen und kann ans Einsatztagebuch geheftet oder weitergeschickt werden, ohne
 sie neu zu erzeugen.
 
 Berichte liegen unter `%APPDATA%\ELW-Meteo\Berichte`; die letzten 40 werden
-aufbewahrt.
+aufbewahrt. Der Ordner ist in den Einstellungen umstellbar — ein Bericht ist
+das, was vom Fahrzeug mitgenommen wird, also gehört ein Stick oder eine Freigabe
+dorthin. Der Pfad wird bei jedem Bericht neu gelesen, damit ein gerade
+eingesteckter Stick nicht erst nach einem Neustart zählt.
 
 Gedruckt wird **schwarz auf weiß**, nicht im dunklen Oberflächenthema — das
 wäre auf Papier unlesbar und eine Tonerpatrone teuer. Temperatur- und
@@ -715,13 +718,22 @@ einem fremden Rechner auffallen.
 
 ## CI/CD
 
-Drei GitHub-Actions-Abläufe:
+Zwei Abläufe (`.github/workflows/`), dazu Dependabot — das ist eine
+Konfigurationsdatei, kein Ablauf, auch wenn GitHub seine Läufe daneben anzeigt:
 
 | Ablauf | Auslöser | Was er tut |
 |---|---|---|
-| `build.yml` | jeder Push und Pull Request | Baut und testet auf `windows-latest`, veröffentlicht das Ergebnis als Artefakt (30 Tage). Ein zweiter Job baut die Fachlogik auf `ubuntu-latest` — schlägt er fehl, ist eine WPF-Abhängigkeit nach `ElwMeteo.Core` gelangt. Ein dritter Job prüft die Codeformatierung, aber nur beratend (`continue-on-error`), damit eine Stilfrage nie eine Korrektur aufhält. |
-| `release.yml` | Tag `v*` oder manuell | Testet, baut zwei Pakete — eines für Rechner mit installierter .NET-8-Desktop-Runtime, eines standalone mit mitgelieferter Runtime — und legt ein GitHub-Release mit beiden ZIPs und automatischen Release Notes an. |
-| `dependabot.yml` | monatlich | Aktualisiert NuGet-Pakete und Actions; Testwerkzeuge werden zu einem Pull Request gebündelt. |
+| `build.yml` | jeder Push und Pull Request | Drei Jobs, siehe unten. |
+| `release.yml` | Tag `v*` oder manuell | Testet, baut **fünf ZIP-Archive und ein MSI-Paket** — Windows framework-abhängig, Windows standalone, Linux x64, macOS Intel, macOS Apple Silicon, dazu der Installer — prüft den Installer durch eine echte Installation und legt ein GitHub-Release mit allen Paketen und automatischen Release Notes an. |
+| `.github/dependabot.yml` | monatlich | Aktualisiert NuGet-Pakete und Actions; Testwerkzeuge werden zu einem Pull Request gebündelt. |
+
+Die drei Jobs von `build.yml`:
+
+| Job | Läuft auf | Was er prüft |
+|---|---|---|
+| **Windows build, test and publish** | `windows-latest` | Baut alles einschließlich der WPF-Oberfläche, testet, veröffentlicht das Ergebnis als Artefakt (30 Tage) — und baut danach das MSI-Paket und **installiert und deinstalliert es wirklich** (`installer/test-installer.ps1`). Ein Installer ist das eine Erzeugnis, dessen Fehler sonst erst auf einem fremden Rechner auffallen. |
+| **Plattformneutral** | `ubuntu-latest`, `macos-latest`, `windows-latest` | Fachlogik und Avalonia-Oberfläche auf allen drei Systemen, mit beiden Testprojekten. Schlägt der Linux- oder macOS-Lauf fehl, während Windows durchgeht, ist eine WPF-Abhängigkeit nach `ElwMeteo.Core` oder `ElwMeteo.Presentation` gelangt. |
+| **Codeformatierung** | `ubuntu-latest` | `dotnet format --verify-no-changes --severity warn` über Fachlogik, Ansichtsmodelle und Tests. Beratend (`continue-on-error: true`), damit eine Stilfrage nie eine Korrektur aufhält. |
 
 Release schneiden:
 
@@ -730,8 +742,13 @@ git tag -a v1.1.0 -m "ELW-Meteo 1.1.0"
 git push origin v1.1.0
 ```
 
-NuGet-Pakete werden zwischen Läufen gecacht, die Testergebnisse als `.trx`
-hochgeladen.
+NuGet-Pakete werden zwischen Läufen gecacht, die Testergebnisse als `.trx` und
+die Installationsprotokolle als eigenes Artefakt hochgeladen.
+
+Die Windows-Oberfläche wird **nur** im Windows-Job gebaut, und das ist der
+Grund, warum er der Job ist, auf den es ankommt: eine Mehrdeutigkeit zwischen
+WPF- und WinForms-Typen oder eine fehlende XAML-Ressource fällt nirgends sonst
+auf.
 
 ---
 
@@ -787,7 +804,7 @@ installer/test-installer.ps1        installiert und deinstalliert es wirklich
 
 tools/make-icon.py                  erzeugt das Anwendungssymbol reproduzierbar
 
-tests/ElwMeteo.Core.Tests/          xUnit — 602 Tests (Fachlogik und Ansichtsmodelle)
+tests/ElwMeteo.Core.Tests/          xUnit — 654 Tests (Fachlogik und Ansichtsmodelle)
 tests/ElwMeteo.Desktop.Tests/       Avalonia-Rauchtests, kopflos — 12 Tests
 ```
 

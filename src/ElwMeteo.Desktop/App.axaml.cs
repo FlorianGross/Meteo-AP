@@ -94,7 +94,7 @@ public partial class App : global::Avalonia.Application
         var alert = new SystemAlertSignal();
 
         var cache = new SnapshotCache();
-        var reports = new ReportPrinter(shell);
+        var reports = new ReportPrinter(shell, settings);
 
         var screenService = new AvaloniaScreenService();
         var autostart = new SystemAutostartService();

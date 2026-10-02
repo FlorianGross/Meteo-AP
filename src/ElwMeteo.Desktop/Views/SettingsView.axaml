@@ -107,6 +107,11 @@
                 <Button Content="Protokollordner öffnen" Command="{Binding OpenCsvDirectoryCommand}"
                         HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Margin="0,6,0,0" />
 
+                <TextBlock Text="BERICHTSORDNER" Classes="label" Margin="0,12,0,3" />
+                <TextBox Text="{Binding ReportDirectory}" Classes="mono" FontSize="11" />
+                <TextBlock Classes="label" FontWeight="Normal" TextWrapping="Wrap" Margin="0,3,0,0"
+                           Text="Leer lassen für den Standardordner. Ein Bericht ist das, was vom Fahrzeug mitgenommen wird — ein Stick oder eine Freigabe gehört deshalb hierhin." />
+
                 <TextBlock Text="GEFAHRENBEREICH" Classes="section" Margin="0,16,0,6" />
                 <TextBlock Text="INNENRADIUS IN METERN" Classes="label" Margin="0,0,0,3" />
                 <TextBox Text="{Binding HazardInnerRadiusMetres}" />

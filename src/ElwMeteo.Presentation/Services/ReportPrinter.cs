@@ -14,7 +14,7 @@ namespace ElwMeteo.Presentation.Services;
 /// to matter more than the printing: the report can be attached to the
 /// operations log or mailed on without producing it a second time.
 /// </summary>
-public sealed class ReportPrinter(IShellLauncher shell)
+public sealed class ReportPrinter(IShellLauncher shell, AppSettings? settings = null)
 {
     /// <summary>
     /// How many reports are kept. Enough that a shift's worth survives, few
@@ -22,7 +22,14 @@ public sealed class ReportPrinter(IShellLauncher shell)
     /// </summary>
     private const int KeepFiles = 40;
 
-    public string Directory { get; init; } =
+    /// <summary>
+    /// Where reports are written. Read from the settings on every use rather than
+    /// captured once: changing the folder in the settings page has to take effect
+    /// for the next report, not after a restart — on a vehicle the usual reason to
+    /// change it is a stick that was just plugged in.
+    /// </summary>
+    public string Directory =>
+        settings?.ResolveReportDirectory() ??
         Path.Combine(AppSettings.DefaultDirectory, "Berichte");
 
     /// <summary>Path of the report written last, for the „open folder" button.</summary>
