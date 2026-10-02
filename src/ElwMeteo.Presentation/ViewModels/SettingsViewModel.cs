@@ -166,6 +166,11 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     private string _screenNotice = string.Empty;
 
+    // ---------------------------------------------------------- web filter
+
+    [ObservableProperty]
+    private bool _blockWebTrackers;
+
     // ------------------------------------------------------ system location
 
     [ObservableProperty]
@@ -543,6 +548,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         _settings.NinaArs = NinaArs.Trim();
         _settings.NinaRegionName = NinaRegionName.Trim();
         _settings.UseSystemLocation = UseSystemLocation;
+        _settings.BlockWebTrackers = BlockWebTrackers;
         _settings.StartFullScreen = StartFullScreen;
         _settings.PreferredScreenId = PreferredScreenId?.Trim() ?? string.Empty;
         _settings.CarouselEnabled = CarouselEnabled;
