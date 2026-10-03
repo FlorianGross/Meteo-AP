@@ -70,6 +70,19 @@ public sealed record MapLayerDefinition
     /// </summary>
     public int? MaxUsefulZoom { get; init; }
 
+    /// <summary>
+    /// True for a rendering service run by volunteers on donated capacity rather
+    /// than by an authority or a company.
+    ///
+    /// Worth marking because the failure mode is specific and unpleasant: such a
+    /// service does not get slower under load, it blocks — and what the operator
+    /// then sees is a map full of error tiles, usually at the worst moment. The
+    /// official German services carry no such risk, which is why the default sits
+    /// there. These stay on offer because they show things the official map does
+    /// not, but an operator who picks one should know what they picked.
+    /// </summary>
+    public bool IsCommunityService { get; init; }
+
     public bool IsWms => !string.IsNullOrWhiteSpace(WmsUrl);
 }
 
@@ -94,21 +107,21 @@ public static class MapLayerCatalog
     public static IReadOnlyList<MapLayerDefinition> All { get; } =
     [
         // ---------------------------------------------------------------- base
-        new MapLayerDefinition
-        {
-            Id = "osm",
-            Title = "OpenStreetMap",
-            Kind = MapLayerKind.Base,
-            Group = "Karte",
-            TileUrl = "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-            Attribution = "&copy; OpenStreetMap-Mitwirkende",
-            MaxZoom = 19,
-            EnabledByDefault = true,
-            Description = "Standardkarte mit Straßennamen und Hausnummern."
-        },
+        // There is deliberately no layer for tile.openstreetmap.org. The OSM
+        // Foundation's tile usage policy names this case outright: „Heavy use,
+        // such as distributing an app that uses tiles from openstreetmap.org, is
+        // forbidden without prior permission." The servers are volunteer-run and
+        // donation-funded, and an application shipped to fire services is exactly
+        // the distributed use they cannot carry. What the policy produces when
+        // ignored is not a warning but a wall of 403 tiles reading „Access
+        // blocked" — on a vehicle screen, during an incident.
+        //
+        // The map data is still OpenStreetMap's in several of the layers below;
+        // what cannot be used is their rendering service.
         new MapLayerDefinition
         {
             Id = "osm-de",
+            IsCommunityService = true,
             Title = "OpenStreetMap.de",
             Kind = MapLayerKind.Base,
             Group = "Karte",
@@ -127,6 +140,13 @@ public static class MapLayerCatalog
             TileUrl = "https://sgx.geodatenzentrum.de/wmts_basemapde/tile/1.0.0/de_basemapde_web_raster_farbe/default/GLOBAL_WEBMERCATOR/{z}/{y}/{x}.png",
             Attribution = "&copy; basemap.de / BKG",
             MaxZoom = 19,
+            // The default, and not merely because the previous one had to go. This
+            // is the official web map of the German surveying authorities,
+            // published as open data and built to be used — including by
+            // applications. It is also the map many control rooms already have on
+            // the wall, which is worth something of its own when two people are
+            // describing a position to each other over the radio.
+            EnabledByDefault = true,
             Description = "Amtliche Web-Karte der deutschen Vermessungsverwaltungen — dieselbe Grundlage wie in vielen Leitstellen."
         },
         new MapLayerDefinition
@@ -154,6 +174,7 @@ public static class MapLayerCatalog
         new MapLayerDefinition
         {
             Id = "osm-hot",
+            IsCommunityService = true,
             Title = "OSM Humanitarian",
             Kind = MapLayerKind.Base,
             Group = "Karte",
@@ -178,6 +199,7 @@ public static class MapLayerCatalog
         new MapLayerDefinition
         {
             Id = "topo",
+            IsCommunityService = true,
             Title = "OpenTopoMap (Gelände)",
             Kind = MapLayerKind.Base,
             Group = "Karte",
@@ -189,6 +211,7 @@ public static class MapLayerCatalog
         new MapLayerDefinition
         {
             Id = "cyclosm",
+            IsCommunityService = true,
             Title = "CyclOSM (Wege)",
             Kind = MapLayerKind.Base,
             Group = "Karte",
@@ -341,6 +364,7 @@ public static class MapLayerCatalog
         new MapLayerDefinition
         {
             Id = "seamarks",
+            IsCommunityService = true,
             Title = "Gewässer / Seezeichen",
             Kind = MapLayerKind.Overlay,
             Group = "Infrastruktur",
@@ -353,6 +377,7 @@ public static class MapLayerCatalog
         new MapLayerDefinition
         {
             Id = "railway",
+            IsCommunityService = true,
             Title = "Bahnanlagen",
             Kind = MapLayerKind.Overlay,
             Group = "Infrastruktur",
@@ -366,6 +391,7 @@ public static class MapLayerCatalog
         new MapLayerDefinition
         {
             Id = "hiking",
+            IsCommunityService = true,
             Title = "Wanderwege",
             Kind = MapLayerKind.Overlay,
             Group = "Gelände",
@@ -380,4 +406,56 @@ public static class MapLayerCatalog
     public static IEnumerable<MapLayerDefinition> BaseLayers => All.Where(l => l.Kind == MapLayerKind.Base);
 
     public static IEnumerable<MapLayerDefinition> Overlays => All.Where(l => l.Kind == MapLayerKind.Overlay);
+
+    /// <summary>The base map a fresh installation starts on.</summary>
+    public static string DefaultBaseLayerId => "basemapde";
+
+    /// <summary>
+    /// Base layers that were offered once and are not any more, so a settings
+    /// file written by an older version can be moved on rather than silently
+    /// landing nowhere.
+    ///
+    /// <c>osm</c> is here because shipping it was against the OSM Foundation's
+    /// tile usage policy, and the installations that already carry it in their
+    /// settings file are precisely the ones looking at a wall of „Access
+    /// blocked" tiles. Dropping the layer without this would leave them on an
+    /// id that no longer resolves — which, depending on where it is read, is
+    /// either an empty map or the first entry of a list, neither of them a
+    /// decision anybody made.
+    /// </summary>
+    public static IReadOnlyDictionary<string, string> RetiredBaseLayers { get; } =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["osm"] = DefaultBaseLayerId
+        };
+
+    /// <summary>
+    /// The base layer to actually use for a stored id: itself when it still
+    /// exists, its successor when it was retired, the default otherwise.
+    /// </summary>
+    public static string ResolveBaseLayerId(string? storedId)
+    {
+        if (string.IsNullOrWhiteSpace(storedId))
+        {
+            return DefaultBaseLayerId;
+        }
+
+        string trimmed = storedId.Trim();
+
+        // The catalog's own spelling, not the stored one. Callers compare the
+        // result against MapLayerDefinition.Id with an ordinal comparison, so
+        // handing back "TopPlus" from a hand-edited file would match nothing and
+        // leave the map blank — the opposite of being tolerant about it.
+        MapLayerDefinition? known = BaseLayers.FirstOrDefault(
+            l => string.Equals(l.Id, trimmed, StringComparison.OrdinalIgnoreCase));
+
+        if (known is not null)
+        {
+            return known.Id;
+        }
+
+        return RetiredBaseLayers.TryGetValue(trimmed, out string? successor)
+            ? successor
+            : DefaultBaseLayerId;
+    }
 }

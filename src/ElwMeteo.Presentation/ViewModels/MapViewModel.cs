@@ -122,7 +122,13 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
 
             ApplyLayerFilter();
 
-            SelectedBaseLayer = BaseLayers.FirstOrDefault(l => l.Id == settings.SelectedBaseLayerId)
+            // Through the catalog, not straight off the settings: an id written by
+            // an older version may name a layer that has since been retired, and
+            // falling back to „the first entry of the list" would be a choice
+            // nobody made.
+            string baseLayerId = MapLayerCatalog.ResolveBaseLayerId(settings.SelectedBaseLayerId);
+
+            SelectedBaseLayer = BaseLayers.FirstOrDefault(l => l.Id == baseLayerId)
                                 ?? BaseLayers.FirstOrDefault();
 
             ShowHazardCone = settings.ShowHazardCone;
