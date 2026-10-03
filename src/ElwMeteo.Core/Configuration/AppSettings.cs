@@ -57,11 +57,11 @@ public sealed class AppSettings
     /// <summary>Seconds between weather refreshes.</summary>
     public int WeatherRefreshSeconds { get; set; } = 300;
 
-    /// <summary>Seconds between DWD warning refreshes.</summary>
-    public int WarningRefreshSeconds { get; set; } = 300;
-
-    /// <summary>Seconds between radar timeline refreshes.</summary>
-    public int RadarRefreshSeconds { get; set; } = 300;
+    // There is deliberately no second interval for warnings or for the radar.
+    // Both are fetched in the same pass as the weather, which is what keeps the
+    // panel internally consistent: two intervals would put two different data
+    // ages on one screen and leave the operator to work out which number the
+    // wind arrow belongs to.
 
     /// <summary>Write a CSV row on every successful weather refresh.</summary>
     public bool CsvLoggingEnabled { get; set; } = true;
@@ -208,11 +208,23 @@ public sealed class AppSettings
     /// <summary>Where printable reports are written; empty uses the default folder.</summary>
     public string ReportDirectory { get; set; } = string.Empty;
 
+    /// <summary>Directory reports are written to, resolving the empty default.</summary>
+    public string ResolveReportDirectory() =>
+        string.IsNullOrWhiteSpace(ReportDirectory)
+            ? Path.Combine(DefaultDirectory, "Berichte")
+            : ReportDirectory;
+
     /// <summary>Keep the window above other applications — usual choice on a vehicle screen.</summary>
     public bool AlwaysOnTop { get; set; }
 
-    /// <summary>Extra scaling for the whole UI, for readability at arm's length.</summary>
-    public double UiScale { get; set; } = 1.0;
+    // There is deliberately no global interface scale. Readability at arm's
+    // length is a real need on a vehicle screen, but a single scale factor over
+    // the whole window is the wrong instrument for it: the shell declares
+    // MinWidth 1080, and at 1.5 the content demands 1620 logical pixels — on a
+    // 1920-wide monitor at the 150% Windows scaling such screens normally run,
+    // the window has 1280 to give. The result is a clipped header, not larger
+    // type. Bigger lettering has to come from the styles, where the header can
+    // reflow and the hit targets can grow with it.
 
     // ------------------------------------------------- vehicle / kiosk mode
 

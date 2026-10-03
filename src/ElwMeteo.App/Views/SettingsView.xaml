@@ -315,6 +315,13 @@
                                 Command="{Binding OpenCsvDirectoryCommand}"
                                 HorizontalContentAlignment="Left" />
 
+                        <TextBlock Text="BERICHTSORDNER" Style="{StaticResource LabelText}" Margin="0,14,0,3" />
+                        <TextBox Text="{Binding ReportDirectory}" Style="{StaticResource Field}"
+                                 FontFamily="{StaticResource MonoFont}" FontSize="11" />
+                        <TextBlock Style="{StaticResource BodyText}" FontSize="12" TextWrapping="Wrap"
+                                   Foreground="{StaticResource MutedBrush}"
+                                   Text="Leer lassen für den Standardordner. Ein Bericht ist das, was vom Fahrzeug mitgenommen wird — ein Stick oder eine Freigabe gehört deshalb hierhin." />
+
                         <TextBlock Text="EINSTELLUNGSDATEI" Style="{StaticResource LabelText}" Margin="0,14,0,3" />
                         <TextBlock Text="{Binding SettingsFilePath}"
                                    Style="{StaticResource BodyText}" FontSize="11"
@@ -397,6 +404,14 @@
                         <TextBlock Text="{Binding CurrentVersionLabel}" Style="{StaticResource BodyText}" FontWeight="SemiBold" />
                         <TextBlock Text="{Binding PlatformLabel}" Style="{StaticResource LabelText}" FontWeight="Normal" />
 
+                        <!-- Vor dem Herunterladen, nicht danach: wer einen Ordnertausch
+                             erwartet, soll das hier erfahren und nicht hinterher in
+                             „Programme und Features“. Leer, solange nicht geprüft wurde. -->
+                        <TextBlock Text="{Binding RouteNote}"
+                                   Style="{StaticResource BodyText}" FontSize="12"
+                                   Foreground="{StaticResource MutedBrush}"
+                                   TextWrapping="Wrap" Margin="0,8,0,0" />
+
                         <CheckBox Content="Täglich nach einer neuen Freigabe sehen"
                                   IsChecked="{Binding UpdateCheckEnabled}"
                                   Margin="0,10,0,0" />
@@ -456,6 +471,14 @@
                                         Command="{Binding SkipVersionCommand}"
                                         Margin="6,0,0,0" Padding="11,6" />
                             </StackPanel>
+
+                            <!-- MSI-Installation, Freigabe ohne MSI: hier gibt es
+                                 nichts einzuspielen, nur etwas zu holen. -->
+                            <Button Content="Freigabeseite öffnen"
+                                    Command="{Binding OpenReleasePageCommand}"
+                                    HorizontalAlignment="Left" Margin="0,8,0,0" Padding="11,6"
+                                    Visibility="{Binding NeedsManualDownload,
+                                                 Converter={StaticResource BoolToVisibility}}" />
 
                             <!-- Der einzige Schritt, der die Installation anfasst. -->
                             <StackPanel Visibility="{Binding IsReadyToInstall, Converter={StaticResource BoolToVisibility}}">

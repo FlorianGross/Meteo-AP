@@ -178,3 +178,112 @@ public class SettingsRoundTripTests : IDisposable
         }
     }
 }
+
+/// <summary>
+/// The report folder, end to end.
+///
+/// It was a setting that nothing read: <c>ReportPrinter</c> hard-coded its own
+/// path, so whatever stood in the settings file was decoration. The tests below
+/// pin the wiring in both directions — a path that is honoured, and a default
+/// that stays a default.
+/// </summary>
+public class ReportDirectoryTests
+{
+    private sealed class SilentShell : IShellLauncher
+    {
+        public string? Opened { get; private set; }
+
+        public bool TryOpen(string target, out string? error)
+        {
+            Opened = target;
+            error = null;
+            return true;
+        }
+    }
+
+    [Fact]
+    public void TheDefaultSitsUnderTheApplicationData()
+    {
+        AppSettings settings = new();
+
+        Assert.Equal(
+            Path.Combine(AppSettings.DefaultDirectory, "Berichte"),
+            settings.ResolveReportDirectory());
+    }
+
+    [Fact]
+    public void AConfiguredFolderIsUsed()
+    {
+        AppSettings settings = new() { ReportDirectory = Path.Combine("E:", "Einsatz", "Berichte") };
+
+        Assert.Equal(Path.Combine("E:", "Einsatz", "Berichte"), settings.ResolveReportDirectory());
+    }
+
+    [Fact]
+    public void WhitespaceCountsAsUnset()
+    {
+        // A text box that was emptied by selecting and typing a space must not
+        // send reports to a folder literally named " ".
+        AppSettings settings = new() { ReportDirectory = "   " };
+
+        Assert.Equal(
+            Path.Combine(AppSettings.DefaultDirectory, "Berichte"),
+            settings.ResolveReportDirectory());
+    }
+
+    [Fact]
+    public void ThePrinterFollowsTheSetting()
+    {
+        AppSettings settings = new();
+        ReportPrinter printer = new(new SilentShell(), settings);
+
+        string wanted = Path.Combine(Path.GetTempPath(), $"elw-berichte-{Guid.NewGuid():N}");
+        settings.ReportDirectory = wanted;
+
+        // Read on every use rather than captured at construction: changing the
+        // folder has to take effect for the next report, not after a restart.
+        Assert.Equal(wanted, printer.Directory);
+    }
+
+    [Fact]
+    public void AReportIsWrittenWhereTheSettingSays()
+    {
+        string wanted = Path.Combine(Path.GetTempPath(), $"elw-berichte-{Guid.NewGuid():N}");
+        AppSettings settings = new() { ReportDirectory = wanted };
+        SilentShell shell = new();
+        ReportPrinter printer = new(shell, settings);
+
+        try
+        {
+            bool ok = printer.Produce(
+                "<html><body>Testbericht</body></html>",
+                new DateTimeOffset(2026, 3, 14, 12, 0, 0, TimeSpan.Zero),
+                out string message);
+
+            Assert.True(ok, message);
+            Assert.NotNull(printer.LastPath);
+            Assert.StartsWith(wanted, printer.LastPath!, StringComparison.Ordinal);
+            Assert.True(File.Exists(printer.LastPath));
+
+            // And the file is the one that was handed to the browser.
+            Assert.Equal(printer.LastPath, shell.Opened);
+        }
+        finally
+        {
+            if (Directory.Exists(wanted))
+            {
+                Directory.Delete(wanted, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public void WithoutSettingsThePrinterStillHasAFolder()
+    {
+        // The parameter is optional so existing construction sites keep working;
+        // falling back to null would turn every report into a crash.
+        ReportPrinter printer = new(new SilentShell());
+
+        Assert.False(string.IsNullOrWhiteSpace(printer.Directory));
+    }
+}

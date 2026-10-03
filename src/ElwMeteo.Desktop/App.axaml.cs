@@ -84,8 +84,16 @@ public partial class App : global::Avalonia.Application
         var locationResolver = new LocationResolver(settings, _gps, ipLocation, systemLocation);
 
         var updateDownloader = new UpdateDownloader(_httpClient);
+        // Reads the uninstall registry on Windows and answers "nothing" elsewhere.
+        // It decides whether an update may swap the folder or has to go through a
+        // new MSI — see InstallOriginDetector for why that distinction matters.
+        IInstalledProductRegistry installedProducts = OperatingSystem.IsWindows()
+            ? new WindowsInstalledProductRegistry()
+            : new NoInstalledProductRegistry();
+
         var updates = new UpdateService(
-            new GitHubReleaseProvider(_httpClient), updateDownloader, new UpdateInstaller());
+            new GitHubReleaseProvider(_httpClient), updateDownloader, new UpdateInstaller(),
+            installedProducts.List);
 
         var dispatcher = new AvaloniaUiDispatcher();
         var timers = new AvaloniaTimerFactory();
@@ -94,7 +102,7 @@ public partial class App : global::Avalonia.Application
         var alert = new SystemAlertSignal();
 
         var cache = new SnapshotCache();
-        var reports = new ReportPrinter(shell);
+        var reports = new ReportPrinter(shell, settings);
 
         var screenService = new AvaloniaScreenService();
         var autostart = new SystemAutostartService();

@@ -90,6 +90,19 @@ public sealed partial class UpdateViewModel : ObservableObject
     [ObservableProperty]
     private string _releaseUrl = string.Empty;
 
+    /// <summary>
+    /// Which way an update would be applied here, in words. Shown before anything
+    /// is downloaded: on an MSI installation the folder is deliberately not
+    /// swapped, and an operator who expected a folder swap should learn that from
+    /// the panel rather than from „Programme und Features" afterwards.
+    /// </summary>
+    [ObservableProperty]
+    private string _routeNote = string.Empty;
+
+    /// <summary>True when this release cannot be installed from here at all.</summary>
+    [ObservableProperty]
+    private bool _needsManualDownload;
+
     // -------------------------------------------------------- settings copy
 
     [ObservableProperty]
@@ -145,6 +158,8 @@ public sealed partial class UpdateViewModel : ObservableObject
             ReleaseUrl = result.Release?.HtmlUrl ?? string.Empty;
 
             IsUpdateAvailable = result.CanInstall;
+            RouteNote = UpdateRouting.Describe(result.Route);
+            NeedsManualDownload = result.Route == UpdateRoute.ReleasePageOnly;
 
             if (result.Asset is { } asset)
             {
@@ -187,6 +202,19 @@ public sealed partial class UpdateViewModel : ObservableObject
                 .DownloadAsync(asset, cancellationToken)
                 .ConfigureAwait(true);
 
+            if (pending.Route == UpdateRoute.WindowsInstallerPackage)
+            {
+                // Nothing to unpack: the MSI is handed to Windows Installer as it
+                // is. Its checksum was already verified by the download.
+                _staged = null;
+                IsDownloaded = true;
+                IsReadyToInstall = true;
+                Status = $"Das MSI-Paket der Version {pending.Release.Version} ist geladen und " +
+                         "geprüft. Beim Einspielen beendet sich die Anwendung, Windows Installer " +
+                         "führt die Aktualisierung durch und startet sie neu.";
+                return;
+            }
+
             // Unpacking and the completeness check happen now, not at restart:
             // a bad package must fail while the running application is intact.
             _staged = _updates.Stage(_downloadedArchive, pending.Release.Version);
@@ -216,6 +244,14 @@ public sealed partial class UpdateViewModel : ObservableObject
     [RelayCommand]
     private void InstallAndRestart()
     {
+        UpdateRoute route = _lastResult?.Route ?? UpdateRoute.FolderSwap;
+
+        if (route == UpdateRoute.WindowsInstallerPackage)
+        {
+            InstallThroughWindowsInstaller();
+            return;
+        }
+
         if (_staged is not { } staged)
         {
             Status = "Es liegt kein geprüftes Paket bereit.";
@@ -230,6 +266,29 @@ public sealed partial class UpdateViewModel : ObservableObject
             _updates.Apply(staged);
 
             Status = "Die Anwendung wird beendet und in der neuen Version gestartet.";
+            RestartRequested?.Invoke();
+        }
+        catch (UpdateInstallException ex)
+        {
+            Status = ex.Message;
+        }
+    }
+
+    private void InstallThroughWindowsInstaller()
+    {
+        if (_downloadedArchive is not { } package || _lastResult?.Release is not { } release)
+        {
+            Status = "Es liegt kein geprüftes Paket bereit.";
+            return;
+        }
+
+        try
+        {
+            _store.Flush();
+
+            _updates.ApplyInstallerPackage(package, release.Version);
+
+            Status = "Die Anwendung wird beendet, Windows Installer übernimmt die Aktualisierung.";
             RestartRequested?.Invoke();
         }
         catch (UpdateInstallException ex)
@@ -300,6 +359,8 @@ public sealed partial class UpdateViewModel : ObservableObject
         PackageLabel = string.Empty;
         IntegrityNote = string.Empty;
         ReleaseUrl = string.Empty;
+        RouteNote = string.Empty;
+        NeedsManualDownload = false;
         _downloadedArchive = null;
         _staged = null;
     }

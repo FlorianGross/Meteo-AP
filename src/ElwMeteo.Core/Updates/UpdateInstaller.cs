@@ -276,6 +276,121 @@ public sealed class UpdateInstaller
     }
 
     /// <summary>
+    /// Hands the new MSI to Windows Installer once the application has exited.
+    ///
+    /// Same shape as the swap script and for the same reason: the running
+    /// executable is locked, so something outside the process has to wait for it.
+    /// What it does instead of renaming folders is let Windows Installer perform
+    /// its own MajorUpgrade — which is the point, because then the package
+    /// database and the folder on disk keep describing the same installation.
+    ///
+    /// <c>/passive</c> rather than <c>/qn</c>: an upgrade shows a progress bar
+    /// and needs no clicks, but it is not invisible. Something replacing the
+    /// application on a vehicle screen with no sign of it is how an operator ends
+    /// up reporting a crash. Not <c>/qn</c> for a second reason as well — a
+    /// silent install that hits a problem leaves nothing on screen at all.
+    /// </summary>
+    internal static string BuildWindowsInstallerScript(
+        string packagePath,
+        string installDirectory,
+        string executableName,
+        AppVersion version,
+        int processId,
+        string logPath)
+    {
+        string executable = Join(installDirectory, executableName, '\\');
+
+        // Windows Installer gets a log of its own: its verbose output is long,
+        // and the one thing worth finding afterwards is which step failed.
+        string msiLog = Path.ChangeExtension(logPath, ".msi.log");
+
+        return $"""
+            @echo off
+            setlocal
+            set "LOG={logPath}"
+            echo [%DATE% %TIME%] Aktualisierung auf {version} ueber MSI gestartet>>"%LOG%"
+
+            rem Auf das Ende des laufenden Prozesses warten, hoechstens 60 Sekunden.
+            set /a TRIES=0
+            :wait
+            tasklist /FI "PID eq {processId}" 2>nul | find "{processId}" >nul
+            if errorlevel 1 goto ready
+            set /a TRIES+=1
+            if %TRIES% GEQ 60 (
+              echo [%DATE% %TIME%] Prozess {processId} laeuft noch - abgebrochen>>"%LOG%"
+              exit /b 1
+            )
+            timeout /t 1 /nobreak >nul
+            goto wait
+
+            :ready
+            rem Windows Installer macht die Aktualisierung selbst. Nichts wird hier
+            rem umbenannt, verschoben oder geloescht - sonst waere genau die
+            rem Unstimmigkeit zurueck, wegen der dieser Weg existiert.
+            msiexec /i "{packagePath}" /passive /l*v "{msiLog}"
+            set MSIRESULT=%ERRORLEVEL%
+            echo [%DATE% %TIME%] msiexec beendet mit %MSIRESULT%>>"%LOG%"
+
+            if %MSIRESULT% EQU 3010 (
+              echo [%DATE% %TIME%] Erfolgreich, Neustart des Rechners empfohlen>>"%LOG%"
+              goto restart
+            )
+            if %MSIRESULT% NEQ 0 (
+              echo [%DATE% %TIME%] Aktualisierung fehlgeschlagen - Details in {msiLog}>>"%LOG%"
+              rem Die alte Version ist unangetastet; sie wird wieder gestartet.
+              goto restart
+            )
+
+            :restart
+            start "" "{executable}"
+            endlocal
+            """;
+    }
+
+    /// <summary>
+    /// Writes the MSI handover script and starts it. As with
+    /// <see cref="Apply"/>, the caller has to shut down immediately afterwards.
+    /// </summary>
+    public void ApplyInstallerPackage(
+        string packagePath,
+        string installDirectory,
+        AppVersion version,
+        string workingDirectory,
+        int processId)
+    {
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            throw new UpdateInstallException(
+                "Ein MSI-Paket lässt sich nur unter Windows einspielen.");
+        }
+
+        string scriptPath = Path.Combine(workingDirectory, "apply-msi.cmd");
+        string logPath = Path.Combine(workingDirectory, "apply-update.log");
+
+        try
+        {
+            File.WriteAllText(
+                scriptPath,
+                BuildWindowsInstallerScript(
+                    packagePath, installDirectory, ExecutableName, version, processId, logPath));
+
+            var start = new ProcessStartInfo("cmd.exe", $"/c \"{scriptPath}\"")
+            {
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                WorkingDirectory = workingDirectory
+            };
+
+            Process.Start(start);
+        }
+        catch (Exception ex)
+        {
+            throw new UpdateInstallException(
+                $"Die Aktualisierung über das MSI-Paket konnte nicht gestartet werden: {ex.Message}", ex);
+        }
+    }
+
+    /// <summary>
     /// Joins a path with the separator of the system the script will run on, not
     /// the one that generated it.
     ///
