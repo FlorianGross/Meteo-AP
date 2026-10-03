@@ -1,4 +1,5 @@
 using ElwMeteo.Core.Diagnostics;
+using ElwMeteo.Core.Maps;
 using Xunit;
 
 namespace ElwMeteo.Core.Tests;
@@ -200,7 +201,28 @@ public class ConnectivityCheckTests
         Assert.Contains("api.brightsky.dev", hosts);
         Assert.Contains("maps.dwd.de", hosts);
         Assert.Contains("api.rainviewer.com", hosts);
-        Assert.Contains("tile.openstreetmap.org", hosts);
+
+        // The host of the base map a fresh installation actually starts on. Not
+        // a hard-coded name: if the default moves again, the probe has to move
+        // with it or the diagnostics page is checking a map nobody is looking at.
+        string defaultTileHost = new Uri(MapLayerCatalog.BaseLayers
+            .Single(l => l.Id == MapLayerCatalog.DefaultBaseLayerId)
+            .TileUrl!
+            .Replace("{z}/{y}/{x}", "0/0/0", StringComparison.Ordinal)).Host;
+
+        Assert.Contains(defaultTileHost, hosts);
+    }
+
+    [Fact]
+    public void NothingProbesTheOpenStreetMapTileServer()
+    {
+        // The application does not use that service — shipping it was against the
+        // OSM Foundation's tile usage policy. A diagnostics page is no reason to
+        // send a request to a server we are honouring by staying away from, and a
+        // probe is exactly the kind of leftover nobody thinks to remove.
+        Assert.DoesNotContain(
+            ConnectivityCheck.Endpoints,
+            e => new Uri(e.Url).Host.Contains("tile.openstreetmap.org", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]

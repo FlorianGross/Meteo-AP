@@ -76,7 +76,15 @@
                              Background="Transparent" BorderThickness="0" MaxHeight="220">
                         <ListBox.ItemTemplate>
                             <DataTemplate>
-                                <TextBlock Text="{Binding Title}" FontSize="12.5" TextWrapping="Wrap" />
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <TextBlock Text="{Binding Title}" FontSize="12.5" TextWrapping="Wrap" />
+                                    <!-- Ehrenamtlich betriebener Dienst: wird nicht
+                                         langsamer, sondern sperrt. Wer das wählt,
+                                         soll sehen, was er wählt. -->
+                                    <TextBlock Text="ehrenamtlich" FontSize="10" Opacity="0.65"
+                                               VerticalAlignment="Center"
+                                               IsVisible="{Binding IsCommunityService}" />
+                                </StackPanel>
                             </DataTemplate>
                         </ListBox.ItemTemplate>
                     </ListBox>
